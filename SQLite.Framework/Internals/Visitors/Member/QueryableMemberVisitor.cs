@@ -36,9 +36,17 @@ internal static class QueryableMemberVisitor
             }
 
             SQLiteExpression scalarSubquery = SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), $"({Environment.NewLine}{querySql}{Environment.NewLine})", queryParams);
-            if (translator.Selects.Count == 1 && translator.Selects[0].IsDayOfWeekInteger)
+            if (translator.Selects.Count == 1)
             {
-                scalarSubquery.WithDayOfWeekInteger();
+                if (translator.Selects[0].IsDayOfWeekInteger)
+                {
+                    scalarSubquery.WithDayOfWeekInteger();
+                }
+
+                if (translator.Selects[0].IsJsonSource)
+                {
+                    scalarSubquery.WithJsonSource();
+                }
             }
 
             return scalarSubquery;
@@ -478,6 +486,19 @@ internal static class QueryableMemberVisitor
             visitor.OptionalRowPaths[newTableColumns] = strippedOptionalPaths;
         }
 
+        if (visitor.ConstructedProjectionPaths.TryGetValue(sourceColumns, out HashSet<string>? sourceConstructedPaths))
+        {
+            HashSet<string> strippedConstructedPaths = new(StringComparer.Ordinal);
+            foreach (string constructedPath in sourceConstructedPaths)
+            {
+                strippedConstructedPaths.Add(constructedPath.StartsWith(Constants.GroupingElementPrefix, StringComparison.Ordinal)
+                    ? constructedPath[Constants.GroupingElementPrefix.Length..]
+                    : constructedPath);
+            }
+
+            visitor.ConstructedProjectionPaths[newTableColumns] = strippedConstructedPaths;
+        }
+
         foreach (KeyValuePair<string, Expression> kvp in sourceColumns)
         {
             if (kvp.Key.StartsWith(Constants.GroupingElementPrefix, StringComparison.Ordinal))
@@ -777,7 +798,7 @@ internal static class QueryableMemberVisitor
             return aggregate;
         }
 
-        return SQLiteExpression.Binary(
+        SQLiteExpression filtered = SQLiteExpression.Binary(
             node.Method.ReturnType,
             visitor.Counters.NextIdentifier(),
             coalesce ? $"COALESCE({aggregateFunction}(" : $"{aggregateFunction}(",
@@ -786,6 +807,12 @@ internal static class QueryableMemberVisitor
             filterExpression,
             coalesce ? "), 0)" : ")",
             ParameterHelpers.CombineParameters(target, filterExpression));
+        if (aggregateFunction is "MAX" or "MIN" && target.IsDayOfWeekInteger)
+        {
+            filtered.WithDayOfWeekInteger();
+        }
+
+        return filtered;
     }
 
     private static Expression StripConversions(Expression expression)

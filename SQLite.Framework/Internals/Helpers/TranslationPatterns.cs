@@ -145,6 +145,19 @@ internal static class TranslationPatterns
             or ExpressionType.ExclusiveOr;
     }
 
+    public static SQLiteExpression BracketConcatOperand(Expression node, SQLiteExpression expr)
+    {
+        Expression stripped = ExpressionHelpers.StripUpcast(ExpressionHelpers.StripQuotes(node));
+        bool needsBrackets = expr.RequiresBrackets
+            || IsConcatBracketNodeType(stripped.NodeType)
+            || ((Nullable.GetUnderlyingType(stripped.Type) ?? stripped.Type) == typeof(bool)
+                && stripped.NodeType is ExpressionType.Call);
+
+        return needsBrackets
+            ? SQLiteExpression.Wrap(expr.Type, expr.Identifier, "(", expr, ")", expr.Parameters)
+            : expr;
+    }
+
     /// <summary>
     /// Returns <see langword="true" /> when <paramref name="type" /> is a numeric primitive that,
     /// when nullable, should be cast to text via SQL rather than reflected through .NET.

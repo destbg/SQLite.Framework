@@ -8,12 +8,7 @@ internal partial class QueryableVisitor
 
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
         ThrowIfGroupJoinGroupPredicate(lambda.Body);
-
-        if (WindowCallDetector.Contains(lambda.Body))
-        {
-            throw new NotSupportedException(
-                "A window function cannot be used in a Where predicate, because SQL filters rows before window functions run.");
-        }
+        ThrowIfWindowPredicate(lambda.Body);
 
         Expression result = visitor.Visit(lambda.Body);
 
@@ -86,6 +81,7 @@ internal partial class QueryableVisitor
             }
             else
             {
+                sqlExpression = visitor.CoerceDayOfWeekOperand(node.Arguments[1], sqlExpression, columnExpr);
                 sink.Add(SQLiteExpression.Binary(typeof(bool), visitor.Counters.NextIdentifier(), "", columnExpr, " = ", sqlExpression, "", ParameterHelpers.CombineParameters(columnExpr, sqlExpression)));
             }
 
@@ -152,7 +148,11 @@ internal partial class QueryableVisitor
 
             LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
             ThrowIfGroupJoinGroupPredicate(lambda.Body);
+            ThrowIfWindowPredicate(lambda.Body);
+            bool previousFtsMatchAsSubquery = visitor.FtsMatchAsSubquery;
+            visitor.FtsMatchAsSubquery = true;
             Expression result = visitor.Visit(lambda.Body);
+            visitor.FtsMatchAsSubquery = previousFtsMatchAsSubquery;
 
             if (result is not SQLiteExpression sqlExpression)
             {
@@ -179,6 +179,7 @@ internal partial class QueryableVisitor
             if (stripped is LambdaExpression lambda)
             {
                 ThrowIfGroupJoinGroupPredicate(lambda.Body);
+                ThrowIfWindowPredicate(lambda.Body);
                 Expression result = visitor.Visit(lambda.Body);
 
                 if (result is not SQLiteExpression sqlExpression)
@@ -238,5 +239,14 @@ internal partial class QueryableVisitor
 
         DefaultValue = resolved.Constant;
         HasDefaultValue = true;
+    }
+
+    private static void ThrowIfWindowPredicate(Expression body)
+    {
+        if (WindowCallDetector.Contains(body))
+        {
+            throw new NotSupportedException(
+                "A window function cannot be used in a Where predicate, because SQL filters rows before window functions run.");
+        }
     }
 }

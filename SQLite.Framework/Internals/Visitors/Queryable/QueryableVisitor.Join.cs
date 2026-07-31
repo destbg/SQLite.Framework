@@ -64,7 +64,9 @@ internal partial class QueryableVisitor
             LastSelectLambdaBody = resultSelector.Body;
         }
 
+        visitor.IsInSelectProjection = true;
         visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);
+        visitor.IsInSelectProjection = false;
 
         if ((isProjection || isScalarSelector) && visitor.TableColumns.Values.Any(v => v is not SQLiteExpression))
         {

@@ -893,8 +893,29 @@ public static class SelectMaterializerEmitter
             return false;
         }
 
-        return ctx.Model.GetTypeInfo(access.Expression).Type is INamedTypeSymbol { IsGenericType: true } receiverType
-            && receiverType.ConstructedFrom.ToDisplayString() == "System.Linq.IGrouping<TKey, TElement>";
+        return IsGroupingChainReceiver(access.Expression, ctx);
+    }
+
+    private static bool IsGroupingChainReceiver(ExpressionSyntax receiver, EmitContext ctx)
+    {
+        ExpressionSyntax current = receiver;
+        while (true)
+        {
+            if (ctx.Model.GetTypeInfo(current).Type is INamedTypeSymbol { IsGenericType: true } currentType
+                && currentType.ConstructedFrom.ToDisplayString() == "System.Linq.IGrouping<TKey, TElement>")
+            {
+                return true;
+            }
+
+            if (current is not InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax chained }
+                || ctx.Model.GetSymbolInfo(current).Symbol is not IMethodSymbol chainedMethod
+                || chainedMethod.ContainingType?.ToDisplayString() is not ("System.Linq.Queryable" or "System.Linq.Enumerable"))
+            {
+                return false;
+            }
+
+            current = chained.Expression;
+        }
     }
 
     private static bool IsGroupingConcatInvocation(InvocationExpressionSyntax invocation, EmitContext ctx)

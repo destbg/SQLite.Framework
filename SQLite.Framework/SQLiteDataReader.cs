@@ -9,6 +9,7 @@ public class SQLiteDataReader : IDisposable
     private readonly sqlite3 handle;
     private bool disposed;
     private bool finished;
+    private bool failed;
     private int readCount;
 
     internal readonly sqlite3_stmt? Statement;
@@ -70,7 +71,17 @@ public class SQLiteDataReader : IDisposable
 
         try
         {
-            Command.NotifyReaderClosing(this, readCount);
+            try
+            {
+                if (!failed)
+                {
+                    Command.NotifyExecuted(rowsAffected: null);
+                }
+            }
+            finally
+            {
+                Command.NotifyReaderClosing(this, readCount);
+            }
         }
         finally
         {
@@ -116,6 +127,7 @@ public class SQLiteDataReader : IDisposable
         }
 
         SQLiteException exception = new(result, raw.sqlite3_errmsg(handle).utf8_to_string(), null);
+        failed = true;
         Command.NotifyFailed(exception);
         throw exception;
     }

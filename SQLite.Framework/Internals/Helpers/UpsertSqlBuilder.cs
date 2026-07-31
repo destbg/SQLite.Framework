@@ -157,6 +157,12 @@ internal static class UpsertSqlBuilder
                 continue;
             }
 
+            if (ConverterSql.TryRawStoredColumnCopy(table, rhs, column.PropertyType, database.Options, out string? rawCopySql))
+            {
+                parts.Add(IdentifierGuard.Quote(column.Name) + " = " + rawCopySql);
+                continue;
+            }
+
             bool wrapWholeValue = ConverterSql.HasReadAndWriteWrap(column.PropertyType, database.Options);
             string rhsSql = BareSqlTranslator.TranslateUpdateRowExpression(database, table, rhs, wrapConverterReads: true);
             if (wrapWholeValue || ExpressionHelpers.IsConstant(rhs.Body))

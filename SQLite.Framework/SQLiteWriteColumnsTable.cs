@@ -20,9 +20,31 @@ internal sealed class SQLiteWriteColumnsTable<[DynamicallyAccessedMembers(Dynami
         this.referencesRow = referencesRow;
     }
 
-    internal override IReadOnlyList<(string Column, string ValueSql)> ExtraWriteColumns => extraColumns;
+    internal override IReadOnlyList<(string Column, string ValueSql)> ExtraWriteColumns
+    {
+        get
+        {
+            IReadOnlyList<(string Column, string ValueSql)> inherited = source.ExtraWriteColumns;
+            if (inherited.Count == 0)
+            {
+                return extraColumns;
+            }
 
-    internal override bool ExtraWriteColumnsReferenceRow => referencesRow;
+            List<(string Column, string ValueSql)> combined = new(inherited.Count + extraColumns.Count);
+            foreach ((string Column, string ValueSql) entry in inherited)
+            {
+                if (extraColumns.All(e => !string.Equals(e.Column, entry.Column, StringComparison.OrdinalIgnoreCase)))
+                {
+                    combined.Add(entry);
+                }
+            }
+
+            combined.AddRange(extraColumns);
+            return combined;
+        }
+    }
+
+    internal override bool ExtraWriteColumnsReferenceRow => referencesRow || source.ExtraWriteColumnsReferenceRow;
 
     internal override bool IsItemMethodOverridden(string methodName)
     {

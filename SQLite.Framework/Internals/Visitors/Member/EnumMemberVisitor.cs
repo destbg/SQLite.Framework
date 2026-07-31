@@ -153,7 +153,7 @@ internal static class EnumMemberVisitor
 
             strippedExpr = SQLiteExpression.Wrap(typeof(string), visitor.Counters.NextIdentifier(), "TRIM(", strippedExpr, $", {Constants.WhitespaceChars})", strippedExpr.Parameters);
 
-            return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [strippedExpr], v =>
+            return CommonHelpers.EvaluateOnce(visitor, node.Method.ReturnType, [strippedExpr], v =>
             {
                 string vsql = v[0].ToString();
                 string norm = ignoreCase
@@ -230,7 +230,7 @@ internal static class EnumMemberVisitor
         string elseOpen = caseSb.ToString() + (isUlongBacked ? " ELSE printf('%llu', " : " ELSE CAST(");
         string elseClose = isUlongBacked ? ") END)" : " AS TEXT) END)";
 
-        return CommonHelpers.EvaluateOnce(visitor.Counters, typeof(string), [objExpr], v =>
+        return CommonHelpers.EvaluateOnce(visitor, typeof(string), [objExpr], v =>
             SQLiteExpression.Binary(typeof(string), visitor.Counters.NextIdentifier(), "(CASE ", v[0], elseOpen, v[0], elseClose, [.. nameParams]));
     }
 
@@ -289,7 +289,7 @@ internal static class EnumMemberVisitor
             return SQLiteExpression.Wrap(targetType, visitor.Counters.NextIdentifier(), "CAST(", objExpr, " AS INTEGER)", objExpr.Parameters);
         }
 
-        return CommonHelpers.EvaluateOnce(visitor.Counters, targetType, [objExpr], v =>
+        return CommonHelpers.EvaluateOnce(visitor, targetType, [objExpr], v =>
         {
             string vsql = v[0].ToString();
             List<SQLiteParameter> parameters = new(nameParams);
@@ -413,7 +413,7 @@ internal static class EnumMemberVisitor
         }
 
         string elseOpen = caseSb.ToString() + " ELSE ";
-        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr], v =>
+        return CommonHelpers.EvaluateOnce(visitor, node.Method.ReturnType, [objExpr], v =>
             SQLiteExpression.Binary(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "(CASE ", v[0], elseOpen, v[0], " END)", [.. caseParams]));
     }
 

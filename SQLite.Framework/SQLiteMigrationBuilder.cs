@@ -56,7 +56,7 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
         else
         {
             bool wrapWholeValue = ConverterSql.HasReadAndWriteWrap(typeof(TValue), database.Options);
-            valueSql = BareSqlTranslator.Translate(database, mapping, value, wrapConverterReads: true);
+            valueSql = BareSqlTranslator.Translate(database, mapping, value, wrapConverterReads: true, subqueryFree: false);
             if (wrapWholeValue)
             {
                 valueSql = ConverterSql.WrapParameter(valueSql, typeof(TValue), database.Options);

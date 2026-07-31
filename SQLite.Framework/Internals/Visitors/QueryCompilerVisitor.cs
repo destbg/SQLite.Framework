@@ -75,7 +75,17 @@ internal class QueryCompilerVisitor : ExpressionVisitor
             switch (node.NodeType)
             {
                 case ExpressionType.Coalesce:
-                    return leftValue ?? right.Call(ctx);
+                    if (leftValue == null)
+                    {
+                        return right.Call(ctx);
+                    }
+
+                    if (node.Conversion != null)
+                    {
+                        throw new NotSupportedException("A coalesce operator with a user defined conversion is not supported in a projection that runs in memory.");
+                    }
+
+                    return ConvertOperand(leftValue, node.Type, checkedConversion: false);
                 case ExpressionType.AndAlso:
                     return (bool)leftValue! && (bool)right.Call(ctx)!;
                 case ExpressionType.OrElse:
@@ -1061,6 +1071,11 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     {
         if (value == null)
         {
+            if (targetType.IsValueType && Nullable.GetUnderlyingType(targetType) == null)
+            {
+                throw new InvalidOperationException("Nullable object must have a value.");
+            }
+
             return null;
         }
 

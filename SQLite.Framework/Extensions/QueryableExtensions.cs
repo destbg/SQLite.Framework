@@ -296,7 +296,8 @@ public static class QueryableExtensions
         translator.Visit(projected.Expression);
 
         TableMapping targetMapping = returning.Database.TableMapping(translator.Visitor.From!.Type);
-        translator.Visitor.RebindTableColumns(targetMapping);
+        translator.Visitor.TableColumns = translator.PreviousSelectSourceColumns!;
+
         SQLitePropertyCalls<T> propertyCalls = new(translator.Visitor, targetMapping);
         translator.SetProperties = setters(propertyCalls).SetProperties;
 
@@ -576,7 +577,20 @@ public static class QueryableExtensions
                 throw new NotSupportedException("ExecuteUpdate and ExecuteDelete are not supported on a FromSql source.");
             }
 
+            if (call.Method.Name is nameof(SQLiteDatabase.Values) or nameof(SQLiteDatabase.ValuesRange)
+                && call.Method.DeclaringType == typeof(SQLiteDatabase))
+            {
+                throw new NotSupportedException(
+                    "ExecuteUpdate and ExecuteDelete are not supported on a Values source, because a values list is not a table.");
+            }
+
             current = call.Arguments[0];
+        }
+
+        if (current is ConstantExpression { Value: SQLiteCte })
+        {
+            throw new NotSupportedException(
+                "ExecuteUpdate and ExecuteDelete are not supported on a common table expression source. Write to the underlying table instead.");
         }
 
         if (current is ConstantExpression { Value: BaseSQLiteTable and not SQLiteTable })

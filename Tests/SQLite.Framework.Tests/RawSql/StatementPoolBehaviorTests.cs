@@ -92,12 +92,14 @@ public class StatementPoolBehaviorTests
     }
 
     [Fact]
-    public void ExecuteReader_InterceptorThrowAfterBuildDisposesReader()
+    public void ExecuteReader_InterceptorThrowOnExecutedSurfacesFromDispose()
     {
         using TestDatabase db = new(b => b.AddCommandInterceptor(new ThrowingOnExecutedInterceptor()));
 
-        Assert.ThrowsAny<Exception>(() =>
-            db.CreateCommand("SELECT 'throw_marker'", []).ExecuteReader());
+        SQLiteDataReader reader = db.CreateCommand("SELECT 'throw_marker'", []).ExecuteReader();
+
+        Assert.ThrowsAny<Exception>(reader.Dispose);
+        Assert.Equal(1, db.CreateCommand("SELECT 1", []).ExecuteQuery<int>().Single());
     }
 
     [Fact]
@@ -110,12 +112,14 @@ public class StatementPoolBehaviorTests
     }
 
     [Fact]
-    public async Task ExecuteReaderAsync_InterceptorThrowAfterBuildDisposesReader()
+    public async Task ExecuteReaderAsync_InterceptorThrowOnExecutedSurfacesFromDispose()
     {
         using TestDatabase db = new(b => b.AddCommandInterceptor(new ThrowingOnExecutedInterceptor()));
 
-        await Assert.ThrowsAnyAsync<Exception>(async () =>
-            await db.CreateCommand("SELECT 'throw_marker'", []).ExecuteReaderAsync());
+        SQLiteDataReader reader = await db.CreateCommand("SELECT 'throw_marker'", []).ExecuteReaderAsync();
+
+        Assert.ThrowsAny<Exception>(reader.Dispose);
+        Assert.Equal(1, db.CreateCommand("SELECT 1", []).ExecuteQuery<int>().Single());
     }
 
     [Fact]

@@ -331,6 +331,11 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<SQLiteBlobStream> OpenBlobStreamAsync(this SQLiteDatabase database, string tableName, string columnName, long rowid, bool writable = false, string schema = "main", CancellationToken ct = default)
     {
+        if (IsBlobStreamOverridden(database))
+        {
+            return AsyncRunner.Run(() => Task.FromResult(database.OpenBlobStream(tableName, columnName, rowid, writable, schema)), ct);
+        }
+
         return AsyncRunner.Run(async () =>
         {
             IDisposable connectionLock = await database.LockAsync(ct);
@@ -352,6 +357,11 @@ public static class AsyncDatabaseExtensions
     /// </summary>
     public static Task<SQLiteBlobStream> OpenBlobStreamAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(this SQLiteDatabase database, long rowid, Expression<Func<T, byte[]?>> columnSelector, bool writable = false, string schema = "main", CancellationToken ct = default)
     {
+        if (IsBlobStreamOverridden(database))
+        {
+            return AsyncRunner.Run(() => Task.FromResult(database.OpenBlobStream(rowid, columnSelector, writable, schema)), ct);
+        }
+
         return AsyncRunner.Run(async () =>
         {
             (string tableName, string columnName) = database.ResolveBlobColumn(columnSelector);
@@ -383,5 +393,12 @@ public static class AsyncDatabaseExtensions
     {
         await wait.ConfigureAwait(false);
         return NoOpLockObject.Instance;
+    }
+
+    private static bool IsBlobStreamOverridden(SQLiteDatabase database)
+    {
+        return MethodOverrideCache.IsOverridden(
+            database.GetType(), typeof(SQLiteDatabase), nameof(SQLiteDatabase.OpenBlobStream),
+            typeof(string), typeof(string), typeof(long), typeof(bool), typeof(string));
     }
 }

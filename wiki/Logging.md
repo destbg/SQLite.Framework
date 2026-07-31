@@ -82,14 +82,14 @@ builder.AddCommandInterceptor(new TimingInterceptor());
 | Method | When it fires |
 |---|---|
 | `OnExecuting` | Right before the command runs. |
-| `OnExecuted` | After the command runs without throwing. `rowsAffected` is the row count for write paths and `null` for the data-reader path, where rows are not read yet. |
+| `OnExecuted` | After the command runs without throwing. `rowsAffected` is the row count for write paths and `null` for the data-reader path, where it fires when the reader closes without a failure. |
 | `OnFailed` | When the command throws. The exception is rethrown after every interceptor sees it. |
 | `OnRowRead` | Once for each row read through a data reader. Use it to observe the data a query returns. |
 | `OnReaderClosing` | When a data reader is disposed. `readCount` is the number of rows the caller read, the count `OnExecuted` cannot give for a query. |
 
 ## Observing returned rows
 
-For a query, `OnExecuted` fires when the reader is ready, before any rows are read, so it cannot report how long reading took or how many rows came back. Two callbacks cover the read:
+For a query, `OnExecuted` fires when the reader closes without a failure, so each command raises exactly one of `OnExecuted` or `OnFailed`. It does not report how many rows came back. Two callbacks cover the read:
 
 - `OnRowRead` fires once for each row a data reader steps over, with the same command (so `command.Id` matches its other calls) and the live reader to read columns from.
 - `OnReaderClosing` fires when the reader is disposed, with `readCount`, the number of rows the caller actually read.

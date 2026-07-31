@@ -1124,7 +1124,7 @@ public class MethodCallTests
         Assert.Equal(2, command.Parameters.Count);
         Assert.Equal(8, command.Parameters[0].Value);
         Assert.Equal("x", command.Parameters[1].Value);
-        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       (SELECT (CASE WHEN LENGTH(v6) >= v8 THEN v6 ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(v8 - LENGTH(v6))), '00', v10), 1, v8 - LENGTH(v6)) || v6) END) FROM (SELECT b0.\"BookTitle\" AS v6, @p0 AS v8, @p1 AS v10)) AS \"Padded\"\nFROM \"Books\" AS b0", command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       (SELECT (CASE WHEN LENGTH(v6) >= v8 THEN v6 ELSE (SUBSTR(REPLACE(HEX(ZEROBLOB(v8 - LENGTH(v6))), '00', v10), 1, v8 - LENGTH(v6)) || v6) END) FROM (SELECT b0.\"BookTitle\" AS v6, @p0 AS v8, @p1 AS v10)) AS \"Padded\"\nFROM \"Books\" AS b0", command.CommandText.Replace("\r\n", "\n"));
 
         var results = query.ToList();
         Assert.Equal(2, results.Count);
@@ -1148,7 +1148,7 @@ public class MethodCallTests
         Assert.Equal(2, command.Parameters.Count);
         Assert.Equal(8, command.Parameters[0].Value);
         Assert.Equal("x", command.Parameters[1].Value);
-        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       (SELECT (CASE WHEN LENGTH(v6) >= v8 THEN v6 ELSE (v6 || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(v8 - LENGTH(v6))), '00', v10), 1, v8 - LENGTH(v6)))) END) FROM (SELECT b0.\"BookTitle\" AS v6, @p0 AS v8, @p1 AS v10)) AS \"Padded\"\nFROM \"Books\" AS b0", command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       (SELECT (CASE WHEN LENGTH(v6) >= v8 THEN v6 ELSE (v6 || (SUBSTR(REPLACE(HEX(ZEROBLOB(v8 - LENGTH(v6))), '00', v10), 1, v8 - LENGTH(v6)))) END) FROM (SELECT b0.\"BookTitle\" AS v6, @p0 AS v8, @p1 AS v10)) AS \"Padded\"\nFROM \"Books\" AS b0", command.CommandText.Replace("\r\n", "\n"));
 
         var results = query.ToList();
         Assert.Equal(2, results.Count);

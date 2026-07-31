@@ -8,14 +8,14 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class BareSqlTranslator
 {
-    public static string Translate(SQLiteDatabase database, TableMapping mapping, LambdaExpression lambda, bool wrapConverterReads)
+    public static string Translate(SQLiteDatabase database, TableMapping mapping, LambdaExpression lambda, bool wrapConverterReads, bool subqueryFree = true)
     {
-        return Translate(database, mapping, lambda.Parameters[0], lambda.Body, wrapConverterReads);
+        return Translate(database, mapping, lambda.Parameters[0], lambda.Body, wrapConverterReads, subqueryFree);
     }
 
-    public static string Translate(SQLiteDatabase database, TableMapping mapping, ParameterExpression rowParameter, Expression body, bool wrapConverterReads)
+    public static string Translate(SQLiteDatabase database, TableMapping mapping, ParameterExpression rowParameter, Expression body, bool wrapConverterReads, bool subqueryFree = true)
     {
-        SQLVisitor visitor = new(database, new SQLiteCounters(), 0) { SubqueryFreeSql = true };
+        SQLVisitor visitor = new(database, new SQLiteCounters(), 0) { SubqueryFreeSql = subqueryFree };
         visitor.MethodArguments[rowParameter] = RowColumns(visitor, rowParameter, mapping, null, wrapConverterReads);
         return Finish(visitor, body);
     }

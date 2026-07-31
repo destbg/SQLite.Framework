@@ -523,6 +523,13 @@ internal partial class SQLVisitor
 
     private SQLiteExpression BuildUnsignedDivOrMod(bool isModulo, Type resultType, SQLiteExpression a, SQLiteExpression b, SQLiteParameter[]? parameters)
     {
+        if (SubqueryFreeSql)
+        {
+            throw new NotSupportedException(
+                "ulong division and modulo are not supported in a computed column, CHECK constraint, index or default " +
+                "expression, because their translation needs nested subqueries and SQLite does not allow subqueries there.");
+        }
+
         string caseBody = isModulo
             ? "CASE WHEN bb = 0 THEN aa % bb WHEN bb = 1 THEN 0 WHEN bb < 0 THEN (CASE WHEN (aa < 0 AND aa >= bb) THEN (aa - bb) ELSE aa END) ELSE (CASE WHEN (rh + a0) >= (bb - rh) THEN (rh + a0) - (bb - rh) ELSE (rh + a0 + rh) END) END"
             : "CASE WHEN bb = 0 THEN aa / bb WHEN bb = 1 THEN aa WHEN bb < 0 THEN (CASE WHEN (aa < 0 AND aa >= bb) THEN 1 ELSE 0 END) ELSE ((ah / bb) * 2 + (CASE WHEN (rh + a0) >= (bb - rh) THEN 1 ELSE 0 END)) END";
@@ -677,18 +684,7 @@ internal partial class SQLVisitor
 
     private static SQLiteExpression BracketConcatOperand(Expression node, SQLiteExpression expr)
     {
-        Expression stripped = ExpressionHelpers.StripUpcast(ExpressionHelpers.StripQuotes(node));
-        bool needsBrackets = expr.RequiresBrackets
-            || TranslationPatterns.IsConcatBracketNodeType(stripped.NodeType)
-            || ((Nullable.GetUnderlyingType(stripped.Type) ?? stripped.Type) == typeof(bool)
-                && stripped.NodeType is ExpressionType.Call);
-
-        if (needsBrackets)
-        {
-            return SQLiteExpression.Wrap(expr.Type, expr.Identifier, "(", expr, ")", expr.Parameters);
-        }
-
-        return expr;
+        return TranslationPatterns.BracketConcatOperand(node, expr);
     }
 
     private static SQLiteExpression BracketBinaryOperand(Expression node, SQLiteExpression expr)

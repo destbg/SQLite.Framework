@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using SQLite.Framework;
 using SQLite.Framework.Enums;
-using SQLite.Framework.Exceptions;
 using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
@@ -37,12 +36,14 @@ file sealed class TrRenameDb : TestDatabase
 public class TriggerTargetRenameOrderTests
 {
     [Fact]
-    public void TriggerKeepsTargetTableNameFromDeclarationTime()
+    public void TriggerFollowsTheTargetTableRename()
     {
         using TrRenameDb db = new();
         db.Schema.CreateTable<TrRenameAuditRow>();
         db.Schema.CreateTable<TrRenameSourceRow>();
 
-        Assert.Throws<SQLiteException>(() => db.Table<TrRenameSourceRow>().Add(new TrRenameSourceRow { Id = 1 }));
+        db.Table<TrRenameSourceRow>().Add(new TrRenameSourceRow { Id = 1 });
+
+        Assert.Equal(1, db.ExecuteScalar<int>("SELECT \"ItemId\" FROM \"TrRenameAuditFinal\""));
     }
 }

@@ -282,16 +282,29 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             Dictionary<string, SelectInvocation> uniqueSelects = new();
             foreach (SelectInvocation? invocation in selects)
             {
-                if (invocation is { } sel && !uniqueSelects.ContainsKey(sel.Signature))
+                if (invocation is not { } sel)
                 {
-                    uniqueSelects[sel.Signature] = sel;
+                    continue;
+                }
 
-                    if (sel.ProjectionType is INamedTypeSymbol projectionType
-                        && !projectionType.IsAbstract
-                        && IsSupportedPositionalSystemType(projectionType))
+                if (uniqueSelects.TryGetValue(sel.Signature, out SelectInvocation? existing))
+                {
+                    if (existing.WriterCtx.ConstructedMemberReplacements.Count == 0
+                        && sel.WriterCtx.ConstructedMemberReplacements.Count > 0)
                     {
-                        unique.Add(projectionType);
+                        uniqueSelects[sel.Signature] = sel;
                     }
+
+                    continue;
+                }
+
+                uniqueSelects[sel.Signature] = sel;
+
+                if (sel.ProjectionType is INamedTypeSymbol projectionType
+                    && !projectionType.IsAbstract
+                    && IsSupportedPositionalSystemType(projectionType))
+                {
+                    unique.Add(projectionType);
                 }
             }
 
@@ -1424,8 +1437,36 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                 case MemberAccessExpressionSyntax ma:
                     current = ma.Expression;
                     continue;
+                case ExpressionSyntax stored when ResolveStoredCteSource(stored, model) is { } storedSource:
+                    current = storedSource;
+                    continue;
                 default:
                     return null;
+            }
+        }
+
+        return null;
+    }
+
+    private static ExpressionSyntax? ResolveStoredCteSource(ExpressionSyntax expression, SemanticModel model)
+    {
+        if (expression is not IdentifierNameSyntax
+            || model.GetTypeInfo(expression).Type is not INamedTypeSymbol { Name: "SQLiteCte" })
+        {
+            return null;
+        }
+
+        if (model.GetSymbolInfo(expression).Symbol is not ILocalSymbol local)
+        {
+            return null;
+        }
+
+        foreach (SyntaxReference reference in local.DeclaringSyntaxReferences)
+        {
+            if (reference.SyntaxTree == expression.SyntaxTree
+                && reference.GetSyntax() is VariableDeclaratorSyntax { Initializer.Value: { } initializer })
+            {
+                return initializer;
             }
         }
 

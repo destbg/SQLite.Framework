@@ -435,13 +435,17 @@ public sealed class SQLiteMigrationRunner
                         || ReadsOwnColumn(s.Set)
                         || ReadsOutsideModel(mapping, s.Set))
                     .ToList();
-                List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> earlyOutsideModel = deferredSchemaSets
-                    .Where(s => s.Version < rebuildVersion && !s.Set.RunInRebuild && ReadsOutsideModel(mapping, s.Set))
+                List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> earlyBeforeRebuild = deferredSchemaSets
+                    .Where(s => s.Version < rebuildVersion && !s.Set.RunInRebuild
+                        && (ReadsOutsideModel(mapping, s.Set) || ReadsOwnColumn(s.Set)))
                     .ToList();
-                foreach ((int Version, MigrationSetValue Set, MigrationSetValue ApplySet) early in earlyOutsideModel)
+                foreach ((int Version, MigrationSetValue Set, MigrationSetValue ApplySet) early in earlyBeforeRebuild)
                 {
                     deferredSchemaSets.Remove(early);
-                    deferredFills.Add(new DeferredFill { Version = early.Version, Mapping = mapping, Sets = [early.Set] });
+                    if (ReadsOutsideModel(mapping, early.Set))
+                    {
+                        deferredFills.Add(new DeferredFill { Version = early.Version, Mapping = mapping, Sets = [early.Set] });
+                    }
                 }
                 deferredFills.AddRange(ComputeReconcileFills(mapping, groupOps, deferredSchemaSets));
                 count += AddMissingColumnsBeforeDeferredRebuild(mapping, groupOps);
@@ -544,6 +548,14 @@ public sealed class SQLiteMigrationRunner
 
             if (defaultSql != null && defaultSql.TrimStart().StartsWith('('))
             {
+                count += Database.Execute(
+                    $"ALTER TABLE \"main\".{IdentifierGuard.Quote(mapping.TableName)} ADD COLUMN {IdentifierGuard.Quote(name)} {type.ToString().ToUpperInvariant()}");
+                if (hasRows)
+                {
+                    count += Database.Execute(
+                        $"UPDATE \"main\".{IdentifierGuard.Quote(mapping.TableName)} SET {IdentifierGuard.Quote(name)} = {defaultSql}");
+                }
+
                 continue;
             }
 
@@ -772,7 +784,7 @@ public sealed class SQLiteMigrationRunner
                 sql.AsSpan(0, content.Index),
                 $"content=\"{toTable.Replace("\"", "\"\"")}\"",
                 sql.AsSpan(content.Index + content.Length));
-            count += Database.Execute($"DROP TABLE {quotedName}");
+            count += Database.Execute($"DROP TABLE \"main\".{quotedName}");
             count += Database.Execute(newSql);
             count += Database.Execute($"INSERT INTO {quotedName}({quotedName}) VALUES('rebuild')");
         }
@@ -845,7 +857,7 @@ public sealed class SQLiteMigrationRunner
             string sql = (string)index["sql"]!;
             if (sql.Contains(quoted, StringComparison.OrdinalIgnoreCase) || ContainsUnquotedIdentifier(sql, columnName))
             {
-                count += Database.Execute($"DROP INDEX \"{((string)index["name"]!).Replace("\"", "\"\"")}\"");
+                count += Database.Execute($"DROP INDEX \"main\".\"{((string)index["name"]!).Replace("\"", "\"\"")}\"");
             }
         }
 
@@ -856,7 +868,7 @@ public sealed class SQLiteMigrationRunner
             string sql = (string)trigger["sql"]!;
             if (sql.Contains(quoted, StringComparison.OrdinalIgnoreCase) || ContainsUnquotedIdentifier(sql, columnName))
             {
-                count += Database.Execute($"DROP TRIGGER \"{((string)trigger["name"]!).Replace("\"", "\"\"")}\"");
+                count += Database.Execute($"DROP TRIGGER \"main\".\"{((string)trigger["name"]!).Replace("\"", "\"\"")}\"");
             }
         }
 
@@ -1135,7 +1147,7 @@ public sealed class SQLiteMigrationRunner
             {
                 Database.Execute($"CREATE TABLE \"{temp}\" AS SELECT * FROM \"{table}\"");
             }
-            Database.Execute($"DROP TABLE \"{table}\"");
+            Database.Execute($"DROP TABLE \"main\".\"{table}\"");
             int count = Database.CreateCommand(SchemaSqlBuilder.BuildCreateTable(Database, mapping, table, ifNotExists: false), []).ExecuteNonQuery();
             ReconcileIndexes(mapping);
             int copiedRows = 0;
@@ -1143,7 +1155,7 @@ public sealed class SQLiteMigrationRunner
             {
                 copiedRows = Database.Execute($"INSERT INTO \"{table}\" ({string.Join(", ", insertColumns)}) SELECT {string.Join(", ", selectExpressions)} FROM \"{temp}\"");
             }
-            Database.Execute($"DROP TABLE \"{temp}\"");
+            Database.Execute($"DROP TABLE \"main\".\"{temp}\"");
             if (autoIncrementSeq.HasValue)
             {
                 RestoreAutoIncrementSequence(table, autoIncrementSeq.Value);
@@ -1228,7 +1240,7 @@ public sealed class SQLiteMigrationRunner
             foreach (Dictionary<string, object?> trigger in triggers)
             {
                 triggerSql.Add((string)trigger["sql"]!);
-                Database.Execute($"DROP TRIGGER \"{((string)trigger["name"]!).Replace("\"", "\"\"")}\"");
+                Database.Execute($"DROP TRIGGER \"main\".\"{((string)trigger["name"]!).Replace("\"", "\"\"")}\"");
             }
 
             List<Dictionary<string, object?>> childInfo = Database
@@ -1268,7 +1280,7 @@ public sealed class SQLiteMigrationRunner
             string insertList = child.CopyRowId ? child.RowIdAccess + ", " + columnList : columnList;
             string selectList = child.CopyRowId ? "\"__sqlitefw_rowid\", " + columnList : columnList;
             Database.Execute($"INSERT INTO \"{child.Name}\" ({insertList}) SELECT {selectList} FROM \"{child.Name}__sqlitefw_hold\"");
-            Database.Execute($"DROP TABLE \"{child.Name}__sqlitefw_hold\"");
+            Database.Execute($"DROP TABLE \"main\".\"{child.Name}__sqlitefw_hold\"");
             foreach (string trigger in child.Triggers)
             {
                 Database.Execute(trigger);
@@ -1408,7 +1420,7 @@ public sealed class SQLiteMigrationRunner
         {
             if (live.Origin == "c" && !declaredNames.Contains(live.Name))
             {
-                count += Database.Execute($"DROP INDEX IF EXISTS {IdentifierGuard.Quote(live.Name)}");
+                count += Database.Execute($"DROP INDEX IF EXISTS \"main\".{IdentifierGuard.Quote(live.Name)}");
             }
         }
 
@@ -1417,7 +1429,7 @@ public sealed class SQLiteMigrationRunner
             string? liveSql = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'index' AND name = '{name.Replace("'", "''")}'");
             if (!string.Equals(sql, liveSql, StringComparison.Ordinal))
             {
-                Database.Execute($"DROP INDEX IF EXISTS {IdentifierGuard.Quote(name)}");
+                Database.Execute($"DROP INDEX IF EXISTS \"main\".{IdentifierGuard.Quote(name)}");
                 count += Database.CreateCommand(sql, []).ExecuteNonQuery();
             }
         }
@@ -1433,7 +1445,7 @@ public sealed class SQLiteMigrationRunner
             string? liveSql = Database.ExecuteScalar<string?>($"SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = '{name.Replace("'", "''")}'");
             if (!string.Equals(sql, liveSql, StringComparison.Ordinal))
             {
-                Database.Execute($"DROP TRIGGER IF EXISTS {IdentifierGuard.Quote(name)}");
+                Database.Execute($"DROP TRIGGER IF EXISTS \"main\".{IdentifierGuard.Quote(name)}");
                 count += Database.CreateCommand(sql, []).ExecuteNonQuery();
             }
         }

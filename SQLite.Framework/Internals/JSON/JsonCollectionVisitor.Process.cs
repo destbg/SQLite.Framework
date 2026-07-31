@@ -488,6 +488,7 @@ internal partial class JsonCollectionVisitor
 
     private void HandleFirst(MethodCallExpression call, Type elementType)
     {
+        MaterializeReversedDistinct();
         AddOptionalPredicate(call, elementType);
         SelectGroupKeyForGroupingResult();
         SelectEntryObjectForDictionaryResult();
@@ -497,11 +498,20 @@ internal partial class JsonCollectionVisitor
 
     private void SelectGroupKeyForGroupingResult()
     {
-        if (groupBys.Count > 0
+        if ((groupBys.Count > 0 || groupWindowMaterialized)
+            && groupKeySql != null
             && currentElementType.IsGenericType
             && currentElementType.GetGenericTypeDefinition() == typeof(IGrouping<,>))
         {
-            selectExpr = groupKeySql!;
+            selectExpr = groupKeySql;
+        }
+    }
+
+    private void MaterializeReversedDistinct()
+    {
+        if (distinct && (reverseApplied || distinctSeenReverse))
+        {
+            MaterializeDistinct();
         }
     }
 
@@ -516,6 +526,7 @@ internal partial class JsonCollectionVisitor
 
     private void HandleLast(MethodCallExpression call, Type elementType)
     {
+        MaterializeReversedDistinct();
         if (limit != null || offset != null)
         {
             MaterializeWindow();
@@ -532,6 +543,7 @@ internal partial class JsonCollectionVisitor
 
     private void HandleSingle(MethodCallExpression call, Type elementType)
     {
+        MaterializeReversedDistinct();
         AddOptionalPredicate(call, elementType);
         SelectGroupKeyForGroupingResult();
         SelectEntryObjectForDictionaryResult();

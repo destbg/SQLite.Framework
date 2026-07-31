@@ -6,18 +6,21 @@ namespace SQLite.Framework.Internals.Models;
 /// </summary>
 internal sealed class TriggerSpec
 {
-    public TriggerSpec(string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, string? whenSql, string bodySql)
+    private readonly Func<string?> whenFactory;
+    private readonly Func<string> bodyFactory;
+
+    public TriggerSpec(string name, SQLiteTriggerTiming timing, SQLiteTriggerEvent @event, Func<string?> whenFactory, Func<string> bodyFactory)
     {
+        this.whenFactory = whenFactory;
+        this.bodyFactory = bodyFactory;
         Name = name;
         Timing = timing;
         Event = @event;
-        WhenSql = whenSql;
-        BodySql = bodySql;
     }
 
     public string Name { get; }
     public SQLiteTriggerTiming Timing { get; }
     public SQLiteTriggerEvent Event { get; }
-    public string? WhenSql { get; set; }
-    public string BodySql { get; set; }
+    public string? WhenSql => whenFactory();
+    public string BodySql => bodyFactory();
 }

@@ -167,7 +167,9 @@ internal partial class QueryableVisitor
         }
         else
         {
-            properties = TypeHelpers.MappableProperties(genericType);
+            properties = database.TryGetCachedTableMapping(genericType, out TableMapping? valuesMapping)
+                ? [.. valuesMapping.Columns.Select(c => c.PropertyInfo)]
+                : TypeHelpers.MappableProperties(genericType);
             foreach (PropertyInfo prop in properties)
             {
                 columnNames.Add(prop.Name);

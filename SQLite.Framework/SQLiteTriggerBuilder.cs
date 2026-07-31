@@ -12,7 +12,7 @@ public sealed class SQLiteTriggerBuilder<T>
     private readonly TableMapping triggerMapping;
     private readonly ParameterExpression oldRow;
     private readonly ParameterExpression newRow;
-    private readonly List<string> statements = [];
+    private readonly List<Func<string>> statements = [];
 
     internal SQLiteTriggerBuilder(SQLiteDatabase database, TableMapping triggerMapping)
     {
@@ -38,9 +38,9 @@ public sealed class SQLiteTriggerBuilder<T>
     /// </summary>
     public T New { get; }
 
-    internal string? WhenSql { get; private set; }
+    internal Func<string>? WhenFactory { get; private set; }
 
-    internal IReadOnlyList<string> Statements => statements;
+    internal IReadOnlyList<Func<string>> Statements => statements;
 
     /// <summary>
     /// Sets the trigger's <c>WHEN</c> guard. The body runs only for rows where the predicate is
@@ -49,12 +49,12 @@ public sealed class SQLiteTriggerBuilder<T>
     public SQLiteTriggerBuilder<T> When(Expression<Func<bool>> predicate)
     {
         ArgumentNullException.ThrowIfNull(predicate);
-        if (WhenSql != null)
+        if (WhenFactory != null)
         {
             throw new InvalidOperationException("When was already called for this trigger.");
         }
 
-        WhenSql = Translate(predicate, targetMapping: null);
+        WhenFactory = () => Translate(predicate, targetMapping: null);
         return this;
     }
 
@@ -76,22 +76,24 @@ public sealed class SQLiteTriggerBuilder<T>
         }
 
         TableMapping mapping = target.Table;
-        StringBuilder sql = new();
-        sql.Append("UPDATE \"").Append(mapping.TableName).Append("\" SET ");
-        for (int i = 0; i < set.Setters.Count; i++)
+        statements.Add(() =>
         {
-            if (i > 0)
+            StringBuilder sql = new();
+            sql.Append("UPDATE \"").Append(mapping.TableName).Append("\" SET ");
+            for (int i = 0; i < set.Setters.Count; i++)
             {
-                sql.Append(", ");
+                if (i > 0)
+                {
+                    sql.Append(", ");
+                }
+                (string column, LambdaExpression value) = set.Setters[i];
+                sql.Append(IdentifierGuard.Quote(ResolveColumn(mapping, column)));
+                sql.Append(" = ");
+                sql.Append(Translate(value, mapping, SetterColumn(mapping, column)));
             }
-            (string column, LambdaExpression value) = set.Setters[i];
-            sql.Append(IdentifierGuard.Quote(ResolveColumn(mapping, column)));
-            sql.Append(" = ");
-            sql.Append(Translate(value, mapping, SetterColumn(mapping, column)));
-        }
-        sql.Append(" WHERE ").Append(Translate(predicate, mapping));
-
-        statements.Add(sql.ToString());
+            sql.Append(" WHERE ").Append(Translate(predicate, mapping));
+            return sql.ToString();
+        });
         return this;
     }
 
@@ -112,10 +114,12 @@ public sealed class SQLiteTriggerBuilder<T>
         }
 
         TableMapping mapping = target.Table;
-        string columns = string.Join(", ", set.Setters.Select(s => IdentifierGuard.Quote(ResolveColumn(mapping, s.Column))));
-        string valueList = string.Join(", ", set.Setters.Select(s => Translate(s.Value, mapping, SetterColumn(mapping, s.Column))));
-
-        statements.Add($"INSERT INTO \"{mapping.TableName}\" ({columns}) VALUES ({valueList})");
+        statements.Add(() =>
+        {
+            string columns = string.Join(", ", set.Setters.Select(s => IdentifierGuard.Quote(ResolveColumn(mapping, s.Column))));
+            string valueList = string.Join(", ", set.Setters.Select(s => Translate(s.Value, mapping, SetterColumn(mapping, s.Column))));
+            return $"INSERT INTO \"{mapping.TableName}\" ({columns}) VALUES ({valueList})";
+        });
         return this;
     }
 
@@ -128,7 +132,7 @@ public sealed class SQLiteTriggerBuilder<T>
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(predicate);
 
-        statements.Add($"DELETE FROM \"{target.Table.TableName}\" WHERE {Translate(predicate, target.Table)}");
+        statements.Add(() => $"DELETE FROM \"{target.Table.TableName}\" WHERE {Translate(predicate, target.Table)}");
         return this;
     }
 

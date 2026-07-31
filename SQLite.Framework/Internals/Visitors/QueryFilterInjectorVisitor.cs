@@ -30,7 +30,7 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
             return node;
         }
 
-        SQLiteOptions filterOptions = table.Database.Options;
+        SQLiteOptions filterOptions = table.Database.ResolveFilterOptions(table.SchemaName);
         if (!HasApplicableFilters(filterOptions, table.ElementType))
         {
             return node;
@@ -54,7 +54,7 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
             Expression source = typeof(IQueryable<>).MakeGenericType(table.ElementType).IsAssignableFrom(node.Type)
                 ? node
                 : Expression.Constant(table);
-            return InjectFilters(source, table.ElementType, table.Database.Options);
+            return InjectFilters(source, table.ElementType, table.Database.ResolveFilterOptions(table.SchemaName));
         }
 
         return base.VisitMember(node);
@@ -88,19 +88,9 @@ internal sealed class QueryFilterInjectorVisitor : ExpressionVisitor
 
     private SQLiteOptions ResolveOwnerOptions(MethodCallExpression node)
     {
-        if (node.Object != null
-            && ExpressionHelpers.IsConstant(node.Object)
-            && ExpressionHelpers.GetConstantValue(node.Object) is SQLiteDatabase owner)
-        {
-            return owner.Options;
-        }
-
-        if (TryResolveOwnedTable(node) is { } table)
-        {
-            return table.Database.Options;
-        }
-
-        return options;
+        return TryResolveOwnedTable(node) is { } table
+            ? table.Database.ResolveFilterOptions(table.SchemaName)
+            : options;
     }
 
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Element type is preserved by SQLiteTable<T>.")]

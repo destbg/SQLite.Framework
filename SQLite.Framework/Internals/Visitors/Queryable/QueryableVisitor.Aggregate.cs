@@ -36,6 +36,11 @@ internal partial class QueryableVisitor
         {
             LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
             ThrowIfGroupJoinGroupPredicate(lambda.Body);
+            if (function == "COUNT")
+            {
+                ThrowIfWindowPredicate(lambda.Body);
+            }
+
             Expression expression = visitor.Visit(lambda.Body);
 
             if (expression is not SQLiteExpression sqlExpression)
@@ -477,6 +482,19 @@ internal partial class QueryableVisitor
             }
 
             visitor.OptionalRowPaths[newTableColumns] = groupedOptionalPaths;
+        }
+
+        if (visitor.ConstructedProjectionPaths.TryGetValue(visitor.TableColumns, out HashSet<string>? elementConstructedPaths))
+        {
+            HashSet<string> groupedConstructedPaths = visitor.ConstructedProjectionPaths.TryGetValue(newTableColumns, out HashSet<string>? keyPaths)
+                ? keyPaths
+                : new HashSet<string>(StringComparer.Ordinal);
+            foreach (string constructedPath in elementConstructedPaths)
+            {
+                groupedConstructedPaths.Add(Constants.GroupingElementPrefix + constructedPath);
+            }
+
+            visitor.ConstructedProjectionPaths[newTableColumns] = groupedConstructedPaths;
         }
 
         visitor.TableColumns = newTableColumns;

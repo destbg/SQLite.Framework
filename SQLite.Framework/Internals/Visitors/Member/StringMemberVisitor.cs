@@ -62,7 +62,7 @@ internal static class StringMemberVisitor
                         SQLiteExpression objExpr = obj.SQLiteExpression!;
                         SQLiteExpression needle = CharArgAsText(visitor, arguments[0]);
                         SQLiteExpression start = ClampNonNegative(visitor, arguments[1]);
-                        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, needle, start], a =>
+                        return CommonHelpers.EvaluateOnce(visitor, node.Method.ReturnType, [objExpr, needle, start], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                                 ["CASE WHEN INSTR(SUBSTR(", ", ", " + 1), ", ") = 0 THEN -1 ELSE INSTR(SUBSTR(", ", ", " + 1), ", ") - 1 + ", " END"],
                                 [a[0], a[2], a[1], a[0], a[2], a[1], a[2]],
@@ -81,12 +81,19 @@ internal static class StringMemberVisitor
                         return visitor.NotTranslatableBelowVersion(node, SQLiteMinimumVersion.V3_8_3, "string.LastIndexOf (uses WITH RECURSIVE CTE)");
                     }
 #endif
+                    if (visitor.SubqueryFreeSql)
+                    {
+                        throw new NotSupportedException(
+                            "string.LastIndexOf is not supported in a computed column, CHECK constraint, index or default " +
+                            "expression, because its translation needs a recursive subquery and SQLite does not allow subqueries there.");
+                    }
+
                     SQLiteExpression objExpr = obj.SQLiteExpression!;
                     SQLiteExpression arg0 = CharArgAsText(visitor, arguments[0]);
 
                     if (arguments.Count == 1)
                     {
-                        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0], a =>
+                        return CommonHelpers.EvaluateOnce(visitor, node.Method.ReturnType, [objExpr, arg0], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                                 ["CASE WHEN LENGTH(", ") = 0 THEN LENGTH(", ") ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, ", " UNION ALL SELECT pos + INSTR(rem, ", "), SUBSTR(rem, INSTR(rem, ", ") + 1) FROM find_pos WHERE INSTR(rem, ", ") > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END"],
                                 [a[1], a[0], a[0], a[1], a[1], a[1]],
@@ -96,7 +103,7 @@ internal static class StringMemberVisitor
                     if (arguments.Count == 2 && node.Arguments[1].Type == typeof(int))
                     {
                         SQLiteExpression start = arguments[1].SQLiteExpression!;
-                        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, start], a =>
+                        return CommonHelpers.EvaluateOnce(visitor, node.Method.ReturnType, [objExpr, arg0, start], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                                 ["CASE WHEN LENGTH(", ") = 0 THEN LENGTH(SUBSTR(", ", 1, ", " + 1)) ELSE COALESCE((WITH RECURSIVE find_pos(pos, rem) AS (SELECT 0, SUBSTR(", ", 1, ", " + 1) UNION ALL SELECT pos + INSTR(rem, ", "), SUBSTR(rem, INSTR(rem, ", ") + 1) FROM find_pos WHERE INSTR(rem, ", ") > 0) SELECT MAX(pos) - 1 FROM find_pos WHERE pos > 0), -1) END"],
                                 [a[1], a[0], a[2], a[0], a[2], a[1], a[1], a[1]],
@@ -112,7 +119,7 @@ internal static class StringMemberVisitor
                     SQLiteExpression objExpr = obj.SQLiteExpression!;
                     SQLiteExpression arg0 = arguments[0].SQLiteExpression!;
                     SQLiteExpression arg1 = arguments[1].SQLiteExpression!;
-                    return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
+                    return CommonHelpers.EvaluateOnce(visitor, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
                         SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                             ["SUBSTR(", ", 1, ", ") || ", " || SUBSTR(", ", ", " + 1)"],
                             [a[0], a[1], a[2], a[0], a[1]],
@@ -125,7 +132,7 @@ internal static class StringMemberVisitor
                     if (node.Arguments.Count == 2)
                     {
                         SQLiteExpression arg1 = arguments[1].SQLiteExpression!;
-                        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
+                        return CommonHelpers.EvaluateOnce(visitor, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                                 ["SUBSTR(", ", 1, ", ") || SUBSTR(", ", ", " + MAX(", ", 0) + 1)"],
                                 [a[0], a[1], a[0], a[1], a[2]],
@@ -181,7 +188,7 @@ internal static class StringMemberVisitor
                 {
                     SQLiteExpression objExpr = obj.SQLiteExpression!;
                     SQLiteExpression arg0 = arguments[0].SQLiteExpression!;
-                    return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0], a =>
+                    return CommonHelpers.EvaluateOnce(visitor, node.Method.ReturnType, [objExpr, arg0], a =>
                         SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
                             ["(CASE WHEN ", " IS NULL AND ", " IS NULL THEN 0 WHEN ", " IS NULL THEN -1 WHEN ", " IS NULL THEN 1 WHEN ", " = ", " THEN 0 WHEN ", " < ", " THEN -1 ELSE 1 END)"],
                             [a[0], a[1], a[0], a[1], a[0], a[1], a[0], a[1]],
@@ -237,9 +244,9 @@ internal static class StringMemberVisitor
                             Value = " "
                         };
 
-                        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0], a =>
+                        return CommonHelpers.EvaluateOnce(visitor, node.Method.ReturnType, [objExpr, arg0], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
-                                ["(CASE WHEN LENGTH(", ") >= ", " THEN ", " ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(", " - LENGTH(", "))), '00', " + spaceParam.Name + "), 1, ", " - LENGTH(", ")) || ", ") END)"],
+                                ["(CASE WHEN LENGTH(", ") >= ", " THEN ", " ELSE (SUBSTR(REPLACE(HEX(ZEROBLOB(", " - LENGTH(", "))), '00', " + spaceParam.Name + "), 1, ", " - LENGTH(", ")) || ", ") END)"],
                                 [a[0], a[1], a[0], a[1], a[0], a[1], a[0], a[0]],
                                 [spaceParam]));
                     }
@@ -247,9 +254,9 @@ internal static class StringMemberVisitor
                     {
                         SQLiteExpression arg1 = CharArgAsText(visitor, arguments[1]);
 
-                        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
+                        return CommonHelpers.EvaluateOnce(visitor, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
-                                ["(CASE WHEN LENGTH(", ") >= ", " THEN ", " ELSE (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(", " - LENGTH(", "))), '00', ", "), 1, ", " - LENGTH(", ")) || ", ") END)"],
+                                ["(CASE WHEN LENGTH(", ") >= ", " THEN ", " ELSE (SUBSTR(REPLACE(HEX(ZEROBLOB(", " - LENGTH(", "))), '00', ", "), 1, ", " - LENGTH(", ")) || ", ") END)"],
                                 [a[0], a[1], a[0], a[1], a[0], a[2], a[1], a[0], a[0]],
                                 null));
                     }
@@ -266,9 +273,9 @@ internal static class StringMemberVisitor
                             Value = " "
                         };
 
-                        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0], a =>
+                        return CommonHelpers.EvaluateOnce(visitor, node.Method.ReturnType, [objExpr, arg0], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
-                                ["(CASE WHEN LENGTH(", ") >= ", " THEN ", " ELSE (", " || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(", " - LENGTH(", "))), '00', " + spaceParam.Name + "), 1, ", " - LENGTH(", ")))) END)"],
+                                ["(CASE WHEN LENGTH(", ") >= ", " THEN ", " ELSE (", " || (SUBSTR(REPLACE(HEX(ZEROBLOB(", " - LENGTH(", "))), '00', " + spaceParam.Name + "), 1, ", " - LENGTH(", ")))) END)"],
                                 [a[0], a[1], a[0], a[0], a[1], a[0], a[1], a[0]],
                                 [spaceParam]));
                     }
@@ -276,9 +283,9 @@ internal static class StringMemberVisitor
                     {
                         SQLiteExpression arg1 = CharArgAsText(visitor, arguments[1]);
 
-                        return CommonHelpers.EvaluateOnce(visitor.Counters, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
+                        return CommonHelpers.EvaluateOnce(visitor, node.Method.ReturnType, [objExpr, arg0, arg1], a =>
                             SQLiteExpression.Multi(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
-                                ["(CASE WHEN LENGTH(", ") >= ", " THEN ", " ELSE (", " || (SELECT SUBSTR(REPLACE(HEX(ZEROBLOB(", " - LENGTH(", "))), '00', ", "), 1, ", " - LENGTH(", ")))) END)"],
+                                ["(CASE WHEN LENGTH(", ") >= ", " THEN ", " ELSE (", " || (SUBSTR(REPLACE(HEX(ZEROBLOB(", " - LENGTH(", "))), '00', ", "), 1, ", " - LENGTH(", ")))) END)"],
                                 [a[0], a[1], a[0], a[0], a[1], a[0], a[2], a[1], a[0]],
                                 null));
                     }
@@ -329,7 +336,7 @@ internal static class StringMemberVisitor
                         return RebuildClientCall(node, arguments);
                     }
 
-                    concatArgs = [.. resolvedConcatArgs.Select(a => BracketConcatOperand(visitor, a))];
+                    concatArgs = [.. resolvedConcatArgs.Select((a, i) => TranslationPatterns.BracketConcatOperand(concatArray.Expressions[i], a))];
                 }
                 else if (node.Arguments.Count == 1 && typeof(IQueryable).IsAssignableFrom(node.Arguments[0].Type))
                 {
@@ -353,7 +360,7 @@ internal static class StringMemberVisitor
                     concatArgs = new SQLiteExpression[arguments.Count];
                     for (int i = 0; i < arguments.Count; i++)
                     {
-                        concatArgs[i] = BracketConcatOperand(visitor,
+                        concatArgs[i] = TranslationPatterns.BracketConcatOperand(node.Arguments[i],
                             visitor.CoalesceNullableStringOperand(node.Arguments[i], arguments[i], arguments[i].SQLiteExpression!));
                     }
                 }
@@ -385,9 +392,9 @@ internal static class StringMemberVisitor
                         return RebuildClientCall(node, arguments);
                     }
 
-                    SQLiteExpression sep = BracketConcatOperand(visitor,
+                    SQLiteExpression sep = TranslationPatterns.BracketConcatOperand(node.Arguments[0],
                         visitor.CoalesceNullableStringOperand(node.Arguments[0], arguments[0], arguments[0].SQLiteExpression!));
-                    joinArgs = [.. joinArgs.Select(a => BracketConcatOperand(visitor, a))];
+                    joinArgs = [.. joinArgs.Select((a, i) => TranslationPatterns.BracketConcatOperand(arrayExpr.Expressions[i], a))];
                     if (joinArgs.Length == 0)
                     {
                         return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "''");
@@ -648,10 +655,10 @@ internal static class StringMemberVisitor
         {
             nameof(string.Contains) => SQLiteExpression.Binary(method.ReturnType, id,
                 "INSTR(", obj, ", ", valueExpr, ") > 0", ParameterHelpers.CombineParameters(obj, valueExpr)),
-            nameof(string.StartsWith) => CommonHelpers.EvaluateOnce(visitor.Counters, method.ReturnType, [valueExpr], v =>
+            nameof(string.StartsWith) => CommonHelpers.EvaluateOnce(visitor, method.ReturnType, [valueExpr], v =>
                 SQLiteExpression.Multi(method.ReturnType, visitor.Counters.NextIdentifier(),
                     ["SUBSTR(", ", 1, LENGTH(", ")) = ", ""], [obj, v[0], v[0]], obj.Parameters)),
-            _ => CommonHelpers.EvaluateOnce(visitor.Counters, method.ReturnType, [valueExpr], v =>
+            _ => CommonHelpers.EvaluateOnce(visitor, method.ReturnType, [valueExpr], v =>
                 SQLiteExpression.Multi(method.ReturnType, visitor.Counters.NextIdentifier(),
                     ["(LENGTH(", ") = 0 OR SUBSTR(", ", -LENGTH(", ")) = ", ")"], [v[0], obj, v[0], v[0]], obj.Parameters))
         };
@@ -739,7 +746,7 @@ internal static class StringMemberVisitor
 
     private static SQLiteExpression BuildCompare(SQLVisitor visitor, Type returnType, SQLiteExpression a, SQLiteExpression b, bool ignoreCase)
     {
-        return CommonHelpers.EvaluateOnce(visitor.Counters, returnType, [a, b], v =>
+        return CommonHelpers.EvaluateOnce(visitor, returnType, [a, b], v =>
         {
             SQLiteExpression va = v[0];
             SQLiteExpression vb = v[1];
@@ -903,13 +910,6 @@ internal static class StringMemberVisitor
         }
 
         return false;
-    }
-
-    private static SQLiteExpression BracketConcatOperand(SQLVisitor visitor, SQLiteExpression expr)
-    {
-        return expr.RequiresBrackets
-            ? SQLiteExpression.Wrap(expr.Type, visitor.Counters.NextIdentifier(), "(", expr, ")", expr.Parameters)
-            : expr;
     }
 
     private static bool HasCaseChangingReplaceArgument(MethodCallExpression node, List<ResolvedModel> arguments)

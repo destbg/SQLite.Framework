@@ -14,12 +14,14 @@ public class TableMapping
     private readonly List<IndexSpec> indexes = [];
     private readonly List<TriggerSpec> triggers = [];
     private readonly List<ShadowColumnSpec> shadowColumns = [];
+    private readonly Func<Type, string>? targetTableResolver;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TableMapping"/> class.
     /// </summary>
-    public TableMapping([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type, SQLiteOptions options)
+    public TableMapping([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type, SQLiteOptions options, Func<Type, string>? targetTableResolver = null)
     {
+        this.targetTableResolver = targetTableResolver;
         PropertyInfo[] properties = type.GetProperties();
         TableAttribute? tableAttribute = type.GetCustomAttribute<TableAttribute>();
 
@@ -230,11 +232,6 @@ public class TableMapping
             computed.ExpressionSql = computed.ExpressionSql.Replace(previousQuoted, newQuoted, StringComparison.Ordinal);
         }
 
-        foreach (TriggerSpec trigger in triggers)
-        {
-            trigger.BodySql = ReplaceTriggerRowColumn(trigger.BodySql, previousQuoted, newQuoted);
-            trigger.WhenSql = trigger.WhenSql == null ? null : ReplaceTriggerRowColumn(trigger.WhenSql, previousQuoted, newQuoted);
-        }
     }
 
     internal void RenameVirtualTableColumn(PropertyInfo property, string newName)
@@ -357,8 +354,7 @@ public class TableMapping
 
         return new ForeignKeyInfo(
             columns: [column.Name],
-            targetTable: targetTable,
-            targetColumns: [targetColumn],
+            resolveTarget: () => (targetTableResolver?.Invoke(attribute.TargetType) ?? targetTable, [targetColumn]),
             onDelete: attribute.OnDelete,
             onUpdate: attribute.OnUpdate,
             deferred: attribute.Deferred);
@@ -375,18 +371,10 @@ public class TableMapping
 
         return new ForeignKeyInfo(
             columns: [column.Name],
-            targetTable: targetTable,
-            targetColumns: [targetColumn],
+            resolveTarget: () => (targetTableResolver?.Invoke(targetType) ?? targetTable, [targetColumn]),
             onDelete: SQLiteForeignKeyAction.NoAction,
             onUpdate: SQLiteForeignKeyAction.NoAction,
             deferred: false);
-    }
-
-    private static string ReplaceTriggerRowColumn(string sql, string previousQuoted, string newQuoted)
-    {
-        return sql
-            .Replace("OLD." + previousQuoted, "OLD." + newQuoted, StringComparison.Ordinal)
-            .Replace("NEW." + previousQuoted, "NEW." + newQuoted, StringComparison.Ordinal);
     }
 
     private static ForeignKeyInfo RebuildWithRenamedSource(ForeignKeyInfo foreignKey, string previousName, string newName)

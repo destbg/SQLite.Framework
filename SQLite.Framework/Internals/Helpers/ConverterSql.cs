@@ -30,6 +30,28 @@ internal static class ConverterSql
         return formats;
     }
 
+    public static bool TryRawStoredColumnCopy(TableMapping mapping, LambdaExpression value, Type targetType, SQLiteOptions options, [NotNullWhen(true)] out string? sql)
+    {
+        sql = null;
+        if (value.Body is not MemberExpression { Expression: ParameterExpression parameter } member
+            || parameter != value.Parameters[0])
+        {
+            return false;
+        }
+
+        TableColumn? source = mapping.Columns.FirstOrDefault(c => c.PropertyInfo.Name == member.Member.Name);
+        if (source == null
+            || source.PropertyType != (Nullable.GetUnderlyingType(targetType) ?? targetType)
+            || !options.TypeConverters.TryGetValue(source.PropertyType, out ISQLiteTypeConverter? converter)
+            || converter.ColumnSqlExpression == null)
+        {
+            return false;
+        }
+
+        sql = IdentifierGuard.Quote(source.Name);
+        return true;
+    }
+
     public static bool HasReadAndWriteWrap(Type valueType, SQLiteOptions options)
     {
         Type lookupType = Nullable.GetUnderlyingType(valueType) ?? valueType;

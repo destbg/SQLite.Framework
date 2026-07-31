@@ -78,6 +78,7 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
             column.IsPrimaryKey = true;
             column.IsNullable = false;
             column.PrimaryKeyOrder = i;
+            ValidateSetNullForColumn(column);
         }
 
         return this;
@@ -106,6 +107,11 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
         ArgumentException.ThrowIfNullOrEmpty(name);
         IdentifierGuard.EnsureNoQuote(name, "Column");
         TableColumn target = ResolveTargetColumn(column);
+        if (target.IsFtsRowId)
+        {
+            return this;
+        }
+
         string previousName = target.Name;
         target.Name = name;
         mapping.RenameForeignKeyColumnSource(previousName, name);
@@ -135,7 +141,9 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
     public SQLiteEntityTypeBuilder<T> IsRequired<TValue>(Expression<Func<T, TValue>> column, bool required = true)
     {
         ArgumentNullException.ThrowIfNull(column);
-        ResolveTargetColumn(column).IsNullable = !required;
+        TableColumn target = ResolveTargetColumn(column);
+        target.IsNullable = !required;
+        ValidateSetNullForColumn(target);
         return this;
     }
 
@@ -425,8 +433,11 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
             throw new ArgumentException("The trigger body must contain at least one Update, Insert or Delete statement.", nameof(build));
         }
 
-        string body = string.Join("; ", triggerBuilder.Statements);
-        mapping.AddTrigger(new TriggerSpec(name, timing, @event, triggerBuilder.WhenSql, body));
+        Func<string>? whenFactory = triggerBuilder.WhenFactory;
+        IReadOnlyList<Func<string>> statements = triggerBuilder.Statements;
+        mapping.AddTrigger(new TriggerSpec(name, timing, @event,
+            () => whenFactory?.Invoke(),
+            () => string.Join("; ", statements.Select(s => s()))));
         return this;
     }
 
@@ -482,6 +493,29 @@ public sealed class SQLiteEntityTypeBuilder<[DynamicallyAccessedMembers(Dynamica
         else
         {
             mapping.AddCompositeForeignKey(info);
+        }
+    }
+
+    private void ValidateSetNullForColumn(TableColumn column)
+    {
+        if (column.IsNullable)
+        {
+            return;
+        }
+
+        if (column.ForeignKey is { } columnForeignKey)
+        {
+            ForeignKeyResolver.ValidateSetNullCompatibility(
+                mapping.TableName, [column.Name], [column.IsNullable], columnForeignKey.OnDelete, columnForeignKey.OnUpdate);
+        }
+
+        foreach (ForeignKeyInfo composite in mapping.CompositeForeignKeys)
+        {
+            if (composite.Columns.Contains(column.Name))
+            {
+                ForeignKeyResolver.ValidateSetNullCompatibility(
+                    mapping.TableName, [column.Name], [column.IsNullable], composite.OnDelete, composite.OnUpdate);
+            }
         }
     }
 

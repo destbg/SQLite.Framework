@@ -158,8 +158,28 @@ internal static class CommonHelpers
     /// Builds a one-row sub-select that evaluates a set of operands once and exposes them as named
     /// columns, so a body that needs an operand in several places does not repeat the operand SQL.
     /// </summary>
-    public static SQLiteExpression EvaluateOnce(SQLiteCounters counters, Type type, SQLiteExpression[] operands, Func<SQLiteExpression[], SQLiteExpression> buildBody)
+    public static SQLiteExpression EvaluateOnce(SQLVisitor visitor, Type type, SQLiteExpression[] operands, Func<SQLiteExpression[], SQLiteExpression> buildBody)
     {
+        SQLiteCounters counters = visitor.Counters;
+        if (visitor.SubqueryFreeSql)
+        {
+            SQLiteExpression[] bracketed = new SQLiteExpression[operands.Length];
+            for (int i = 0; i < operands.Length; i++)
+            {
+                bracketed[i] = SQLiteExpression.Wrap(operands[i].Type, counters.NextIdentifier(), "(", operands[i], ")", operands[i].Parameters);
+            }
+
+            SQLiteExpression inlineBody = buildBody(bracketed);
+            SQLiteExpression[] inlineSources = new SQLiteExpression[operands.Length + 1];
+            for (int i = 0; i < operands.Length; i++)
+            {
+                inlineSources[i] = operands[i];
+            }
+
+            inlineSources[operands.Length] = inlineBody;
+            return SQLiteExpression.Wrap(type, counters.NextIdentifier(), "", inlineBody, "", ParameterHelpers.CombineParameters(inlineSources));
+        }
+
         string[] names = new string[operands.Length];
         SQLiteExpression[] aliases = new SQLiteExpression[operands.Length];
         for (int i = 0; i < operands.Length; i++)
@@ -207,7 +227,7 @@ internal static class CommonHelpers
             ? unary.Operand
             : lambda.Body;
 
-        SQLVisitor visitor = new(database, new SQLiteCounters(), 0);
+        SQLVisitor visitor = new(database, new SQLiteCounters(), 0) { SubqueryFreeSql = true };
         Expression result = visitor.Visit(body);
         if (result is not SQLiteExpression sqlExpr)
         {

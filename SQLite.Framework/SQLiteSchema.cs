@@ -620,8 +620,8 @@ public class SQLiteSchema
             throw new ArgumentException("The trigger body must contain at least one Update, Insert or Delete statement.", nameof(build));
         }
 
-        string body = string.Join("; ", builder.Statements);
-        return CreateTrigger<T>(name, timing, @event, body, builder.WhenSql);
+        string body = string.Join("; ", builder.Statements.Select(s => s()));
+        return CreateTrigger<T>(name, timing, @event, body, builder.WhenFactory?.Invoke());
     }
 
     /// <summary>

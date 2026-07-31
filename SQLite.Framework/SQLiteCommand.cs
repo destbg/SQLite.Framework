@@ -80,16 +80,6 @@ public class SQLiteCommand
             throw;
         }
 
-        try
-        {
-            NotifyExecuted(rowsAffected: null);
-        }
-        catch
-        {
-            reader.Dispose();
-            throw;
-        }
-
         return reader;
     }
 

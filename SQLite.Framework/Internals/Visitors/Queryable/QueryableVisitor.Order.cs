@@ -77,7 +77,10 @@ internal partial class QueryableVisitor
     {
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
         ThrowIfGroupJoinGroupPredicate(lambda.Body);
+        bool previousFtsMatchAsSubquery = visitor.FtsMatchAsSubquery;
+        visitor.FtsMatchAsSubquery = true;
         Expression orderBy = visitor.Visit(lambda.Body);
+        visitor.FtsMatchAsSubquery = previousFtsMatchAsSubquery;
 
         if (orderBy is not SQLiteExpression sqlExpression)
         {

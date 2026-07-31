@@ -75,7 +75,8 @@ internal static class ExpressionHelpers
             UnaryExpression ue => IsConstant(ue.Operand),
             BinaryExpression { NodeType: ExpressionType.ArrayIndex } bi => IsConstant(bi.Left) && IsConstant(bi.Right),
             NewArrayExpression na => na.Expressions.Select(IsConstant).All(f => f),
-            MemberInitExpression mie => mie.Bindings.All(b => b is MemberAssignment ma && IsConstant(ma.Expression)),
+            MemberInitExpression mie => IsConstant(mie.NewExpression)
+                && mie.Bindings.All(b => b is MemberAssignment ma && IsConstant(ma.Expression)),
             NewExpression ne => ne.Arguments.All(IsConstant),
             ListInitExpression lie => IsConstant(lie.NewExpression)
                 && lie.Initializers.All(init => init.Arguments.All(IsConstant)),
@@ -431,7 +432,14 @@ internal static class ExpressionHelpers
                 object? value = GetConstantValue(assignment.Expression);
                 if (assignment.Member is PropertyInfo property)
                 {
-                    property.SetValue(instance, value);
+                    try
+                    {
+                        property.SetValue(instance, value);
+                    }
+                    catch (TargetInvocationException ex) when (ex.InnerException != null)
+                    {
+                        throw ex.InnerException;
+                    }
                 }
                 else if (assignment.Member is FieldInfo field)
                 {

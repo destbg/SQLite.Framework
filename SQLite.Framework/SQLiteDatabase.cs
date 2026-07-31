@@ -19,6 +19,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private readonly AsyncLocal<LockToken?> holdsConnectionLock = new();
     private readonly ConcurrentDictionary<Type, TableMapping> tableMappings = [];
     private readonly ConcurrentDictionary<SQLiteDatabase, string> attachedDatabases = new();
+    private readonly List<SQLiteTransaction> activeSavepoints = [];
     private readonly PreparedStatementPool statementPool = new();
     private volatile bool modelFrozen;
     private bool disposed;
@@ -171,8 +172,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 
     internal long NativeRollbackCount { get; private set; }
 
-    internal long CommitGeneration { get; private set; }
-
     internal bool HasAttachedDatabases => attachedSchemaCount > 0;
 
     internal long AttachGeneration { get; private set; }
@@ -229,7 +228,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             return table;
         }
 
-        TableMapping created = tableMappings.GetOrAdd(type, new TableMapping(type, Options));
+        TableMapping created = tableMappings.GetOrAdd(type, new TableMapping(type, Options, ResolveMappedTableName));
         MarkFtsContentSource(created);
         return created;
     }
@@ -245,7 +244,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             return table;
         }
 
-        TableMapping created = tableMappings.GetOrAdd(typeof(T), new TableMapping(typeof(T), Options));
+        TableMapping created = tableMappings.GetOrAdd(typeof(T), new TableMapping(typeof(T), Options, ResolveMappedTableName));
         MarkFtsContentSource(created);
         return created;
     }
@@ -879,11 +878,6 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return ExecuteGroupingQuery<TKey, TElement>(expression);
     }
 
-    internal void NoteSavepointCommit()
-    {
-        CommitGeneration++;
-    }
-
     internal SQLiteBlobStream OpenBlobStreamWithLock(string tableName, string columnName, long rowid, bool writable, string schema, IDisposable connectionLock)
     {
         try
@@ -1040,9 +1034,60 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         return tableMappings.TryGetValue(type, out mapping);
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "Foreign key target types are entity types referenced by user code.")]
+    internal string ResolveMappedTableName(Type type)
+    {
+        return TableMapping(type).TableName;
+    }
+
+    internal void RegisterSavepoint(SQLiteTransaction transaction)
+    {
+        activeSavepoints.Add(transaction);
+    }
+
+    internal void CompleteSavepoint(SQLiteTransaction transaction, bool committedByOuter)
+    {
+        int index = activeSavepoints.IndexOf(transaction);
+        if (index < 0)
+        {
+            return;
+        }
+
+        for (int i = activeSavepoints.Count - 1; i > index; i--)
+        {
+            activeSavepoints[i].MarkCompletedByOuter(committedByOuter);
+            activeSavepoints.RemoveAt(i);
+        }
+
+        activeSavepoints.RemoveAt(index);
+    }
+
+    internal void RemoveSavepoint(SQLiteTransaction transaction)
+    {
+        activeSavepoints.Remove(transaction);
+    }
+
     internal bool TryGetAttachedSchema(SQLiteDatabase other, [NotNullWhen(true)] out string? schema)
     {
         return attachedDatabases.TryGetValue(other, out schema);
+    }
+
+    internal SQLiteOptions ResolveFilterOptions(string? schemaName)
+    {
+        if (schemaName == null || string.Equals(schemaName, "main", StringComparison.OrdinalIgnoreCase))
+        {
+            return Options;
+        }
+
+        foreach (KeyValuePair<SQLiteDatabase, string> entry in attachedDatabases)
+        {
+            if (string.Equals(entry.Value, schemaName, StringComparison.OrdinalIgnoreCase))
+            {
+                return entry.Key.Options;
+            }
+        }
+
+        return Options;
     }
 
     internal bool AnyAttachedDatabaseHasQueryFilters()

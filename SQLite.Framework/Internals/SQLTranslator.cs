@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace SQLite.Framework.Internals;
 
 /// <summary>
@@ -53,6 +55,8 @@ internal class SQLTranslator
 
     public bool LastSelectIsClient => queryableMethodVisitor.LastSelectIsClient;
 
+    public Dictionary<string, Expression>? PreviousSelectSourceColumns => queryableMethodVisitor.PreviousSelectSourceColumns;
+
     public bool ClientProjection => queryableMethodVisitor.ClientProjection;
 
     public Dictionary<ParameterExpression, Dictionary<string, Expression>> MethodArguments
@@ -104,6 +108,8 @@ internal class SQLTranslator
     }
 
     public bool EmitReturning { get; init; }
+
+    public bool SuppressSetOperationAlignment { get; set; }
 
     public bool OmitTableAlias
     {
@@ -170,10 +176,12 @@ internal class SQLTranslator
         bool useExists = queryableMethodVisitor.IsAny || queryableMethodVisitor.IsAll;
         bool hasSetOperations = queryableMethodVisitor.SetOperations.Count > 0;
 
-        if (hasSetOperations)
+        if (hasSetOperations && !SuppressSetOperationAlignment)
         {
             List<string> mainSelectIdentifiers = queryableMethodVisitor.Selects.Select(s => s.IdentifierText).ToList();
-            SetOperationAlignment.ThrowIfBranchMembersMisaligned(isInnerQuery, mainSelectIdentifiers, queryableMethodVisitor.SetOperandSelects);
+            Type setElementType = TypeHelpers.GetEnumerableElementType(queryableMethodVisitor.SetOperations[0].Sql.Type)!;
+            bool byNameMaterialization = !TypeHelpers.IsSimple(setElementType, database.Options);
+            SetOperationAlignment.ThrowIfBranchMembersMisaligned(byNameMaterialization, mainSelectIdentifiers, queryableMethodVisitor.SetOperandSelects);
         }
 
         if ((QueryType == QueryType.Select && (!useExists || hasSetOperations)) || EmitReturning)
@@ -410,7 +418,7 @@ internal class SQLTranslator
             Parameters = parameters,
             CreateObject = createObject,
             Reverse = queryableMethodVisitor.Reverse,
-            ClientDistinct = queryableMethodVisitor.IsDistinct && createObject != null,
+            ClientDistinct = queryableMethodVisitor.IsDistinct && (createObject != null || ReverseScalarDedup(queryableMethodVisitor)),
             ReverseBeforeDistinct = queryableMethodVisitor.ReverseBeforeDistinct,
             ClientTake = queryableMethodVisitor.ClientTake,
             ClientSkip = queryableMethodVisitor.ClientSkip,
@@ -478,6 +486,17 @@ internal class SQLTranslator
         parameters.Add(parameter);
     }
 
+    private bool ReverseScalarDedup(QueryableVisitor q)
+    {
+        if (!q.ReverseBeforeDistinct || q.Selects.Count != 1)
+        {
+            return false;
+        }
+
+        Type selectType = TypeHelpers.GetEnumerableElementType(q.Selects[0].Type)!;
+        return TypeHelpers.IsSimple(selectType, database.Options);
+    }
+
     private void WriteQuerySql(StringBuilder sb, QueryableVisitor q, string spacing, bool useExists, bool hasSetOperations)
     {
         bool first = true;
@@ -488,6 +507,20 @@ internal class SQLTranslator
                 $"{QueryType} with Take or Skip is not supported, because SQLite does not allow a row limit on DELETE or UPDATE.");
         }
 
+        if (QueryType is QueryType.Delete or QueryType.Update && hasSetOperations)
+        {
+            throw new NotSupportedException(
+                $"{QueryType} over a Concat, Union, Intersect or Except source is not supported, because a DELETE or " +
+                "UPDATE can only target one table and the combined rows are not a table. Filter the table directly instead.");
+        }
+
+        if (QueryType is QueryType.Delete or QueryType.Update && q.GroupBys.Count > 0)
+        {
+            throw new NotSupportedException(
+                $"{QueryType} over a grouped source is not supported, because the grouped rows no longer map to table rows. " +
+                "Filter the table directly instead.");
+        }
+
         // SELECT
         if (QueryType == QueryType.Select)
         {
@@ -496,7 +529,7 @@ internal class SQLTranslator
             bool clientDedup = q.ClientProjection
                 && (q.Take != null || q.Skip != null)
                 && !queryableMethodVisitor.SuppressSelectMaterializer;
-            if (q.IsDistinct && !clientDedup) sb.Append(" DISTINCT");
+            if (q.IsDistinct && !clientDedup && !ReverseScalarDedup(q)) sb.Append(" DISTINCT");
             sb.Append(' ');
             if (useExists && !hasSetOperations)
             {
@@ -831,6 +864,12 @@ internal class SQLTranslator
 
         while (true)
         {
+            if (QueryType is QueryType.Delete or QueryType.Update)
+            {
+                wrapIdx = -1;
+                break;
+            }
+
             bool[] isWindowProjection = new bool[methodCalls.Count];
             bool[] isSubqueryOrder = new bool[methodCalls.Count];
             for (int i = 0; i < methodCalls.Count; i++)
@@ -876,7 +915,7 @@ internal class SQLTranslator
             SQLTranslator innerTranslator = clientCheckedTranslator!;
             SQLQuery innerQuery = clientCheckedQuery!;
 
-            if (innerQuery.Reverse)
+            if (innerQuery.Reverse || innerQuery.ReverseBeforeDistinct)
             {
                 throw new NotSupportedException(
                     "Reverse() is not supported before an operator that needs a subquery, such as " +
@@ -900,6 +939,11 @@ internal class SQLTranslator
                     scalarLeaf.WithDayOfWeekInteger();
                 }
 
+                if (innerTranslator.Selects[0].IsJsonSource)
+                {
+                    scalarLeaf.WithJsonSource();
+                }
+
                 Visitor.TableColumns = new Dictionary<string, Expression>
                 {
                     [shape.Key] = scalarLeaf
@@ -912,7 +956,10 @@ internal class SQLTranslator
                     .GroupBy(s => s.IdentifierText)
                     .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
                 Dictionary<string, Expression> outerColumns = new();
-                foreach (PropertyInfo property in entityType.GetProperties())
+                List<PropertyInfo> wrapProperties = database.TryGetCachedTableMapping(entityType, out TableMapping? wrapMapping)
+                    ? [.. wrapMapping.Columns.Select(c => c.PropertyInfo)]
+                    : [.. entityType.GetProperties().Where(p => p.GetCustomAttribute<NotMappedAttribute>() == null)];
+                foreach (PropertyInfo property in wrapProperties)
                 {
                     bool flattened = false;
                     if (!TypeHelpers.IsSimple(property.PropertyType, database.Options))
@@ -926,6 +973,11 @@ internal class SQLTranslator
                                 if (innerSelect.Value.IsDayOfWeekInteger)
                                 {
                                     dottedLeaf.WithDayOfWeekInteger();
+                                }
+
+                                if (innerSelect.Value.IsJsonSource)
+                                {
+                                    dottedLeaf.WithJsonSource();
                                 }
 
                                 outerColumns[innerSelect.Key] = dottedLeaf;
@@ -947,9 +999,17 @@ internal class SQLTranslator
                     }
 
                     SQLiteExpression leaf = SQLiteExpression.Leaf(property.PropertyType, Visitor.Counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(property.Name)}");
-                    if (innerSelects.TryGetValue(property.Name, out SQLiteExpression? source) && source.IsDayOfWeekInteger)
+                    if (innerSelects.TryGetValue(property.Name, out SQLiteExpression? source))
                     {
-                        leaf.WithDayOfWeekInteger();
+                        if (source.IsDayOfWeekInteger)
+                        {
+                            leaf.WithDayOfWeekInteger();
+                        }
+
+                        if (source.IsJsonSource)
+                        {
+                            leaf.WithJsonSource();
+                        }
                     }
 
                     outerColumns[property.Name] = leaf;

@@ -72,8 +72,10 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - `Union`, `Intersect` and `Except` over a `ulong` column sort by the signed stored value, so a value at or above 2^63 sorts before a smaller value.
 - `GroupBy` returns groups in key order, not the first-seen order that LINQ-to-Objects uses.
 - `Reverse` on one side of a `Union`, `Concat`, `Except` or `Intersect` does not take effect, because SQLite has no row order to flip inside a combined query.
+- Branches of a `Union`, `Concat`, `Intersect` or `Except` that build an object must set the same members in the same order, also inside a common table expression. SQLite matches the branch values by position, so branches that set different members would put a value into the wrong member. The framework throws `NotSupportedException` instead.
 - After a `Union`, `Concat`, `Intersect` or `Except`, an `OrderBy`/`OrderByDescending`/`ThenBy` whose key is a computed expression (anything other than a bare column, such as `OrderBy(x => -x)`) is not supported and throws, because SQLite only allows a result column of the combined query, not an expression over it, in a compound `ORDER BY`.
 - `string.Join` over a query whose last step is `Reverse` is not supported and throws.
+- A common table expression body whose last steps are `Reverse` or `Reverse` followed by `Distinct` is not supported and throws, the same as a view body. The reverse only runs in memory after the query returns, so the expression cannot keep that order.
 
 ## Query operators
 
@@ -91,6 +93,7 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 - Inside a `GroupBy` projection, a `Select` on the group followed by `Distinct`, for example `g.Select(x => x.Name).Distinct().Count()` to count the distinct values in a group, is not supported and throws.
 - `string.Join` and `string.Concat` over a group concatenate the elements in the order SQLite scans the rows. An index over the grouped columns can change that order from the insertion order LINQ-to-Objects keeps.
 - `string.Join` and `string.Concat` over a group translate the group itself, an element `Select`, a `Where` filter and `Distinct` with a comma separator. Other chains, such as `ToList` or `Distinct` with another separator, are not supported and throw.
+- `string.Join` and `string.Concat` over a group `Distinct()` treat a `null` element and an empty string as the same value, so a group that holds both joins them as one entry.
 
 ## Joins and SelectMany
 
@@ -196,13 +199,13 @@ Where query behavior differs from LINQ-to-Objects. See [Storage Options](Storage
 ## Schema
 
 - An attribute foreign key (`[ReferencesTable]` or `[ForeignKey]`) reads the name of the column it points at on the target table from the target type, before the model builder runs. Renaming that target column with the fluent `HasColumnName` afterward does not reach the foreign key, so it keeps the old name and the table fails to accept rows.
-- A typed model trigger writes the SQL name of its target table when the trigger is declared. Renaming that target table with the fluent `ToTable` after the trigger is declared does not reach the trigger, so it still names the old table and fails when the trigger first fires.
 - A composite primary key cannot have an auto-increment member. SQLite only allows auto-increment on a single-column `INTEGER PRIMARY KEY`, so creating such a table throws.
 - Auto-increment is only allowed on a single-column `INTEGER PRIMARY KEY`. Marking a key of another type, such as a `string` key, as auto-increment throws when the table is created.
 - Migrating a column from nullable to NOT NULL fails when existing rows hold `NULL` and the column has no default. When the column has a default, the existing `NULL` rows are filled with that default.
 - Adding a column with a default value through `AddColumn` does not apply a custom converter's `ParameterSqlExpression` write wrap to that default, because SQLite's `ALTER TABLE ADD COLUMN` only accepts a constant default, not an expression. For a converter whose `ParameterSqlExpression` transforms the value (rather than the built-in `jsonb`, which reads back through `json()` either way), the backfilled default is stored unwrapped and reads back wrong.
 - Changing a storage mode option, such as `DecimalStorage`, `CharStorage` or a date or time storage mode, does not re-encode existing rows. A migration rebuild copies each stored value as it is, so a filter that binds the new form does not match the old rows until a data step rewrites them. An enum column moved between `Integer` and `Text` storage is re-encoded during the rebuild, except a `[Flags]` enum, which keeps its stored numbers.
 - A table rebuild fails when a referencing table holds rows that violate its foreign key. The rebuild moves the referencing rows out and back in while foreign keys stay enforced. SQLite rejects the violating rows on the way back.
+- A computed column, CHECK constraint, index expression or default expression cannot use `string.LastIndexOf` or `ulong` division and modulo. Their translations need a subquery and SQLite does not allow a subquery in these places.
 
 ## Writes
 

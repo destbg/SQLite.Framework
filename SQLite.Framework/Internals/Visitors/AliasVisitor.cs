@@ -407,10 +407,11 @@ internal class AliasVisitor
         }
         else
         {
-            (string path, ParameterExpression _) = ExpressionHelpers.ResolveParameterPath(memberExpression);
+            (string path, ParameterExpression parameter) = ExpressionHelpers.ResolveParameterPath(memberExpression);
+            Dictionary<string, Expression> sourceColumns = visitor.MethodArguments[parameter];
             string prefixToMatch = path + ".";
 
-            foreach (KeyValuePair<string, Expression> tableColumn in visitor.TableColumns)
+            foreach (KeyValuePair<string, Expression> tableColumn in sourceColumns)
             {
                 if (tableColumn.Key.StartsWith(prefixToMatch, StringComparison.Ordinal))
                 {
@@ -419,8 +420,8 @@ internal class AliasVisitor
                 }
             }
 
-            CarryConstructedSubPaths(prefix, visitor.TableColumns, prefixToMatch);
-            CarryOptionalRowFromPath(prefix, visitor.TableColumns, path);
+            CarryConstructedSubPaths(prefix, sourceColumns, prefixToMatch);
+            CarryOptionalRowFromPath(prefix, sourceColumns, path);
         }
     }
 

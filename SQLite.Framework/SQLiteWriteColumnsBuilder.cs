@@ -51,8 +51,14 @@ public sealed class SQLiteWriteColumnsBuilder<[DynamicallyAccessedMembers(Dynami
             ReferencesRow = true;
         }
 
+        if (ConverterSql.TryRawStoredColumnCopy(mapping, value, typeof(TValue), database.Options, out string? rawCopySql))
+        {
+            columns.Add((CommonHelpers.Resolve(mapping, column), rawCopySql));
+            return this;
+        }
+
         bool wrapWholeValue = ConverterSql.HasReadAndWriteWrap(typeof(TValue), database.Options);
-        string valueSql = BareSqlTranslator.Translate(database, mapping, value, wrapConverterReads: true);
+        string valueSql = BareSqlTranslator.Translate(database, mapping, value, wrapConverterReads: true, subqueryFree: false);
         if (wrapWholeValue || ExpressionHelpers.IsConstant(value.Body))
         {
             valueSql = ConverterSql.WrapParameter(valueSql, typeof(TValue), database.Options);

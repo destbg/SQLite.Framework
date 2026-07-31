@@ -119,6 +119,11 @@ internal partial class QueryableVisitor
                     newSqlExpression.WithDayOfWeekInteger();
                 }
 
+                if (sqlExpression.IsJsonSource)
+                {
+                    newSqlExpression.WithJsonSource();
+                }
+
                 if (!string.IsNullOrEmpty(tableColumn.Key))
                 {
                     newSqlExpression.IdentifierText = tableColumn.Key;
@@ -349,7 +354,9 @@ internal partial class QueryableVisitor
             }
 
             resultSelector = CommonHelpers.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
+            visitor.IsInSelectProjection = true;
             visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);
+            visitor.IsInSelectProjection = false;
         }
         else
         {
@@ -368,7 +375,9 @@ internal partial class QueryableVisitor
             visitor.MethodArguments[resultSelector.Parameters[1]] = newTableColumns;
 
             resultSelector = CommonHelpers.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
+            visitor.IsInSelectProjection = true;
             visitor.TableColumns = aliasVisitor.ResolveResultAlias(resultSelector);
+            visitor.IsInSelectProjection = false;
 
             Joins.Add(new JoinInfo
             {

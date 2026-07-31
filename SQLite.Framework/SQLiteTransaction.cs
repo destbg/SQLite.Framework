@@ -7,7 +7,8 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
 {
     private readonly bool ownsLock;
     private readonly long nativeRollbackCount;
-    private readonly long commitGeneration;
+    private bool consumedByOuterCommit;
+    private bool cancelledByOuterRollback;
     private bool completed;
     private bool disposed;
 
@@ -20,7 +21,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         SavepointName = savepointName;
         this.ownsLock = ownsLock;
         nativeRollbackCount = database.NativeRollbackCount;
-        commitGeneration = database.CommitGeneration;
+        database.RegisterSavepoint(this);
     }
 
     /// <summary>
@@ -54,11 +55,19 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         try
         {
             Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
-            Database.NoteSavepointCommit();
+            Database.CompleteSavepoint(this, committedByOuter: true);
         }
         catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))
         {
-            if (nativeRollbackCount != Database.NativeRollbackCount)
+            Database.RemoveSavepoint(this);
+            if (cancelledByOuterRollback)
+            {
+                throw new InvalidOperationException(
+                    "The savepoint was already rolled back by an outer transaction, so there is nothing to commit. " +
+                    "Complete inner transactions before rolling back the outer one.");
+            }
+
+            if (!consumedByOuterCommit && nativeRollbackCount != Database.NativeRollbackCount)
             {
                 throw new InvalidOperationException(
                     "The transaction was already rolled back by SQLite. A conflict resolution of Rollback " +
@@ -67,6 +76,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         }
         catch
         {
+            Database.CompleteSavepoint(this, committedByOuter: false);
             Database.ForceSavepointRollback(SavepointName);
             throw;
         }
@@ -98,10 +108,12 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         {
             Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
             Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
+            Database.CompleteSavepoint(this, committedByOuter: false);
         }
         catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))
         {
-            if (commitGeneration != Database.CommitGeneration)
+            Database.RemoveSavepoint(this);
+            if (consumedByOuterCommit)
             {
                 throw new InvalidOperationException(
                     "The savepoint was already committed by an outer transaction, so the rollback did not happen. " +
@@ -110,6 +122,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         }
         catch
         {
+            Database.CompleteSavepoint(this, committedByOuter: false);
             Database.ForceSavepointRollback(SavepointName);
             throw;
         }
@@ -139,12 +152,15 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
         {
             Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
             Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
+            Database.CompleteSavepoint(this, committedByOuter: false);
         }
         catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))
         {
+            Database.RemoveSavepoint(this);
         }
         catch
         {
+            Database.CompleteSavepoint(this, committedByOuter: false);
             Database.ForceSavepointRollback(SavepointName);
             throw;
         }
@@ -156,6 +172,18 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
             }
 
             Database.NotifyTransactionEnded();
+        }
+    }
+
+    internal void MarkCompletedByOuter(bool committed)
+    {
+        if (committed)
+        {
+            consumedByOuterCommit = true;
+        }
+        else
+        {
+            cancelledByOuterRollback = true;
         }
     }
 

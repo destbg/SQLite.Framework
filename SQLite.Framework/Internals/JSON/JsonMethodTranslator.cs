@@ -287,6 +287,12 @@ internal static class JsonMethodTranslator
                 nameof(Enumerable.Any) when dictionaryEntries => $"EXISTS(SELECT 1 FROM json_each({src}))",
                 nameof(Enumerable.Count) or nameof(Enumerable.LongCount) when dictionaryEntries =>
                     $"(SELECT COUNT(*) FROM json_each({src}))",
+                nameof(Enumerable.First) or nameof(Enumerable.FirstOrDefault) when dictionaryEntries =>
+                    $"(SELECT json_object('Key', \"key\", 'Value', \"value\") FROM json_each({src}) LIMIT 1)",
+                nameof(Enumerable.Last) or nameof(Enumerable.LastOrDefault) when dictionaryEntries =>
+                    $"(SELECT json_object('Key', \"key\", 'Value', \"value\") FROM json_each({src}) ORDER BY \"key\" DESC LIMIT 1)",
+                nameof(Enumerable.Single) or nameof(Enumerable.SingleOrDefault) when dictionaryEntries =>
+                    $"(SELECT CASE WHEN COUNT(*) = 1 THEN json_object('Key', MAX(\"key\"), 'Value', MAX(\"value\")) END FROM json_each({src}))",
                 nameof(Enumerable.Any) => $"json_array_length({src}) > 0",
                 nameof(Enumerable.Count) or nameof(Enumerable.LongCount) => $"json_array_length({src})",
                 nameof(Enumerable.First) or nameof(Enumerable.FirstOrDefault) => $"json_extract({src}, '$[0]')",

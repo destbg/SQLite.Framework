@@ -582,6 +582,11 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             return (baseSql, BindColumnsWithOverrides(baseColumns, item, extra, GetAutoIncrementColumn()));
         }
 
+        if (overriddenInfo && TrySpliceCustomInsert(baseSql, baseColumns, item, extra) is { } splicedInsert)
+        {
+            return splicedInsert;
+        }
+
         baseColumns = filteredColumns;
 
         TableColumn? autoIncrement = GetAutoIncrementColumn();
@@ -651,6 +656,11 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             }
 
             return (baseSql, substituted);
+        }
+
+        if (IsItemMethodOverridden(nameof(GetUpdateInfo)) && TrySpliceCustomUpdate(baseSql, baseColumns, primaryColumns, item, extra) is { } splicedUpdate)
+        {
+            return splicedUpdate;
         }
 
         HashSet<string> overridden = extra.Keys.ToHashSet();
@@ -1318,6 +1328,101 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     IEnumerator<T> IEnumerable<T>.GetEnumerator()
     {
         return Database.ExecuteSequenceQuery<T>(Expression).GetEnumerator();
+    }
+
+    private (string Sql, List<SQLiteParameter> Parameters)? TrySpliceCustomInsert(string baseSql, TableColumn[] baseColumns, T item, IDictionary<string, object?> extra)
+    {
+        int valuesIdx = baseSql.LastIndexOf(" VALUES (", StringComparison.OrdinalIgnoreCase);
+        if (valuesIdx < 0 || !baseSql.EndsWith(')'))
+        {
+            return null;
+        }
+
+        int namesClose = baseSql.LastIndexOf(')', valuesIdx);
+        if (namesClose < 0)
+        {
+            return null;
+        }
+
+        List<SQLiteParameter> parameters = BindColumnsWithOverrides(baseColumns, item, extra, GetAutoIncrementColumn());
+        StringBuilder extraNames = new();
+        StringBuilder extraValues = new();
+        int next = baseColumns.Length;
+        foreach (KeyValuePair<string, object?> entry in extra)
+        {
+            if (baseColumns.Any(c => c.Name == entry.Key))
+            {
+                continue;
+            }
+
+            string placeholder = $"@p{next++}";
+            parameters.Add(new SQLiteParameter { Name = placeholder, Value = entry.Value });
+            extraNames.Append(", ").Append(IdentifierGuard.Quote(entry.Key));
+            extraValues.Append(", ").Append(ConverterSql.WrapParameter(placeholder, entry.Value?.GetType() ?? typeof(object), Database.Options));
+        }
+
+        IReadOnlyList<(string Column, string ValueSql)> withColumns = ExtraWriteColumns;
+        if (withColumns.Count > 0)
+        {
+            ThrowIfExtraWriteColumnsReferenceRowOnInsert();
+            foreach ((string column, string valueSql) in withColumns)
+            {
+                if (extra.ContainsKey(column))
+                {
+                    continue;
+                }
+
+                extraNames.Append(", ").Append(IdentifierGuard.Quote(column));
+                extraValues.Append(", ").Append(valueSql);
+            }
+        }
+
+        string sql = baseSql
+            .Insert(baseSql.Length - 1, extraValues.ToString())
+            .Insert(namesClose, extraNames.ToString());
+        return (sql, parameters);
+    }
+
+    private (string Sql, List<SQLiteParameter> Parameters)? TrySpliceCustomUpdate(string baseSql, TableColumn[] baseColumns, TableColumn[] primaryColumns, T item, IDictionary<string, object?> extra)
+    {
+        int whereIdx = baseSql.LastIndexOf(" WHERE ", StringComparison.OrdinalIgnoreCase);
+        if (whereIdx < 0)
+        {
+            return null;
+        }
+
+        List<SQLiteParameter> parameters = BindColumnsWithOverrides(baseColumns, item, extra, autoIncrement: null);
+        int next = parameters.Count;
+        foreach (TableColumn primaryColumn in primaryColumns)
+        {
+            parameters.Add(new SQLiteParameter { Name = $"@p{next++}", Value = primaryColumn.PropertyInfo.GetValue(item) });
+        }
+
+        StringBuilder extraSets = new();
+        foreach (KeyValuePair<string, object?> entry in extra)
+        {
+            if (baseColumns.Any(c => c.Name == entry.Key))
+            {
+                continue;
+            }
+
+            string placeholder = $"@p{next++}";
+            parameters.Add(new SQLiteParameter { Name = placeholder, Value = entry.Value });
+            extraSets.Append(", ").Append(IdentifierGuard.Quote(entry.Key)).Append(" = ")
+                .Append(ConverterSql.WrapParameter(placeholder, entry.Value?.GetType() ?? typeof(object), Database.Options));
+        }
+
+        foreach ((string column, string valueSql) in ExtraWriteColumns)
+        {
+            if (extra.ContainsKey(column))
+            {
+                continue;
+            }
+
+            extraSets.Append(", ").Append(IdentifierGuard.Quote(column)).Append(" = ").Append(valueSql);
+        }
+
+        return (baseSql.Insert(whereIdx, extraSets.ToString()), parameters);
     }
 
     private int DispatchAction(SQLiteAction action, T item, IDictionary<string, object?> columns)

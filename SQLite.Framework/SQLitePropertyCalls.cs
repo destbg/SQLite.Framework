@@ -95,7 +95,9 @@ public class SQLitePropertyCalls<T>
                 "Compute the value first and pass it as a constant.");
         }
 
-        if (expr.IsDayOfWeekInteger && visitor.Database.Options.EnumStorage == EnumStorageMode.Text)
+        if (expr.IsDayOfWeekInteger
+            && targetColumn.PropertyType.IsEnum
+            && visitor.Database.Options.EnumStorage == EnumStorageMode.Text)
         {
             expr = EnumMemberVisitor.BuildEnumToNameText(visitor, targetColumn.PropertyType, expr);
         }
@@ -186,10 +188,12 @@ public class SQLitePropertyCalls<T>
             throw new ArgumentException($"Expression '{propertyGetter}' refers to a field, not a property.");
         }
 
-        if (target is MemberExpression && !property.DeclaringType!.IsAssignableFrom(targetMapping.Type))
+        if (target is MemberExpression
+            && !targetMapping.Type.IsAssignableFrom(target.Type)
+            && !target.Type.IsAssignableFrom(targetMapping.Type))
         {
             throw new ArgumentException(
-                $"Expression '{propertyGetter}' references '{property.DeclaringType.Name}.{property.Name}', " +
+                $"Expression '{propertyGetter}' references '{target.Type.Name}.{property.Name}', " +
                 $"but the target table is '{targetMapping.Type.Name}'. " +
                 $"In an UPDATE FROM, only columns of the target table can appear on the left side of Set.",
                 nameof(propertyGetter));

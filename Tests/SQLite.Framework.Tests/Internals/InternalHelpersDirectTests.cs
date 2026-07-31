@@ -2165,16 +2165,18 @@ public class InternalHelpersDirectTests
 #endif
 
     [Fact]
-    public void SetOperationAlignment_InnerQuery_IsSkipped()
+    public void SetOperationAlignment_SingleNamedMember_ThrowsOnlyForByNameMaterialization()
     {
         MethodInfo method = Type.GetType("SQLite.Framework.Internals.Helpers.SetOperationAlignment, SQLite.Framework")!
             .GetMethod("ThrowIfBranchMembersMisaligned", BindingFlags.Public | BindingFlags.Static)!;
-        List<string> main = ["Id", "Name"];
-        List<IReadOnlyList<string>> operands = [new List<string> { "Name", "Id" }];
+        List<string> main = ["Left"];
+        List<IReadOnlyList<string>> operands = [new List<string> { "Right" }];
 
-        Exception? ex = Record.Exception(() => method.Invoke(null, [true, main, operands]));
+        Exception? scalar = Record.Exception(() => method.Invoke(null, [false, main, operands]));
+        TargetInvocationException byName = Assert.Throws<TargetInvocationException>(() => method.Invoke(null, [true, main, operands]));
 
-        Assert.Null(ex);
+        Assert.Null(scalar);
+        Assert.IsType<NotSupportedException>(byName.InnerException);
     }
 
     [Fact]
@@ -2321,6 +2323,32 @@ public class InternalHelpersDirectTests
             Expression.MemberBind(holderProperty, Expression.Bind(valueProperty, Expression.Constant(1))));
 
         Assert.False((bool)method.Invoke(null, [body])!);
+    }
+
+    [Fact]
+    public void QueryCompilerVisitor_VisitBinary_CoalesceWithConversion_Throws()
+    {
+        ParameterExpression conversionParam = Expression.Parameter(typeof(DirectConvertibleValue), "v");
+        BinaryExpression node = Expression.Coalesce(
+            Expression.Constant(new DirectConvertibleValue { Value = 9 }, typeof(DirectConvertibleValue?)),
+            Expression.Constant(5L),
+            Expression.Lambda(Expression.Convert(conversionParam, typeof(long)), conversionParam));
+
+        QueryCompilerVisitor visitor = new(CompilerOptions);
+        CompiledExpression compiled = (CompiledExpression)visitor.Visit(node);
+
+        SQLiteQueryContext ctx = new();
+        Assert.Throws<NotSupportedException>(() => compiled.Call(ctx));
+    }
+}
+
+public struct DirectConvertibleValue
+{
+    public long Value { get; set; }
+
+    public static implicit operator long(DirectConvertibleValue value)
+    {
+        return value.Value;
     }
 }
 

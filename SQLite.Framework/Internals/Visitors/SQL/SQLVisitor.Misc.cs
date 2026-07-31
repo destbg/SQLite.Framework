@@ -18,6 +18,7 @@ internal partial class SQLVisitor
             MethodArguments[selfParam] = reference.Columns;
 
             SQLTranslator bodyTranslator = CloneDeeper(Level + 1);
+            bodyTranslator.SuppressSetOperationAlignment = true;
             SQLQuery bodyQuery = bodyTranslator.Translate(cteBody);
 
             bool hasClientMember = CteColumnMapper.HasClientBodyMember(bodyTranslator.Visitor.TableColumns);
@@ -242,7 +243,13 @@ internal partial class SQLVisitor
                 && resolved.SQLiteExpression.Type.GetGenericTypeDefinition() == typeof(SQLiteWindow<>)
                 && resolved.SQLiteExpression.Type.GetGenericArguments()[0] == node.Type)
             {
-                return SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters);
+                SQLiteExpression windowValue = SQLiteExpression.Alias(node.Type, Counters.NextIdentifier(), resolved.SQLiteExpression, resolved.SQLiteExpression.Parameters);
+                if (resolved.SQLiteExpression.IsDayOfWeekInteger)
+                {
+                    windowValue.WithDayOfWeekInteger();
+                }
+
+                return windowValue;
             }
             else if ((Nullable.GetUnderlyingType(node.Type) ?? node.Type) == typeof(char)
                 && (Nullable.GetUnderlyingType(resolved.SQLiteExpression.Type) ?? resolved.SQLiteExpression.Type) is { } charSourceType
@@ -261,7 +268,7 @@ internal partial class SQLVisitor
 
                 return Nullable.GetUnderlyingType(node.Type) == null
                     ? SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CHAR((", charSource, $") & {Constants.UInt16Mask})", charSource.Parameters)
-                    : CommonHelpers.EvaluateOnce(Counters, node.Type, [charSource], v =>
+                    : CommonHelpers.EvaluateOnce(this, node.Type, [charSource], v =>
                         SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
                             ["(CASE WHEN ", " IS NULL THEN NULL ELSE CHAR((", $") & {Constants.UInt16Mask}) END)"],
                             [v[0], v[0]],
@@ -314,7 +321,7 @@ internal partial class SQLVisitor
 
                 if (IsUlongSource(enumUnderlying) && IsRealTarget(node.Type))
                 {
-                    return CommonHelpers.EvaluateOnce(Counters, node.Type, [numberExpr], v =>
+                    return CommonHelpers.EvaluateOnce(this, node.Type, [numberExpr], v =>
                         SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
                             ["(CAST(", " AS REAL) + (CASE WHEN ", $" < 0 THEN {Constants.UInt64ToRealOffset} ELSE 0 END))"],
                             [v[0], v[0]],
@@ -422,6 +429,7 @@ internal partial class SQLVisitor
             string finalName = $"cte{CteRegistry.Ctes.Count}";
             string fixedSql = recursive.Query.Sql.Replace(placeholder, finalName);
 
+            Dictionary<string, Expression>? recursiveNodes = CteColumnMapper.BodyConstructedNodes(recursive.Translator.Visitor);
             cteName = CteRegistry.Register(
                 fixedSql,
                 recursive.Query.Parameters.Count == 0 ? null : [.. recursive.Query.Parameters],
@@ -431,8 +439,9 @@ internal partial class SQLVisitor
                 dayOfWeekColumns: recursive.DayOfWeekColumns,
                 jsonSourceColumns: recursive.JsonSourceColumns,
                 constructedPaths: CteColumnMapper.BodyConstructedPaths(recursive.Translator.Visitor),
+                constructedNodes: recursiveNodes,
                 bodyColumns: recursive.HasClientMember ? recursive.Translator.Visitor.TableColumns : null,
-                bodySelects: recursive.HasClientMember ? recursive.Translator.Selects : null,
+                bodySelects: recursive.HasClientMember || recursiveNodes != null ? recursive.Translator.Selects : null,
                 emittedColumns: CteColumnMapper.EmittedColumnNames(recursive.ColumnNames, recursive.Translator.Selects),
                 optionalRow: recursive.Translator.Visitor.OptionalRowColumns.Contains(recursive.Translator.Visitor.TableColumns),
                 optionalRowPaths: recursive.Translator.Visitor.OptionalRowPaths.TryGetValue(recursive.Translator.Visitor.TableColumns, out HashSet<string>? recursiveOptionalPaths)
@@ -446,6 +455,13 @@ internal partial class SQLVisitor
         {
             SQLTranslator bodyTranslator = CloneDeeper(Level + 1);
             SQLQuery bodyQuery = bodyTranslator.Translate(cteBody);
+
+            if (bodyQuery.Reverse || bodyQuery.ReverseBeforeDistinct)
+            {
+                throw new NotSupportedException(
+                    "The common table expression body ends with Reverse(), which only runs in memory after the query returns, " +
+                    "so the expression cannot keep that order. Use OrderByDescending instead.");
+            }
 
             string[]? bodyColumnNames = CteColumnMapper.DeclaredColumnNames(
                 elementType, bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects, Database.Options);

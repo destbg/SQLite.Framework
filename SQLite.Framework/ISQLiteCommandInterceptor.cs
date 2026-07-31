@@ -40,8 +40,7 @@ public interface ISQLiteCommandInterceptor
 
     /// <summary>
     /// Called when a <see cref="SQLiteDataReader" /> is disposed, after the caller has read from it.
-    /// <see cref="OnExecuted" /> fires when the reader is ready, before any rows are read, so it
-    /// cannot report how long reading took or how many rows came back. This fires at the end and
+    /// <see cref="OnExecuted" /> does not report how many rows came back. This fires at the end and
     /// carries <paramref name="readCount" />, the number of rows the caller actually read.
     /// </summary>
     void OnReaderClosing(SQLiteCommand command, SQLiteDataReader reader, int readCount);

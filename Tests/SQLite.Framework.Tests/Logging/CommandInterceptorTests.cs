@@ -116,9 +116,11 @@ public class CommandInterceptorTests
             new SQLiteParameter { Name = "@blob", Value = new byte[] { 1, 2, 3 } },
             new SQLiteParameter { Name = "@nil", Value = null },
         ]);
-        using SQLiteDataReader reader = cmd.ExecuteReader();
-        while (reader.Read())
+        using (SQLiteDataReader reader = cmd.ExecuteReader())
         {
+            while (reader.Read())
+            {
+            }
         }
 
         string line = log.Single(l => l.Contains("SELECT @s"));

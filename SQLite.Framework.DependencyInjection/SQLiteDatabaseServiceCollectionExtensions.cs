@@ -114,9 +114,16 @@ public static class SQLiteDatabaseServiceCollectionExtensions
             typeof(ISQLiteDatabaseFactory<TDatabase>),
             sp => new SQLiteDatabaseFactory<TDatabase>(sp, sp.GetRequiredKeyedService<SQLiteOptions>(typeof(TDatabase)), migrations),
             lifetime));
-        services.Add(new ServiceDescriptor(typeof(SQLiteOptions), sp => sp.GetRequiredKeyedService<SQLiteOptions>(typeof(TDatabase)), lifetime));
+        services.Add(new ServiceDescriptor(typeof(SQLiteOptions), sp => ResolveConfiguredOptions<TDatabase>(sp), lifetime));
 
         return services;
+    }
+
+    private static SQLiteOptions ResolveConfiguredOptions<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TDatabase>(IServiceProvider sp)
+        where TDatabase : SQLiteDatabase
+    {
+        using TDatabase probe = ActivatorUtilities.CreateInstance<TDatabase>(sp, sp.GetRequiredKeyedService<SQLiteOptions>(typeof(TDatabase)));
+        return probe.Options;
     }
 
     private static TDatabase CreateDatabase<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TDatabase>(IServiceProvider sp, Action<SQLiteMigrationRunner>? migrations)

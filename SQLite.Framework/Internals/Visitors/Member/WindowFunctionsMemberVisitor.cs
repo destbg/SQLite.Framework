@@ -88,6 +88,11 @@ internal static class WindowFunctionsMemberVisitor
             }
 
             arguments[0] = CoalesceLiftedValueArgument(visitor, node.Arguments[0], arguments[0]);
+
+            if (node.Method.Name is nameof(SQLiteWindowFunctions.Min) or nameof(SQLiteWindowFunctions.Max))
+            {
+                arguments[0] = arguments[0] with { SQLiteExpression = visitor.CastTextDecimalForOrdering(arguments[0].SQLiteExpression!) };
+            }
         }
 
         SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(arguments
@@ -207,14 +212,14 @@ internal static class WindowFunctionsMemberVisitor
     private static SQLiteExpression BuildOverChain(SQLVisitor visitor, Type t, int id, MethodCallExpression node, ResolvedModel prev, string sep, ResolvedModel arg, SQLiteParameter[]? parameters)
     {
         EnsureClauseBeforeFrame(prev, node.Method.Name);
-        SQLiteExpression key = visitor.CoalesceLiftedOrderComparison(node.Arguments[0], RequireKeyExpression(arg));
+        SQLiteExpression key = visitor.CastTextDecimalForOrdering(visitor.CoalesceLiftedOrderComparison(node.Arguments[0], RequireKeyExpression(arg)));
         return SQLiteExpression.Lambda(t, id, sb => WriteOverChain(sb, prev, sep, key), parameters);
     }
 
     private static SQLiteExpression BuildOverChainOrderBy(SQLVisitor visitor, Type t, int id, MethodCallExpression node, ResolvedModel prev, string sep, ResolvedModel arg, string direction, bool allowUlongSplit, SQLiteParameter[]? parameters)
     {
         EnsureClauseBeforeFrame(prev, node.Method.Name);
-        SQLiteExpression key = visitor.CoalesceLiftedOrderComparison(node.Arguments[0], RequireKeyExpression(arg));
+        SQLiteExpression key = visitor.CastTextDecimalForOrdering(visitor.CoalesceLiftedOrderComparison(node.Arguments[0], RequireKeyExpression(arg)));
         return SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, prev, sep, key, direction, allowUlongSplit), parameters);
     }
 
@@ -438,12 +443,36 @@ internal static class WindowFunctionsMemberVisitor
     {
         int start = sb.Length;
         prev.SQLiteExpression!.WriteSqlTo(sb);
-        int overIndex = start + sb.ToString(start, sb.Length - start).IndexOf(" OVER (", StringComparison.Ordinal);
+        int overIndex = start + IndexOfUnquoted(sb.ToString(start, sb.Length - start), " OVER (");
 
         StringBuilder clause = StringBuilderPool.Rent();
         clause.Append(" FILTER (WHERE ");
         predicate.SQLiteExpression!.WriteSqlTo(clause);
         clause.Append(')');
         sb.Insert(overIndex, StringBuilderPool.ToStringAndReturn(clause));
+    }
+
+    private static int IndexOfUnquoted(string sql, string needle)
+    {
+        bool inQuotedName = false;
+        bool inLiteral = false;
+        for (int i = 0; i <= sql.Length - needle.Length; i++)
+        {
+            char c = sql[i];
+            if (c == '"' && !inLiteral)
+            {
+                inQuotedName = !inQuotedName;
+            }
+            else if (c == '\'' && !inQuotedName)
+            {
+                inLiteral = !inLiteral;
+            }
+            else if (!inQuotedName && !inLiteral && string.CompareOrdinal(sql, i, needle, 0, needle.Length) == 0)
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 }

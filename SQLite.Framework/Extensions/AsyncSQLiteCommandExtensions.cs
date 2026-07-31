@@ -39,16 +39,6 @@ public static class AsyncSQLiteCommandExtensions
             throw;
         }
 
-        try
-        {
-            command.NotifyExecuted(rowsAffected: null);
-        }
-        catch
-        {
-            reader.Dispose();
-            throw;
-        }
-
         return reader;
     }
 

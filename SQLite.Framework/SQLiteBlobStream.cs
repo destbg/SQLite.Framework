@@ -168,6 +168,7 @@ public sealed class SQLiteBlobStream : Stream
     /// <inheritdoc />
     public override void Flush()
     {
+        ThrowIfDisposed();
     }
 
     /// <inheritdoc />

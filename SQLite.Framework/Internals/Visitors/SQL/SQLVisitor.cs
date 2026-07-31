@@ -155,11 +155,6 @@ internal partial class SQLVisitor : ExpressionVisitor
         };
     }
 
-    public void RebindTableColumns(TableMapping tableMapping)
-    {
-        TableColumns = BuildTableColumns(tableMapping, From!.ToString());
-    }
-
     public Expression ResolveMember(Expression node)
     {
         (string path, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(node);

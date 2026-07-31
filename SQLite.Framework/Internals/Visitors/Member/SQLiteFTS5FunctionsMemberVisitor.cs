@@ -96,13 +96,14 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
 
     private static SQLiteExpression WrapMatchForContext(SQLVisitor visitor, MethodCallExpression node, string tableName, SQLiteExpression match)
     {
-        if (!visitor.FtsMatchAsSubquery)
+        if (!visitor.FtsMatchAsSubquery && !visitor.IsInSelectProjection)
         {
             return match;
         }
 
         Expression entity = node.Arguments[0];
-        if (entity is MemberExpression { Expression: not null } columnAccess)
+        bool firstIsColumn = node.Method.GetParameters()[0].ParameterType == typeof(string);
+        if (firstIsColumn && entity is MemberExpression { Expression: not null } columnAccess)
         {
             entity = columnAccess.Expression;
         }

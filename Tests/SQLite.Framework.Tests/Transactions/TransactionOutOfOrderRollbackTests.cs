@@ -20,15 +20,13 @@ public class TransactionOutOfOrderRollbackTests
     }
 
     [Fact]
-    public void InnerCommitAfterOuterRollbackDoesNotThrow()
+    public void InnerCommitAfterOuterRollbackReportsTheRollback()
     {
         using TestDatabase db = new();
         SQLiteTransaction outer = db.BeginTransaction();
         SQLiteTransaction inner = db.BeginTransaction();
         outer.Rollback();
 
-        Exception? ex = Record.Exception(() => inner.Commit());
-
-        Assert.Null(ex);
+        Assert.Throws<InvalidOperationException>(() => inner.Commit());
     }
 }

@@ -8,13 +8,8 @@ namespace SQLite.Framework.Internals.Helpers;
 /// </summary>
 internal static class SetOperationAlignment
 {
-    public static void ThrowIfBranchMembersMisaligned(bool isInnerQuery, IReadOnlyList<string> selectIdentifiers, IReadOnlyList<IReadOnlyList<string>> operandSelects)
+    public static void ThrowIfBranchMembersMisaligned(bool byNameMaterialization, IReadOnlyList<string> selectIdentifiers, IReadOnlyList<IReadOnlyList<string>> operandSelects)
     {
-        if (isInnerQuery)
-        {
-            return;
-        }
-
         if (operandSelects.Count == 0)
         {
             return;
@@ -22,7 +17,7 @@ internal static class SetOperationAlignment
 
         foreach (IReadOnlyList<string> operand in operandSelects)
         {
-            if (selectIdentifiers.Count < 2 && operand.Count < 2)
+            if (selectIdentifiers.Count < 2 && operand.Count < 2 && !byNameMaterialization)
             {
                 continue;
             }

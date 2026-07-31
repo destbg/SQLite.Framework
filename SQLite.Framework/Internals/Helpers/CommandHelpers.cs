@@ -76,8 +76,14 @@ internal static class CommandHelpers
 
         if (value is string storedText && IsNativeNumericTarget(type))
         {
-            double prefix = TextToStoredDouble(storedText);
-            value = type == typeof(double) || type == typeof(float) ? prefix : DoubleToInt64(prefix);
+            if (type == typeof(double) || type == typeof(float))
+            {
+                value = TextToStoredDouble(storedText);
+            }
+            else
+            {
+                value = TextToStoredInt64(storedText);
+            }
         }
 
         if (value is double fractionalValue && TryTruncateToInteger(fractionalValue, type, out object? truncated))
@@ -251,7 +257,10 @@ internal static class CommandHelpers
     {
         if (columnType == SQLiteColumnType.Text)
         {
-            return decimal.Parse(raw.sqlite3_column_text(statement, index).utf8_to_string(), NumberStyles.Any, CultureInfo.InvariantCulture);
+            string decimalText = raw.sqlite3_column_text(statement, index).utf8_to_string();
+            return decimal.TryParse(decimalText, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal exact)
+                ? exact
+                : (decimal)TextToStoredDouble(decimalText);
         }
 
         double d = columnType == SQLiteColumnType.Real
@@ -375,7 +384,7 @@ internal static class CommandHelpers
         }
         else if (type == typeof(uint))
         {
-            truncated = checked((uint)value);
+            truncated = value < 0 ? unchecked((uint)DoubleToInt64(value)) : checked((uint)value);
         }
         else if (type == typeof(ulong))
         {
@@ -422,7 +431,8 @@ internal static class CommandHelpers
 
     private static double TextToStoredDouble(string text)
     {
-        int end = 0;
+        int start = SkipStoredTextSpace(text);
+        int end = start;
         if (end < text.Length && (text[end] == '+' || text[end] == '-'))
         {
             end++;
@@ -460,6 +470,58 @@ internal static class CommandHelpers
             }
         }
 
-        return double.TryParse(text[..end], NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed) ? parsed : 0d;
+        return double.TryParse(text[start..end], NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed) ? parsed : 0d;
+    }
+
+    private static long TextToStoredInt64(string text)
+    {
+        int i = SkipStoredTextSpace(text);
+        bool negative = false;
+        if (i < text.Length && (text[i] == '+' || text[i] == '-'))
+        {
+            negative = text[i] == '-';
+            i++;
+        }
+
+        while (i < text.Length && text[i] == '0')
+        {
+            i++;
+        }
+
+        ulong magnitude = 0;
+        int digits = 0;
+        while (i < text.Length && char.IsAsciiDigit(text[i]))
+        {
+            if (digits < 19)
+            {
+                magnitude = magnitude * 10 + (ulong)(text[i] - '0');
+            }
+
+            digits++;
+            i++;
+        }
+
+        if (digits > 19 || magnitude > long.MaxValue)
+        {
+            if (negative && magnitude == (ulong)long.MaxValue + 1 && digits <= 19)
+            {
+                return long.MinValue;
+            }
+
+            return negative ? long.MinValue : long.MaxValue;
+        }
+
+        return negative ? -(long)magnitude : (long)magnitude;
+    }
+
+    private static int SkipStoredTextSpace(string text)
+    {
+        int i = 0;
+        while (i < text.Length && text[i] is ' ' or '\t' or '\n' or '\v' or '\f' or '\r')
+        {
+            i++;
+        }
+
+        return i;
     }
 }

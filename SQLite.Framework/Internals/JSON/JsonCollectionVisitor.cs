@@ -150,7 +150,8 @@ internal partial class JsonCollectionVisitor
             string jsonName = CommonHelpers.JsonPathSegment(CommonHelpers.JsonMemberName(type, prop, options));
             string jsonKey = atRoot ? jsonName : $"{jsonPrefix}.{jsonName}";
 
-            if (TypeHelpers.IsSimple(prop.PropertyType, options))
+            if (TypeHelpers.IsSimple(prop.PropertyType, options)
+                || TypeHelpers.GetEnumerableElementType(prop.PropertyType) != null)
             {
                 string sql = $"json_extract({valueSql}, {CommonHelpers.JsonExtractPathLiteral(jsonKey)})";
                 dict[dictKey] = SQLiteExpression.Leaf(prop.PropertyType, -1, sql, null).WithJsonSource();

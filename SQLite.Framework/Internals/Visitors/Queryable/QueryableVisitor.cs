@@ -209,6 +209,7 @@ internal partial class QueryableVisitor
                         string finalName = $"cte{visitor.CteRegistry.Ctes.Count}";
                         string fixedSql = recursive.Query.Sql.Replace(placeholder, finalName);
 
+                        Dictionary<string, Expression>? recursiveNodes = CteColumnMapper.BodyConstructedNodes(recursive.Translator.Visitor);
                         cteName = visitor.CteRegistry.Register(
                             fixedSql,
                             recursive.Query.Parameters.ToArray(),
@@ -218,8 +219,9 @@ internal partial class QueryableVisitor
                             dayOfWeekColumns: recursive.DayOfWeekColumns,
                             jsonSourceColumns: recursive.JsonSourceColumns,
                             constructedPaths: CteColumnMapper.BodyConstructedPaths(recursive.Translator.Visitor),
+                            constructedNodes: recursiveNodes,
                             bodyColumns: recursive.HasClientMember ? recursive.Translator.Visitor.TableColumns : null,
-                            bodySelects: recursive.HasClientMember ? recursive.Translator.Selects : null,
+                            bodySelects: recursive.HasClientMember || recursiveNodes != null ? recursive.Translator.Selects : null,
                             emittedColumns: CteColumnMapper.EmittedColumnNames(recursive.ColumnNames, recursive.Translator.Selects),
                             optionalRow: recursive.Translator.Visitor.OptionalRowColumns.Contains(recursive.Translator.Visitor.TableColumns),
                             optionalRowPaths: recursive.Translator.Visitor.OptionalRowPaths.TryGetValue(recursive.Translator.Visitor.TableColumns, out HashSet<string>? recursiveOptionalPaths)
@@ -233,6 +235,13 @@ internal partial class QueryableVisitor
                     {
                         SQLTranslator bodyTranslator = visitor.CloneDeeper(visitor.Level + 1);
                         SQLQuery bodyQuery = bodyTranslator.Translate(cteBody);
+
+                        if (bodyQuery.Reverse || bodyQuery.ReverseBeforeDistinct)
+                        {
+                            throw new NotSupportedException(
+                                "The common table expression body ends with Reverse(), which only runs in memory after the query returns, " +
+                                "so the expression cannot keep that order. Use OrderByDescending instead.");
+                        }
 
                         string[]? bodyColumnNames = CteColumnMapper.DeclaredColumnNames(
                             cteElementType, bodyTranslator.Visitor.TableColumns, bodyTranslator.Selects, database.Options);
@@ -318,6 +327,11 @@ internal partial class QueryableVisitor
                     scalarLeaf.WithDayOfWeekInteger();
                 }
 
+                if (innerVisitor.Selects[0].IsJsonSource)
+                {
+                    scalarLeaf.WithJsonSource();
+                }
+
                 newTableColumns = new Dictionary<string, Expression>
                 {
                     [shape.Key] = scalarLeaf
@@ -341,8 +355,28 @@ internal partial class QueryableVisitor
                         leaf.WithDayOfWeekInteger();
                     }
 
+                    if (select.IsJsonSource)
+                    {
+                        leaf.WithJsonSource();
+                    }
+
                     newTableColumns[columnName] = leaf;
                 }
+            }
+
+            if (innerVisitor.Visitor.OptionalRowColumns.Contains(innerVisitor.Visitor.TableColumns))
+            {
+                visitor.OptionalRowColumns.Add(newTableColumns);
+            }
+
+            if (innerVisitor.Visitor.OptionalRowPaths.TryGetValue(innerVisitor.Visitor.TableColumns, out HashSet<string>? innerOptionalPaths))
+            {
+                visitor.OptionalRowPaths[newTableColumns] = [.. innerOptionalPaths];
+            }
+
+            if (innerVisitor.Visitor.ConstructedProjectionPaths.TryGetValue(innerVisitor.Visitor.TableColumns, out HashSet<string>? innerConstructedPaths))
+            {
+                visitor.ConstructedProjectionPaths[newTableColumns] = [.. innerConstructedPaths];
             }
 
             visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = alias };
