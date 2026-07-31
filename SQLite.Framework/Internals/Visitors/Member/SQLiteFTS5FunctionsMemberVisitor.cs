@@ -103,9 +103,12 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
 
         Expression entity = node.Arguments[0];
         bool firstIsColumn = node.Method.GetParameters()[0].ParameterType == typeof(string);
-        if (firstIsColumn && entity is MemberExpression { Expression: not null } columnAccess)
+        if (firstIsColumn)
         {
-            entity = columnAccess.Expression;
+            MemberExpression columnAccess = entity is UnaryExpression convert
+                ? (MemberExpression)convert.Operand
+                : (MemberExpression)entity;
+            entity = columnAccess.Expression!;
         }
 
         string alias = ResolveEntityAlias(visitor, entity);

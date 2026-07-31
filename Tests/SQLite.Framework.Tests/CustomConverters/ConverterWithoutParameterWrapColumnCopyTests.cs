@@ -54,6 +54,17 @@ public class H26pScoreUpsertRow
     public H26pScore Mirror { get; set; }
 }
 
+[Table("H26pScoreNullableRows")]
+public class H26pScoreNullableRow
+{
+    [Key]
+    public int Id { get; set; }
+
+    public H26pScore? Score { get; set; }
+
+    public H26pScore? Mirror { get; set; }
+}
+
 public class ConverterWithoutParameterWrapColumnCopyTests
 {
     [Fact]
@@ -108,6 +119,32 @@ public class ConverterWithoutParameterWrapColumnCopyTests
         Assert.Equal(expected, actual);
     }
 
+    [Fact]
+    public void WithColumnsCopyingANullableConverterColumnKeepsTheValue()
+    {
+        using TestDatabase db = new(
+            b => b.AddTypeConverter<H26pScore>(new H26pScoreConverter()),
+            nameof(WithColumnsCopyingANullableConverterColumnKeepsTheValue));
+        db.Table<H26pScoreNullableRow>().Schema.CreateTable();
+        db.Table<H26pScoreNullableRow>().AddRange(NullableRows());
+
+        foreach (H26pScoreNullableRow row in NullableRows())
+        {
+            db.Table<H26pScoreNullableRow>()
+                .WithColumns(c => c.Set(r => r.Mirror, r => r.Score))
+                .Update(row);
+        }
+
+        List<int?> expected = NullableRows().OrderBy(r => r.Id).Select(r => r.Score?.N).ToList();
+        List<int?> actual = db.Table<H26pScoreNullableRow>()
+            .OrderBy(r => r.Id)
+            .ToList()
+            .Select(r => r.Mirror?.N)
+            .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
     private static List<H26pScoreRow> Rows()
     {
         return
@@ -123,6 +160,16 @@ public class ConverterWithoutParameterWrapColumnCopyTests
         [
             new H26pScoreUpsertRow { Id = 1, Score = new H26pScore(7) },
             new H26pScoreUpsertRow { Id = 2, Score = new H26pScore(42) }
+        ];
+    }
+
+    private static List<H26pScoreNullableRow> NullableRows()
+    {
+        return
+        [
+            new H26pScoreNullableRow { Id = 1, Score = new H26pScore(7) },
+            new H26pScoreNullableRow { Id = 2, Score = null },
+            new H26pScoreNullableRow { Id = 3, Score = new H26pScore(0) }
         ];
     }
 }

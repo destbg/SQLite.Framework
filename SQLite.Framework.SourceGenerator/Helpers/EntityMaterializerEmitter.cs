@@ -1191,12 +1191,15 @@ public static class EntityMaterializerEmitter
 
         string propTypeDisplay = propType.ToDisplayString();
         string strippedDisplay = nestedType.ToDisplayString();
+        bool nullableValue = SelectMaterializerEmitter.IsNullableValueType(propType);
+        string readTypeDisplay = nullableValue ? propTypeDisplay : strippedDisplay;
+        string nullFallback = nullableValue ? "null" : nestedResult;
 
         sb.Append(indent).Append(propTypeDisplay).Append(" ").Append(valueLocal).AppendLine(";");
         sb.Append(indent).Append("if (").Append(flatIdx).AppendLine(" >= 0)");
         sb.Append(indent).AppendLine("{");
-        sb.Append(indent).Append("    object? __craw_").Append(localSuffix).Append(" = reader.GetValue(").Append(flatIdx).Append(", reader.GetColumnType(").Append(flatIdx).Append("), typeof(").Append(strippedDisplay).AppendLine("));");
-        sb.Append(indent).Append("    ").Append(valueLocal).Append(" = __craw_").Append(localSuffix).Append(" != null ? (").Append(propTypeDisplay).Append(")__craw_").Append(localSuffix).Append(" : ").Append(nestedResult).AppendLine(";");
+        sb.Append(indent).Append("    object? __craw_").Append(localSuffix).Append(" = reader.GetValue(").Append(flatIdx).Append(", reader.GetColumnType(").Append(flatIdx).Append("), typeof(").Append(readTypeDisplay).AppendLine("));");
+        sb.Append(indent).Append("    ").Append(valueLocal).Append(" = __craw_").Append(localSuffix).Append(" != null ? (").Append(propTypeDisplay).Append(")__craw_").Append(localSuffix).Append(" : ").Append(nullFallback).AppendLine(";");
         sb.Append(indent).AppendLine("}");
         sb.Append(indent).AppendLine("else");
         sb.Append(indent).AppendLine("{");

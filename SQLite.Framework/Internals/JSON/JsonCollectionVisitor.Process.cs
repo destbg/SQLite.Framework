@@ -498,8 +498,7 @@ internal partial class JsonCollectionVisitor
 
     private void SelectGroupKeyForGroupingResult()
     {
-        if ((groupBys.Count > 0 || groupWindowMaterialized)
-            && groupKeySql != null
+        if (groupKeySql != null
             && currentElementType.IsGenericType
             && currentElementType.GetGenericTypeDefinition() == typeof(IGrouping<,>))
         {

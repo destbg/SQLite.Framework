@@ -1229,6 +1229,44 @@ public class InternalHelpersDirectTests
     }
 
     [Fact]
+    public void MethodVisitor_HandleFTS5Match_ColumnViaConvertAsSubquery_WrapsRowIdFilter()
+    {
+        using TestDatabase db = new();
+        db.Table<SQLite.Framework.Tests.Entities.Article>().Schema.CreateTable();
+        db.Table<SQLite.Framework.Tests.Entities.ArticleSearch>().Schema.CreateTable();
+
+        SQLVisitor sqlVisitor = new(db, new SQLiteCounters(), 0)
+        {
+            FtsMatchAsSubquery = true
+        };
+
+        ParameterExpression pe = Expression.Parameter(typeof(SQLite.Framework.Tests.Entities.ArticleSearch), "a");
+        sqlVisitor.MethodArguments[pe] = new Dictionary<string, Expression>
+        {
+            ["Title"] = SQLiteExpression.Leaf(typeof(string), 0, "a0.Title")
+        };
+
+        MemberExpression titleMember = Expression.Property(pe, nameof(SQLite.Framework.Tests.Entities.ArticleSearch.Title));
+        UnaryExpression convert = Expression.Convert(titleMember, typeof(string));
+
+        MethodInfo matchMethod = typeof(SQLiteFTS5Functions).GetMethods()
+            .First(m => m.Name == nameof(SQLiteFTS5Functions.Match)
+                && m.GetParameters().Length == 2
+                && m.GetParameters()[0].ParameterType == typeof(string)
+                && m.GetParameters()[1].ParameterType == typeof(string));
+
+        MethodInfo handleMatch = typeof(SQLiteFTS5FunctionsMemberVisitor).GetMethod("HandleFTS5Match", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        MethodCallExpression mce = Expression.Call(matchMethod, convert, Expression.Constant("hello"));
+
+        SQLiteExpression result = (SQLiteExpression)handleMatch.Invoke(null, [sqlVisitor, mce])!;
+
+        Assert.Equal("a0.\"rowid\" IN (SELECT \"rowid\" FROM \"ArticleSearch\" WHERE \"ArticleSearch\" MATCH @p0)", result.ToString());
+        SQLiteParameter parameter = Assert.Single(result.Parameters!);
+        Assert.Equal("{Title} : (hello)", parameter.Value);
+    }
+
+    [Fact]
     public void MethodVisitor_ResolveFTS5ColumnIndex_ConvertWrappedMember_Resolves()
     {
         using TestDatabase db = new();
