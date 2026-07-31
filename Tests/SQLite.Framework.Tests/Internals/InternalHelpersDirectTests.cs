@@ -2326,6 +2326,89 @@ public class InternalHelpersDirectTests
     }
 
     [Fact]
+    public void CommandHelpers_TextToStoredInt64_SkipsEveryStoredSpaceKind()
+    {
+        MethodInfo method = typeof(CommandHelpers).GetMethod("TextToStoredInt64", BindingFlags.NonPublic | BindingFlags.Static)!;
+
+        Assert.Equal(7L, method.Invoke(null, [" 7"]));
+        Assert.Equal(7L, method.Invoke(null, ["\t7"]));
+        Assert.Equal(7L, method.Invoke(null, ["\n7"]));
+        Assert.Equal(7L, method.Invoke(null, ["\v7"]));
+        Assert.Equal(7L, method.Invoke(null, ["\f7"]));
+        Assert.Equal(7L, method.Invoke(null, ["\r7"]));
+    }
+
+    [Fact]
+    public void ConverterSql_TryRawStoredColumnCopy_ConverterWithColumnExpression_ReturnsTheQuotedColumn()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder("direct-copy-jsonb.db3")
+        {
+            TypeConverters = { [typeof(Address)] = new DirectColumnWrapConverter() }
+        }.Build();
+        TableMapping mapping = new(typeof(DirectCopySourceRow), options);
+        LambdaExpression value = DirectCopyLambda();
+
+        bool copied = ConverterSql.TryRawStoredColumnCopy(mapping, value, typeof(Address), options, out string? sql);
+
+        Assert.True(copied);
+        Assert.Equal("\"Data\"", sql);
+    }
+
+    [Fact]
+    public void ConverterSql_TryRawStoredColumnCopy_UnmappedMember_ReturnsFalse()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder("direct-copy-unmapped.db3")
+        {
+            TypeConverters = { [typeof(Address)] = new DirectColumnWrapConverter() }
+        }.Build();
+        TableMapping mapping = new(typeof(DirectCopySourceRow), options);
+        ParameterExpression row = Expression.Parameter(typeof(DirectCopySourceRow), "r");
+        LambdaExpression value = Expression.Lambda(Expression.Property(row, nameof(DirectCopySourceRow.Extra)), row);
+
+        Assert.False(ConverterSql.TryRawStoredColumnCopy(mapping, value, typeof(Address), options, out _));
+    }
+
+    [Fact]
+    public void ConverterSql_TryRawStoredColumnCopy_TargetTypeMismatch_ReturnsFalse()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder("direct-copy-mismatch.db3")
+        {
+            TypeConverters = { [typeof(Address)] = new DirectColumnWrapConverter() }
+        }.Build();
+        TableMapping mapping = new(typeof(DirectCopySourceRow), options);
+        LambdaExpression value = DirectCopyLambda();
+
+        Assert.False(ConverterSql.TryRawStoredColumnCopy(mapping, value, typeof(int), options, out _));
+    }
+
+    [Fact]
+    public void ConverterSql_TryRawStoredColumnCopy_NoConverter_ReturnsFalse()
+    {
+        SQLiteOptions mappingOptions = new SQLiteOptionsBuilder("direct-copy-noconv-map.db3")
+        {
+            TypeConverters = { [typeof(Address)] = new DirectColumnWrapConverter() }
+        }.Build();
+        TableMapping mapping = new(typeof(DirectCopySourceRow), mappingOptions);
+        SQLiteOptions options = new SQLiteOptionsBuilder("direct-copy-noconv.db3").Build();
+        LambdaExpression value = DirectCopyLambda();
+
+        Assert.False(ConverterSql.TryRawStoredColumnCopy(mapping, value, typeof(Address), options, out _));
+    }
+
+    [Fact]
+    public void ConverterSql_TryRawStoredColumnCopy_ConverterWithoutColumnExpression_ReturnsFalse()
+    {
+        SQLiteOptions options = new SQLiteOptionsBuilder("direct-copy-plainjson.db3")
+        {
+            TypeConverters = { [typeof(Address)] = new SQLiteJsonConverter<Address>(TestJsonContext.Default.Address) }
+        }.Build();
+        TableMapping mapping = new(typeof(DirectCopySourceRow), options);
+        LambdaExpression value = DirectCopyLambda();
+
+        Assert.False(ConverterSql.TryRawStoredColumnCopy(mapping, value, typeof(Address), options, out _));
+    }
+
+    [Fact]
     public void QueryCompilerVisitor_VisitBinary_CoalesceWithConversion_Throws()
     {
         ParameterExpression conversionParam = Expression.Parameter(typeof(DirectConvertibleValue), "v");
@@ -2340,6 +2423,40 @@ public class InternalHelpersDirectTests
         SQLiteQueryContext ctx = new();
         Assert.Throws<NotSupportedException>(() => compiled.Call(ctx));
     }
+
+    private static LambdaExpression DirectCopyLambda()
+    {
+        ParameterExpression row = Expression.Parameter(typeof(DirectCopySourceRow), "r");
+        return Expression.Lambda(Expression.Property(row, nameof(DirectCopySourceRow.Data)), row);
+    }
+}
+
+public class DirectColumnWrapConverter : ISQLiteTypeConverter
+{
+    public SQLiteColumnType ColumnType => SQLiteColumnType.Text;
+
+    public string? ColumnSqlExpression => "json({0})";
+
+    public object? ToDatabase(object? value)
+    {
+        return value?.ToString();
+    }
+
+    public object? FromDatabase(object? value)
+    {
+        return new Address();
+    }
+}
+
+public class DirectCopySourceRow
+{
+    [Key]
+    public int Id { get; set; }
+
+    public Address Data { get; set; } = new();
+
+    [NotMapped]
+    public Address Extra { get; set; } = new();
 }
 
 public struct DirectConvertibleValue
