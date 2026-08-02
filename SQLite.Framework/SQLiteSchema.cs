@@ -119,6 +119,8 @@ public class SQLiteSchema
             {
                 count += Database.CreateCommand($"DROP TRIGGER IF EXISTS \"main\".\"{trigger}\"", []).ExecuteNonQuery();
             }
+
+            Database.UnmarkFtsContentSource(mapping.TableName);
         }
 
         count += Database.CreateCommand($"DROP TABLE IF EXISTS \"main\".\"{mapping.TableName}\"", []).ExecuteNonQuery();
@@ -127,12 +129,30 @@ public class SQLiteSchema
 
     /// <summary>
     /// Drops the table whose SQLite name matches <paramref name="tableName" /> if it exists. Use
-    /// the typed overload when you have an entity class.
+    /// the typed overload when you have an entity class. When the name belongs to an FTS5 table
+    /// with sync triggers, the triggers are dropped too, the same as the typed overload.
     /// </summary>
     public virtual int DropTable(string tableName)
     {
         ArgumentException.ThrowIfNullOrEmpty(tableName);
-        return Database.CreateCommand($"DROP TABLE IF EXISTS \"main\".\"{tableName.Replace("\"", "\"\"")}\"", []).ExecuteNonQuery();
+        string quotedName = tableName.Replace("\"", "\"\"");
+        int count = 0;
+        bool isFullTextSearch = Database.ExecuteScalar<long>(
+            $"SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = '{tableName.Replace("'", "''")}' AND sql LIKE 'CREATE VIRTUAL TABLE%fts5%'") > 0;
+        if (isFullTextSearch)
+        {
+            foreach (string trigger in Database.Query<string>(
+                "SELECT name FROM sqlite_master WHERE type = 'trigger'"
+                + $" AND sql LIKE '%INTO \"{EscapeLikePattern(quotedName)}\"(%' ESCAPE '\\'").ToList())
+            {
+                count += Database.CreateCommand($"DROP TRIGGER IF EXISTS \"main\".\"{trigger.Replace("\"", "\"\"")}\"", []).ExecuteNonQuery();
+            }
+
+            Database.UnmarkFtsContentSource(tableName);
+        }
+
+        count += Database.CreateCommand($"DROP TABLE IF EXISTS \"main\".\"{quotedName}\"", []).ExecuteNonQuery();
+        return count;
     }
 
     /// <summary>
@@ -486,6 +506,11 @@ public class SQLiteSchema
         ArgumentException.ThrowIfNullOrEmpty(newTableName);
 
         TableMapping mapping = Database.TableMapping<T>();
+        if (mapping.IsFullTextSearch && mapping.FullTextSearch!.AutoSync == FtsAutoSync.Triggers)
+        {
+            return RenameTableKeepingSyncTriggers(mapping.TableName, newTableName);
+        }
+
         return RenameTableCore(mapping.TableName, newTableName);
     }
 
@@ -680,6 +705,34 @@ public class SQLiteSchema
     {
         string sql = $"ALTER TABLE \"main\".\"{fromTable.Replace("\"", "\"\"")}\" RENAME TO \"{toTable.Replace("\"", "\"\"")}\"";
         return Database.CreateCommand(sql, []).ExecuteNonQuery();
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Querying built-in trigger rows keeps their public members reachable.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Querying built-in trigger rows keeps their public members reachable.")]
+    internal int RenameTableKeepingSyncTriggers(string fromTable, string toTable)
+    {
+        string fromQuoted = fromTable.Replace("\"", "\"\"");
+        string toQuoted = toTable.Replace("\"", "\"\"");
+        using SQLiteTransaction transaction = Database.BeginTransaction();
+        List<(string Name, string Sql)> triggers = Database.Query<Dictionary<string, object?>>(
+            $"SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND sql LIKE '%INTO \"{EscapeLikePattern(fromQuoted)}\"(%' ESCAPE '\\'")
+            .Select(row => ((string)row["name"]!, (string)row["sql"]!))
+            .ToList();
+
+        int count = 0;
+        foreach ((string name, string _) in triggers)
+        {
+            count += Database.Execute($"DROP TRIGGER \"main\".\"{name.Replace("\"", "\"\"")}\"");
+        }
+
+        count += RenameTableCore(fromTable, toTable);
+        foreach ((string _, string sql) in triggers)
+        {
+            count += Database.Execute(sql.Replace($"\"{fromQuoted}\"", $"\"{toQuoted}\""));
+        }
+
+        transaction.Commit();
+        return count;
     }
 
     internal int RenameColumnCore(string tableName, string fromColumn, string toColumn)
@@ -1079,6 +1132,11 @@ public class SQLiteSchema
             throw new InvalidOperationException(
                 $"{kind} entity '{mapping.Type.Name}' declares {unsupported}, which a virtual table cannot have.");
         }
+    }
+
+    private static string EscapeLikePattern(string value)
+    {
+        return value.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
     }
 
     private static string? FindUnsupportedVirtualTableDeclaration(TableMapping mapping)

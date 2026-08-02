@@ -12,7 +12,7 @@ internal static class ModelValidator
         List<string> issues = [];
         string table = mapping.TableName;
 
-        List<PragmaTableInfo> dbColumns = database.Pragmas.TableInfo(table).ToList();
+        List<PragmaTableInfo> dbColumns = CommonHelpers.ReadLiveColumns(database, table);
         if (dbColumns.Count == 0 || !MainObjectExists(database, table))
         {
             issues.Add($"Table '{table}' does not exist in the database.");
@@ -202,7 +202,7 @@ internal static class ModelValidator
                 issues.Add($"Column '{table}'.'{column.Name}' has type '{dbColumn.Type}' but the model expects '{expectedType}'.");
             }
 
-            bool isRowIdAlias = column.IsPrimaryKey && keyCount == 1 && column.ColumnType == SQLiteColumnType.Integer;
+            bool isRowIdAlias = column.IsPrimaryKey && keyCount == 1 && column.ColumnType == SQLiteColumnType.Integer && !mapping.WithoutRowId;
             if (isRowIdAlias && !string.Equals(dbColumn.Type, "INTEGER", StringComparison.OrdinalIgnoreCase))
             {
                 issues.Add($"Column '{table}'.'{column.Name}' has type '{dbColumn.Type}' but the model expects 'INTEGER'. Only the exact type name 'INTEGER' makes a primary key column the rowid. Any other spelling makes it a normal column that can hold NULLs.");
@@ -235,7 +235,8 @@ internal static class ModelValidator
         foreach (PragmaTableInfo dbColumn in dbColumns)
         {
             if (mapping.Columns.All(c => !string.Equals(c.Name, dbColumn.Name, StringComparison.OrdinalIgnoreCase))
-                && mapping.ShadowColumns.All(s => !string.Equals(s.Name, dbColumn.Name, StringComparison.OrdinalIgnoreCase)))
+                && mapping.ShadowColumns.All(s => !string.Equals(s.Name, dbColumn.Name, StringComparison.OrdinalIgnoreCase))
+                && !computedNames.Contains(dbColumn.Name))
             {
                 issues.Add($"Column '{table}'.'{dbColumn.Name}' exists in the database but not in the model.");
             }

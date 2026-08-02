@@ -193,7 +193,26 @@ public sealed class SQLiteMigrationStep
             Kind = MigrationOperationKind.CreateView,
             Description = $"create view \"{mapping.TableName}\"",
             Mapping = mapping,
-            Execute = db => db.Schema.DropView(mapping.TableName) + db.Schema.CreateView(query),
+            Execute = db =>
+            {
+                List<string> triggers = db.Query<string>(
+                    $"SELECT sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '{mapping.TableName.Replace("'", "''")}' AND sql IS NOT NULL").ToList();
+                HashSet<string> viewColumns = mapping.Columns.Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                List<string> droppedColumns = CommonHelpers.ReadLiveColumns(db, mapping.TableName)
+                    .Select(c => c.Name)
+                    .Where(name => !viewColumns.Contains(name))
+                    .ToList();
+                int count = db.Schema.DropView(mapping.TableName) + db.Schema.CreateView(query);
+                foreach (string trigger in triggers)
+                {
+                    if (!droppedColumns.Any(c => CommonHelpers.ReferencesIdentifier(trigger, c)))
+                    {
+                        db.Execute(trigger);
+                    }
+                }
+
+                return count;
+            },
         });
         return this;
     }

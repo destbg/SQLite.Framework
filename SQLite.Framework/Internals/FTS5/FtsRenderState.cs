@@ -170,6 +170,7 @@ internal sealed class FtsRenderState
         if (ExpressionHelpers.IsConstant(arg))
         {
             string phrase = (string)ExpressionHelpers.GetConstantValue(arg)!;
+            CommonHelpers.EnsureNoNul(phrase, "match phrase");
             AppendLiteral('"');
             AppendLiteral(phrase.Replace("\"", "\"\""));
             AppendLiteral('"');
@@ -285,6 +286,7 @@ internal sealed class FtsRenderState
 
     private static string EscapeTerm(string term)
     {
+        CommonHelpers.EnsureNoNul(term, "match term");
         if (NeedsQuoting(term))
         {
             return "\"" + term.Replace("\"", "\"\"") + "\"";

@@ -18,7 +18,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     private readonly SemaphoreSlim connectionSemaphore = new(1, 1);
     private readonly AsyncLocal<LockToken?> holdsConnectionLock = new();
     private readonly ConcurrentDictionary<Type, TableMapping> tableMappings = [];
-    private readonly ConcurrentDictionary<SQLiteDatabase, string> attachedDatabases = new();
+    private readonly ConcurrentDictionary<SQLiteDatabase, (string Schema, string Path)> attachedDatabases = new();
     private readonly List<SQLiteTransaction> activeSavepoints = [];
     private readonly PreparedStatementPool statementPool = new();
     private volatile bool modelFrozen;
@@ -229,7 +229,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
 
         TableMapping created = tableMappings.GetOrAdd(type, new TableMapping(type, Options, ResolveMappedTableName));
-        MarkFtsContentSource(created);
+        SetFtsContentSourceFlag(created, true);
         return created;
     }
 
@@ -245,7 +245,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         }
 
         TableMapping created = tableMappings.GetOrAdd(typeof(T), new TableMapping(typeof(T), Options, ResolveMappedTableName));
-        MarkFtsContentSource(created);
+        SetFtsContentSourceFlag(created, true);
         return created;
     }
 
@@ -498,7 +498,11 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 #if SQLITECIPHER
         if (encryptionKey != null)
         {
-            sql += $" KEY '{encryptionKey.Replace("'", "''")}'";
+            CommonHelpers.EnsureNoNul(encryptionKey, "encryption key");
+            ExecuteSensitive(sql + $" KEY '{encryptionKey.Replace("'", "''")}'");
+            attachedSchemaCount++;
+            AttachGeneration++;
+            return;
         }
 #endif
         Execute(sql);
@@ -535,7 +539,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         encryptionKey = database.Options.EncryptionKey;
 #endif
         AttachDatabase(database.Options.DatabasePath, schemaName, encryptionKey);
-        attachedDatabases[database] = schemaName;
+        attachedDatabases[database] = (schemaName, database.Options.DatabasePath);
     }
 
     /// <summary>
@@ -550,9 +554,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         attachedSchemaCount = Math.Max(0, attachedSchemaCount - 1);
         AttachGeneration++;
 
-        foreach (KeyValuePair<SQLiteDatabase, string> entry in attachedDatabases)
+        foreach (KeyValuePair<SQLiteDatabase, (string Schema, string Path)> entry in attachedDatabases)
         {
-            if (string.Equals(entry.Value, schemaName, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(entry.Value.Schema, schemaName, StringComparison.OrdinalIgnoreCase))
             {
                 attachedDatabases.TryRemove(entry.Key, out _);
             }
@@ -1067,9 +1071,33 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         activeSavepoints.Remove(transaction);
     }
 
+    [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Querying built-in database list rows keeps their public members reachable.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Querying built-in database list rows keeps their public members reachable.")]
     internal bool TryGetAttachedSchema(SQLiteDatabase other, [NotNullWhen(true)] out string? schema)
     {
-        return attachedDatabases.TryGetValue(other, out schema);
+        schema = null;
+        if (!attachedDatabases.TryGetValue(other, out (string Schema, string Path) link))
+        {
+            return false;
+        }
+
+        foreach (Dictionary<string, object?> row in Query<Dictionary<string, object?>>("PRAGMA database_list"))
+        {
+            if (!string.Equals(row["name"] as string, link.Schema, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!DatabaseFilePath.IsSame((string)row["file"]!, link.Path, OperatingSystem.IsWindows()))
+            {
+                return false;
+            }
+
+            schema = link.Schema;
+            return true;
+        }
+
+        return false;
     }
 
     internal SQLiteOptions ResolveFilterOptions(string? schemaName)
@@ -1079,9 +1107,9 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             return Options;
         }
 
-        foreach (KeyValuePair<SQLiteDatabase, string> entry in attachedDatabases)
+        foreach (KeyValuePair<SQLiteDatabase, (string Schema, string Path)> entry in attachedDatabases)
         {
-            if (string.Equals(entry.Value, schemaName, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(entry.Value.Schema, schemaName, StringComparison.OrdinalIgnoreCase))
             {
                 return entry.Key.Options;
             }
@@ -1230,21 +1258,30 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             }
         }
 
-        if (toSignal != null)
-        {
-            toSignal.TrySetResult();
-        }
+        toSignal?.TrySetResult();
     }
 
     internal void ForceSavepointRollback(string savepointName)
     {
         sqlite3 handle = GetActiveHandle();
-        int rollbackResult = raw.sqlite3_exec(handle, $"ROLLBACK TO {savepointName}");
-        int releaseResult = raw.sqlite3_exec(handle, $"RELEASE {savepointName}");
+        int rollbackResult = raw.sqlite3_exec(handle, $"ROLLBACK TO {IdentifierGuard.Quote(savepointName)}");
+        int releaseResult = raw.sqlite3_exec(handle, $"RELEASE {IdentifierGuard.Quote(savepointName)}");
         pendingForcedSavepoint = rollbackResult != raw.SQLITE_OK || releaseResult != raw.SQLITE_OK
             ? savepointName
             : null;
         pendingForcedRollback = rollbackResult != raw.SQLITE_OK;
+    }
+
+    internal void ExecuteSensitive(string sql)
+    {
+        OpenConnection();
+        using IDisposable _ = Lock();
+        sqlite3 handle = GetActiveHandle();
+        int result = raw.sqlite3_exec(handle, sql);
+        if (result != raw.SQLITE_OK)
+        {
+            throw new SQLiteException((SQLiteResult)result, raw.sqlite3_errmsg(handle).utf8_to_string(), null);
+        }
     }
 
     internal void CompletePendingSavepointCleanup()
@@ -1305,6 +1342,17 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
         string name = $"SQLITE_AUTOINDEX_{Guid.NewGuid():N}";
         CreateCommand($"SAVEPOINT {name}", []).ExecuteNonQuery();
         return name;
+    }
+
+    internal void UnmarkFtsContentSource(string ftsTableName)
+    {
+        foreach (TableMapping mapping in tableMappings.Values)
+        {
+            if (string.Equals(mapping.TableName, ftsTableName, StringComparison.OrdinalIgnoreCase))
+            {
+                SetFtsContentSourceFlag(mapping, false);
+            }
+        }
     }
 
     /// <summary>
@@ -1505,6 +1553,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
 #if SQLITECIPHER
         if (!string.IsNullOrEmpty(Options.EncryptionKey))
         {
+            CommonHelpers.EnsureNoNul(Options.EncryptionKey, "encryption key");
             raw.sqlite3_prepare_v2(Handle, $"PRAGMA key = '{Options.EncryptionKey.Replace("'", "''")}'", out sqlite3_stmt keyStmt);
             raw.sqlite3_step(keyStmt);
             raw.sqlite3_finalize(keyStmt);
@@ -1588,7 +1637,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "ContentTable type is rooted by user code.")]
-    private void MarkFtsContentSource(TableMapping mapping)
+    private void SetFtsContentSourceFlag(TableMapping mapping, bool value)
     {
         FtsTableInfo? fts = mapping.FullTextSearch;
         if (fts == null || fts.ContentMode != FtsContentMode.External || fts.AutoSync != FtsAutoSync.Triggers)
@@ -1596,7 +1645,7 @@ public class SQLiteDatabase : IQueryProvider, IDisposable
             return;
         }
 
-        TableMapping(fts.Attribute.ContentTable!).HasFtsSyncTriggers = true;
+        TableMapping(fts.Attribute.ContentTable!).HasFtsSyncTriggers = value;
     }
 
     private Task? TryGetReadGate()

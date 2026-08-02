@@ -78,6 +78,7 @@ internal static class SQLiteFTS5FunctionsMemberVisitor
         if (second.Type == typeof(string))
         {
             string queryString = (string)ExpressionHelpers.GetConstantValue(second)!;
+            CommonHelpers.EnsureNoNul(queryString, "match query");
             if (columnName != null)
             {
                 queryString = "{" + FtsHelpers.FormatColumnFilter(columnName) + "} : (" + queryString + ")";

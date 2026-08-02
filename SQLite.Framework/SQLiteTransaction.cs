@@ -54,7 +54,7 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
 
         try
         {
-            Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
+            Database.CreateCommand($"RELEASE {IdentifierGuard.Quote(SavepointName)}", []).ExecuteNonQuery();
             Database.CompleteSavepoint(this, committedByOuter: true);
         }
         catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))
@@ -106,8 +106,8 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
 
         try
         {
-            Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
-            Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
+            Database.CreateCommand($"ROLLBACK TO {IdentifierGuard.Quote(SavepointName)}", []).ExecuteNonQuery();
+            Database.CreateCommand($"RELEASE {IdentifierGuard.Quote(SavepointName)}", []).ExecuteNonQuery();
             Database.CompleteSavepoint(this, committedByOuter: false);
         }
         catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))
@@ -150,8 +150,8 @@ public class SQLiteTransaction : IDisposable, IAsyncDisposable
 
         try
         {
-            Database.CreateCommand($"ROLLBACK TO {SavepointName}", []).ExecuteNonQuery();
-            Database.CreateCommand($"RELEASE {SavepointName}", []).ExecuteNonQuery();
+            Database.CreateCommand($"ROLLBACK TO {IdentifierGuard.Quote(SavepointName)}", []).ExecuteNonQuery();
+            Database.CreateCommand($"RELEASE {IdentifierGuard.Quote(SavepointName)}", []).ExecuteNonQuery();
             Database.CompleteSavepoint(this, committedByOuter: false);
         }
         catch (SQLiteException ex) when (ex.Message.StartsWith("no such savepoint", StringComparison.Ordinal))

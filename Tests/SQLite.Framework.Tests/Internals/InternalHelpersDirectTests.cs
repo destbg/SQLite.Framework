@@ -68,6 +68,58 @@ public class InternalHelpersDirectTests
     }
 
     [Fact]
+    public void SqlLiteralHelper_InlineParameters_DollarPrefixSlotIsInlined()
+    {
+        List<SQLiteParameter> parameters =
+        [
+            new() { Name = "@v", Value = 3 },
+        ];
+
+        string result = SqlLiteralHelper.InlineParameters("a = $v", parameters, CompilerOptions);
+
+        Assert.Equal("a = 3", result);
+    }
+
+    [Fact]
+    public void SqlLiteralHelper_InlineParameters_LonePrefixCharacterIsLeftAlone()
+    {
+        List<SQLiteParameter> parameters =
+        [
+            new() { Name = "@v", Value = 3 },
+        ];
+
+        string result = SqlLiteralHelper.InlineParameters("a = @", parameters, CompilerOptions);
+
+        Assert.Equal("a = @", result);
+    }
+
+    [Fact]
+    public void SqlLiteralHelper_InlineParameters_PrefixOnlyNameIsSkipped()
+    {
+        List<SQLiteParameter> parameters =
+        [
+            new() { Name = "@", Value = 3 },
+        ];
+
+        string result = SqlLiteralHelper.InlineParameters("a = 1", parameters, CompilerOptions);
+
+        Assert.Equal("a = 1", result);
+    }
+
+    [Fact]
+    public void SqlLiteralHelper_InlineParameters_AnonymousPositionalSlotIsLeftAlone()
+    {
+        List<SQLiteParameter> parameters =
+        [
+            new() { Name = "?1", Value = 3 },
+        ];
+
+        string result = SqlLiteralHelper.InlineParameters("a = ?", parameters, CompilerOptions);
+
+        Assert.Equal("a = ?", result);
+    }
+
+    [Fact]
     public void IdentifierGuard_EnsureNoQuote_PlainName_DoesNotThrow()
     {
         IdentifierGuard.EnsureNoQuote("PlainName", "Table");

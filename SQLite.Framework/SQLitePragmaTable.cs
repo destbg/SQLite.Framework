@@ -17,6 +17,17 @@ public sealed class SQLitePragmaTable<[DynamicallyAccessedMembers(DynamicallyAcc
     public SQLitePragmaTable(SQLiteDatabase database, string pragmaName, params object?[] arguments)
         : base(database)
     {
+        ArgumentException.ThrowIfNullOrEmpty(pragmaName);
+        foreach (char c in pragmaName)
+        {
+            if (!char.IsLetterOrDigit(c) && c != '_')
+            {
+                throw new ArgumentException(
+                    "The pragma name must contain only letters, digits and underscores.",
+                    nameof(pragmaName));
+            }
+        }
+
         PragmaName = pragmaName;
         Arguments = arguments;
     }

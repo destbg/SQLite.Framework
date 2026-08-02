@@ -408,13 +408,14 @@ public class SQLitePragmas
     /// <summary>
     /// <c>PRAGMA rekey = '...'</c>. SQLCipher only. Re-encrypts the database with a new
     /// passphrase. The connection must already be authenticated with the current key. The new
-    /// key is bound as a parameter to keep it out of the SQL string.
+    /// key is executed outside the command pipeline, so it never reaches command logs,
+    /// interceptors or exception text.
     /// </summary>
     public virtual void Rekey(string newKey)
     {
         ArgumentNullException.ThrowIfNull(newKey);
-        string escaped = newKey.Replace("'", "''");
-        Database.ExecuteScalar<string>($"PRAGMA rekey = '{escaped}'");
+        CommonHelpers.EnsureNoNul(newKey, "encryption key");
+        Database.ExecuteSensitive($"PRAGMA rekey = '{newKey.Replace("'", "''")}'");
     }
 #endif
 

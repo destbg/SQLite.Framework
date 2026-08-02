@@ -13,13 +13,24 @@ internal static class SqlLiteralHelper
             return sql;
         }
 
-        Dictionary<string, string> literals = new(parameters.Count);
+        Dictionary<string, string> exact = new(parameters.Count);
+        Dictionary<string, string> bare = new(parameters.Count);
         foreach (SQLiteParameter parameter in parameters)
         {
-            literals[parameter.Name] = FormatLiteral(parameter.Value, options);
+            if (string.IsNullOrEmpty(parameter.Name))
+            {
+                continue;
+            }
+
+            string literal = FormatLiteral(parameter.Value, options);
+            exact[parameter.Name] = literal;
+            string bareName = parameter.Name[0] is '@' or ':' or '$' or '?' ? parameter.Name[1..] : parameter.Name;
+            if (bareName.Length > 0)
+            {
+                bare[bareName] = literal;
+            }
         }
 
-        List<string> names = literals.Keys.OrderByDescending(name => name.Length).ToList();
         StringBuilder result = new(sql.Length);
         int i = 0;
         while (i < sql.Length)
@@ -51,21 +62,20 @@ internal static class SqlLiteralHelper
                 continue;
             }
 
-            string? matched = null;
-            foreach (string name in names)
+            if (c is '@' or ':' or '$' or '?')
             {
-                if (i + name.Length <= sql.Length && string.CompareOrdinal(sql, i, name, 0, name.Length) == 0)
+                int end = i + 1;
+                while (end < sql.Length && IsPlaceholderChar(sql[end]))
                 {
-                    matched = name;
-                    break;
+                    end++;
                 }
-            }
 
-            if (matched != null)
-            {
-                result.Append(literals[matched]);
-                i += matched.Length;
-                continue;
+                if (TryGetLiteral(exact, bare, sql[i..end], sql[(i + 1)..end], out string? literal))
+                {
+                    result.Append(literal);
+                    i = end;
+                    continue;
+                }
             }
 
             result.Append(c);
@@ -73,30 +83,6 @@ internal static class SqlLiteralHelper
         }
 
         return result.ToString();
-    }
-
-    private static int SkipQuoted(string sql, int start)
-    {
-        char open = sql[start];
-        char close = open == '[' ? ']' : open;
-        int i = start + 1;
-        while (i < sql.Length)
-        {
-            if (sql[i] == close)
-            {
-                if (close != ']' && i + 1 < sql.Length && sql[i + 1] == close)
-                {
-                    i += 2;
-                    continue;
-                }
-
-                return i + 1;
-            }
-
-            i++;
-        }
-
-        return sql.Length;
     }
 
     public static string FormatLiteral(object? value, SQLiteOptions options)
@@ -140,6 +126,51 @@ internal static class SqlLiteralHelper
             byte[] bytes => "X'" + Convert.ToHexString(bytes) + "'",
             _ => Format(value)
         };
+    }
+
+    private static bool TryGetLiteral(Dictionary<string, string> exact, Dictionary<string, string> bare, string candidate, string token, out string? literal)
+    {
+        if (token.Length == 0)
+        {
+            literal = null;
+            return false;
+        }
+
+        if (exact.TryGetValue(candidate, out literal))
+        {
+            return true;
+        }
+
+        return bare.TryGetValue(token, out literal);
+    }
+
+    private static bool IsPlaceholderChar(char c)
+    {
+        return char.IsLetterOrDigit(c) || c == '_';
+    }
+
+    private static int SkipQuoted(string sql, int start)
+    {
+        char open = sql[start];
+        char close = open == '[' ? ']' : open;
+        int i = start + 1;
+        while (i < sql.Length)
+        {
+            if (sql[i] == close)
+            {
+                if (close != ']' && i + 1 < sql.Length && sql[i + 1] == close)
+                {
+                    i += 2;
+                    continue;
+                }
+
+                return i + 1;
+            }
+
+            i++;
+        }
+
+        return sql.Length;
     }
 
     private static string Format(object? value)

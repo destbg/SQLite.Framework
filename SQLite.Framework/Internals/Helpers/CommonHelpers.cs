@@ -287,7 +287,14 @@ internal static class CommonHelpers
         if (defaultSql != null)
         {
             sb.Append(" DEFAULT ");
-            sb.Append(defaultSql);
+            if (defaultSql.StartsWith("CAST(", StringComparison.Ordinal))
+            {
+                sb.Append('(').Append(defaultSql).Append(')');
+            }
+            else
+            {
+                sb.Append(defaultSql);
+            }
         }
         return sb.ToString();
     }
@@ -365,6 +372,99 @@ internal static class CommonHelpers
         }
 
         return collection;
+    }
+
+    /// <summary>
+    /// Reads the live columns of <paramref name="table" /> through <c>pragma_table_xinfo</c>,
+    /// including generated columns and excluding virtual-table hidden columns.
+    /// </summary>
+    public static List<PragmaTableInfo> ReadLiveColumns(SQLiteDatabase database, string table)
+    {
+        return database.Query<PragmaTableInfo>(
+            $"SELECT cid AS ColumnId, name AS Name, type AS Type, \"notnull\" AS IsNotNull, dflt_value AS DefaultValue, pk AS PrimaryKeyOrder FROM pragma_table_xinfo('{table.Replace("'", "''")}') WHERE hidden IN (0, 2, 3)").ToList();
+    }
+
+    /// <summary>
+    /// Rejects a value that holds an embedded NUL character, since SQLite text handling stops
+    /// at the first NUL and would silently truncate the value.
+    /// </summary>
+    public static void EnsureNoNul(string value, string kind)
+    {
+        if (value.Contains('\0'))
+        {
+            throw new ArgumentException(
+                $"The {kind} contains an embedded NUL character, which cannot be passed to SQLite.");
+        }
+    }
+
+    public static bool ReferencesIdentifier(string sql, string identifier)
+    {
+        return sql.Contains("\"" + identifier.Replace("\"", "\"\"") + "\"", StringComparison.OrdinalIgnoreCase)
+            || ContainsUnquotedIdentifier(sql, identifier);
+    }
+
+    public static bool ContainsUnquotedIdentifier(string sql, string identifier)
+    {
+        string scan = sql + " ";
+        bool inLiteral = false;
+        bool inQuote = false;
+        int i = 0;
+        while (i < scan.Length)
+        {
+            char c = scan[i];
+            if (inLiteral)
+            {
+                inLiteral = c != '\'';
+                i++;
+                continue;
+            }
+
+            if (inQuote)
+            {
+                inQuote = c != '"';
+                i++;
+                continue;
+            }
+
+            if (c == '\'')
+            {
+                inLiteral = true;
+                i++;
+                continue;
+            }
+
+            if (c == '"')
+            {
+                inQuote = true;
+                i++;
+                continue;
+            }
+
+            if (IsIdentifierChar(c))
+            {
+                int start = i;
+                while (IsIdentifierChar(scan[i]))
+                {
+                    i++;
+                }
+
+                if (string.Equals(scan[start..i], identifier, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                continue;
+            }
+
+            i++;
+        }
+
+        return false;
+    }
+
+    public static bool IsIdentifierChar(char c)
+    {
+        return char.IsLetterOrDigit(c) || c == '_' || c == '$';
     }
 
     private static bool IsSimpleJsonKey(string name)

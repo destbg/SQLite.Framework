@@ -24,6 +24,7 @@ public sealed class SQLiteMigrationRunner
     private readonly SortedDictionary<int, Action<SQLiteMigrationStep>> versions = new();
     private Action<SQLiteMigrationProgress>? progress;
     private SQLiteMigrationActivator? migrationActivator;
+    private int progressReported;
 
     internal SQLiteMigrationRunner(SQLiteSchema schema)
     {
@@ -119,6 +120,41 @@ public sealed class SQLiteMigrationRunner
 #endif
     public int Migrate()
     {
+        return RunWithSnapshotRetry(MigrateOnce);
+    }
+
+    /// <summary>
+    /// Runs every pending version inside a transaction, collects each SQL statement the run
+    /// executes, then rolls the transaction back. The version and the schema are left as they
+    /// were. Use it to review the exact statements a <see cref="Migrate" /> would run against
+    /// this database. Rows are copied and rewritten just like a real run, so on a large database
+    /// this takes as long as the migration itself, and rows passed to
+    /// <see cref="SQLiteMigrationStep.Insert{T}" /> can get their auto-increment keys set.
+    /// Callbacks declared with <c>Run</c> and <c>RunBefore</c> are not invoked. Each appears as a
+    /// SQL comment in its place. Statement parameters are inlined, so every entry runs on its
+    /// own. Returns an empty list when the database is up to date.
+    /// </summary>
+#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
+    [UnsupportedOSPlatform("ios")]
+    [SupportedOSPlatform("ios15.0")]
+#endif
+    public IReadOnlyList<string> Script()
+    {
+        return RunWithSnapshotRetry(ScriptOnce);
+    }
+
+    internal void UseMigrationActivator(SQLiteMigrationActivator activator)
+    {
+        migrationActivator = activator;
+    }
+
+    internal Task<int> MigratePending(CancellationToken cancellationToken)
+    {
+        return RunWithSnapshotRetryAsync(() => MigratePendingOnce(cancellationToken), cancellationToken);
+    }
+
+    private int MigrateOnce()
+    {
         using SQLiteTransaction transaction = schema.Database.BeginTransaction();
         ThrowIfMigrationInProgress();
         if (!TryGetPendingOperations(out int currentVersion, out int targetVersion, out List<MigrationOperation> operations))
@@ -133,7 +169,7 @@ public sealed class SQLiteMigrationRunner
 
         SQLiteMigrationContext context = new(schema.Database, currentVersion, targetVersion, CancellationToken.None);
         int count = 0;
-        int reported = 0;
+        progressReported = 0;
         int total = operations.Count;
 
         schema.Database.MigrationInProgress = true;
@@ -141,18 +177,18 @@ public sealed class SQLiteMigrationRunner
         {
             foreach (MigrationOperation operation in operations.Where(o => o.Kind == MigrationOperationKind.RunBefore))
             {
-                ReportProgress(operation, ref reported, total);
+                ReportProgress(operation, total);
                 operation.Callback!(context);
             }
 
-            count += ApplySchemaPhases(operations, total, ref reported, out HashSet<string> newlyCreated, out List<DeferredFill> deferredFills, out List<DeferredSchemaWork> deferredSchema);
+            count += ApplySchemaPhases(operations, total, out HashSet<string> newlyCreated, out List<DeferredFill> deferredFills, out List<DeferredSchemaWork> deferredSchema);
 
             int nextSchema = 0;
             int nextFill = 0;
             foreach (MigrationOperation operation in operations.Where(o => IsDataPhase(o.Kind)))
             {
                 count += ApplyDeferredWorkThrough(deferredSchema, ref nextSchema, deferredFills, ref nextFill, operation.Version);
-                ReportProgress(operation, ref reported, total);
+                ReportProgress(operation, total);
                 if (operation.Kind == MigrationOperationKind.Run)
                 {
                     operation.Callback!(context);
@@ -176,22 +212,7 @@ public sealed class SQLiteMigrationRunner
         return count;
     }
 
-    /// <summary>
-    /// Runs every pending version inside a transaction, collects each SQL statement the run
-    /// executes, then rolls the transaction back. The version and the schema are left as they
-    /// were. Use it to review the exact statements a <see cref="Migrate" /> would run against
-    /// this database. Rows are copied and rewritten just like a real run, so on a large database
-    /// this takes as long as the migration itself, and rows passed to
-    /// <see cref="SQLiteMigrationStep.Insert{T}" /> can get their auto-increment keys set.
-    /// Callbacks declared with <c>Run</c> and <c>RunBefore</c> are not invoked. Each appears as a
-    /// SQL comment in its place. Statement parameters are inlined, so every entry runs on its
-    /// own. Returns an empty list when the database is up to date.
-    /// </summary>
-#if SQLITE_FRAMEWORK_OS_BUNDLED_SQLITE
-    [UnsupportedOSPlatform("ios")]
-    [SupportedOSPlatform("ios15.0")]
-#endif
-    public IReadOnlyList<string> Script()
+    private IReadOnlyList<string> ScriptOnce()
     {
         List<string> statements = [];
         using SQLiteTransaction transaction = schema.Database.BeginTransaction();
@@ -206,23 +227,23 @@ public sealed class SQLiteMigrationRunner
         schema.Database.MigrationInProgress = true;
         try
         {
-            int reported = 0;
+            progressReported = 0;
             int total = operations.Count;
 
             foreach (MigrationOperation operation in operations.Where(o => o.Kind == MigrationOperationKind.RunBefore))
             {
-                ReportProgress(operation, ref reported, total);
+                ReportProgress(operation, total);
                 statements.Add("-- " + operation.Description);
             }
 
-            ApplySchemaPhases(operations, total, ref reported, out HashSet<string> newlyCreated, out List<DeferredFill> deferredFills, out List<DeferredSchemaWork> deferredSchema);
+            ApplySchemaPhases(operations, total, out HashSet<string> newlyCreated, out List<DeferredFill> deferredFills, out List<DeferredSchemaWork> deferredSchema);
 
             int nextSchema = 0;
             int nextFill = 0;
             foreach (MigrationOperation operation in operations.Where(o => IsDataPhase(o.Kind)))
             {
                 ApplyDeferredWorkThrough(deferredSchema, ref nextSchema, deferredFills, ref nextFill, operation.Version);
-                ReportProgress(operation, ref reported, total);
+                ReportProgress(operation, total);
                 if (operation.Kind == MigrationOperationKind.Run)
                 {
                     statements.Add("-- " + operation.Description);
@@ -246,12 +267,7 @@ public sealed class SQLiteMigrationRunner
         return statements;
     }
 
-    internal void UseMigrationActivator(SQLiteMigrationActivator activator)
-    {
-        migrationActivator = activator;
-    }
-
-    internal async Task<int> MigratePending(CancellationToken cancellationToken)
+    private async Task<int> MigratePendingOnce(CancellationToken cancellationToken)
     {
         using SQLiteTransaction transaction = schema.Database.BeginTransaction();
         ThrowIfMigrationInProgress();
@@ -262,7 +278,7 @@ public sealed class SQLiteMigrationRunner
 
         SQLiteMigrationContext context = new(schema.Database, currentVersion, targetVersion, cancellationToken);
         int count = 0;
-        int reported = 0;
+        progressReported = 0;
         int total = operations.Count;
 
         schema.Database.MigrationInProgress = true;
@@ -270,7 +286,7 @@ public sealed class SQLiteMigrationRunner
         {
             foreach (MigrationOperation operation in operations.Where(o => o.Kind == MigrationOperationKind.RunBefore))
             {
-                ReportProgress(operation, ref reported, total);
+                ReportProgress(operation, total);
                 if (operation.AsyncCallback != null)
                 {
                     await operation.AsyncCallback(context);
@@ -281,14 +297,14 @@ public sealed class SQLiteMigrationRunner
                 }
             }
 
-            count += ApplySchemaPhases(operations, total, ref reported, out HashSet<string> newlyCreated, out List<DeferredFill> deferredFills, out List<DeferredSchemaWork> deferredSchema);
+            count += ApplySchemaPhases(operations, total, out HashSet<string> newlyCreated, out List<DeferredFill> deferredFills, out List<DeferredSchemaWork> deferredSchema);
 
             int nextSchema = 0;
             int nextFill = 0;
             foreach (MigrationOperation operation in operations.Where(o => IsDataPhase(o.Kind)))
             {
                 count += ApplyDeferredWorkThrough(deferredSchema, ref nextSchema, deferredFills, ref nextFill, operation.Version);
-                ReportProgress(operation, ref reported, total);
+                ReportProgress(operation, total);
                 if (operation.Kind == MigrationOperationKind.Run)
                 {
                     if (operation.AsyncCallback != null)
@@ -353,57 +369,51 @@ public sealed class SQLiteMigrationRunner
         return operations;
     }
 
-    private int ApplySchemaPhases(List<MigrationOperation> operations, int total, ref int reported, out HashSet<string> newlyCreated, out List<DeferredFill> deferredFills, out List<DeferredSchemaWork> deferredSchema)
+    private int ApplySchemaPhases(List<MigrationOperation> operations, int total, out HashSet<string> newlyCreated, out List<DeferredFill> deferredFills, out List<DeferredSchemaWork> deferredSchema)
     {
         int count = 0;
         int firstOpaqueVersion = FirstOpaqueVersion(operations);
         List<DeferredSchemaWork> deferred = [];
         foreach (MigrationOperation operation in operations.Where(o => o.Kind == MigrationOperationKind.RenameTable))
         {
-            ReportProgress(operation, ref reported, total);
             string fromTable = operation.FromTable!;
             string toTable = operation.Mapping!.TableName;
-            if (operation.Version > firstOpaqueVersion && !schema.TableExists(fromTable))
+            if (operation.Version <= firstOpaqueVersion || schema.TableExists(fromTable))
             {
-                deferred.Add(new DeferredSchemaWork { Version = operation.Version, Order = 0, Apply = () => (RenameTableIfPresent(fromTable, toTable), []) });
+                count += ReportAndApply(operation, total, () => RenameTableIfPresent(operation.Mapping!, fromTable, toTable));
+                continue;
             }
-            else
-            {
-                count += RenameTableIfPresent(fromTable, toTable);
-            }
+
+            deferred.Add(new DeferredSchemaWork { Version = operation.Version, Order = 0, Apply = () => RenameTableDeferred(operation, total, fromTable, toTable) });
         }
 
         foreach (MigrationOperation operation in operations.Where(o => o.Kind == MigrationOperationKind.RenameColumn))
         {
-            ReportProgress(operation, ref reported, total);
             string tableName = operation.Mapping!.TableName;
             string fromColumn = operation.FromColumn!;
             string toColumn = operation.ToColumn!;
-            if (operation.Version > firstOpaqueVersion && !schema.TableExists(tableName))
+            if (operation.Version <= firstOpaqueVersion || schema.TableExists(tableName))
             {
-                deferred.Add(new DeferredSchemaWork { Version = operation.Version, Order = 1, Apply = () => (RenameColumnIfPresent(tableName, fromColumn, toColumn), []) });
+                count += ReportAndApply(operation, total, () => RenameColumnIfPresent(tableName, fromColumn, toColumn));
+                continue;
             }
-            else
-            {
-                count += RenameColumnIfPresent(tableName, fromColumn, toColumn);
-            }
+
+            deferred.Add(new DeferredSchemaWork { Version = operation.Version, Order = 1, Apply = () => RenameColumnDeferred(operation, total, tableName, fromColumn, toColumn) });
         }
 
         HashSet<string> created = new(StringComparer.OrdinalIgnoreCase);
         newlyCreated = created;
         foreach (MigrationOperation operation in operations.Where(o => o.Kind == MigrationOperationKind.CreateTable))
         {
-            ReportProgress(operation, ref reported, total);
-            if (operation.Version > firstOpaqueVersion
-                && (operation.DropTableFirst || !schema.TableExists(operation.Mapping!.TableName)))
+            if (operation.Version <= firstOpaqueVersion
+                || (!operation.DropTableFirst && schema.TableExists(operation.Mapping!.TableName)))
             {
-                MigrationOperation deferredCreate = operation;
-                deferred.Add(new DeferredSchemaWork { Version = operation.Version, Order = 2, Apply = () => (ApplyCreateTable(deferredCreate, created), []) });
+                count += ReportAndApply(operation, total, () => ApplyCreateTable(operation, created));
+                continue;
             }
-            else
-            {
-                count += ApplyCreateTable(operation, created);
-            }
+
+            MigrationOperation deferredCreate = operation;
+            deferred.Add(new DeferredSchemaWork { Version = operation.Version, Order = 2, Apply = () => CreateTableDeferred(deferredCreate, total, created) });
         }
 
         deferredFills = [];
@@ -411,18 +421,13 @@ public sealed class SQLiteMigrationRunner
                      .Where(o => o.Kind == MigrationOperationKind.Reconcile)
                      .GroupBy(o => o.Mapping!.TableName, StringComparer.OrdinalIgnoreCase))
         {
-            foreach (MigrationOperation operation in group)
-            {
-                ReportProgress(operation, ref reported, total);
-            }
-
             TableMapping mapping = group.First().Mapping!;
             List<MigrationOperation> groupOps = group.ToList();
             int groupVersion = groupOps.Min(o => o.Version);
             if ((groupVersion > firstOpaqueVersion && !created.Contains(group.Key) && !schema.TableExists(mapping.TableName))
                 || HasPendingEarlierDrop(operations, group.Key, groupVersion))
             {
-                deferred.Add(new DeferredSchemaWork { Version = groupVersion, Order = 3, Apply = () => ProcessReconcileGroup(mapping, groupOps, created, operations) });
+                deferred.Add(new DeferredSchemaWork { Version = groupVersion, Order = 3, Apply = () => ProcessReconcileGroup(mapping, groupOps, created, operations, total) });
                 continue;
             }
 
@@ -449,14 +454,13 @@ public sealed class SQLiteMigrationRunner
                 }
                 deferredFills.AddRange(ComputeReconcileFills(mapping, groupOps, deferredSchemaSets));
                 count += AddMissingColumnsBeforeDeferredRebuild(mapping, groupOps);
-                deferred.Add(new DeferredSchemaWork { Version = rebuildVersion, Order = 3, Apply = () => (ApplyReconcileSchema(mapping, groupOps, created, deferredSchemaSets), []) });
+                deferred.Add(new DeferredSchemaWork { Version = rebuildVersion, Order = 3, Apply = () => ReconcileSchemaDeferred(mapping, groupOps, created, deferredSchemaSets, total) });
+                continue;
             }
-            else
-            {
-                (int groupCount, List<DeferredFill> groupFills) = ProcessReconcileGroup(mapping, groupOps, created, operations);
-                count += groupCount;
-                deferredFills.AddRange(groupFills);
-            }
+
+            (int groupCount, List<DeferredFill> groupFills) = ProcessReconcileGroup(mapping, groupOps, created, operations, total);
+            count += groupCount;
+            deferredFills.AddRange(groupFills);
         }
 
         deferredFills.Sort((a, b) => a.Version.CompareTo(b.Version));
@@ -501,7 +505,7 @@ public sealed class SQLiteMigrationRunner
 
     private int AddMissingColumnsBeforeDeferredRebuild(TableMapping mapping, List<MigrationOperation> group)
     {
-        HashSet<string> liveColumns = Database.Pragmas.TableInfo(mapping.TableName)
+        HashSet<string> liveColumns = CommonHelpers.ReadLiveColumns(Database, mapping.TableName)
             .Select(c => c.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         HashSet<string> computed = mapping.ComputedColumns
@@ -581,7 +585,7 @@ public sealed class SQLiteMigrationRunner
         int version = 0;
         foreach ((int winnerVersion, MigrationSetValue winner, _) in SchemaPhaseSets(mapping, group, operations))
         {
-            if ((winner.RunInRebuild || ReadsOwnColumn(winner))
+            if ((winner.RunInRebuild || ReadsOwnColumn(winner) || ReadsOutsideModel(mapping, winner))
                 && winnerVersion > version
                 && HasEarlierDataOperation(operations, mapping.TableName, winnerVersion))
             {
@@ -592,8 +596,9 @@ public sealed class SQLiteMigrationRunner
         return version;
     }
 
-    private (int Count, List<DeferredFill> Fills) ProcessReconcileGroup(TableMapping mapping, List<MigrationOperation> group, HashSet<string> newlyCreated, List<MigrationOperation> operations)
+    private (int Count, List<DeferredFill> Fills) ProcessReconcileGroup(TableMapping mapping, List<MigrationOperation> group, HashSet<string> newlyCreated, List<MigrationOperation> operations, int total)
     {
+        ReportGroup(group, total);
         bool isNew = newlyCreated.Contains(mapping.TableName) || !schema.TableExists(mapping.TableName);
         List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> schemaSets = isNew || mapping.IsFullTextSearch || mapping.IsRTree
             ? []
@@ -629,7 +634,7 @@ public sealed class SQLiteMigrationRunner
 
     private List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> SchemaPhaseSets(TableMapping mapping, IEnumerable<MigrationOperation> group, List<MigrationOperation> operations)
     {
-        List<PragmaTableInfo> liveInfo = Database.Pragmas.TableInfo(mapping.TableName).ToList();
+        List<PragmaTableInfo> liveInfo = CommonHelpers.ReadLiveColumns(Database, mapping.TableName);
         HashSet<string> liveColumns = liveInfo.Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         HashSet<string> liveNullable = liveInfo.Where(c => !c.IsNotNull).Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         HashSet<string> notNullModel = mapping.Columns.Where(c => !c.IsNullable).Select(c => c.Name)
@@ -640,6 +645,12 @@ public sealed class SQLiteMigrationRunner
         foreach (IGrouping<int, MigrationOperation> versionGroup in group.GroupBy(o => o.Version))
         {
             bool afterEarlierData = HasEarlierDataOperation(operations, mapping.TableName, versionGroup.Key);
+            HashSet<string> droppedEarlier = operations
+                .Where(o => o.Kind == MigrationOperationKind.DropColumn
+                    && o.Version < versionGroup.Key
+                    && string.Equals(o.Mapping!.TableName, mapping.TableName, StringComparison.OrdinalIgnoreCase))
+                .Select(o => o.ColumnName!)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
             IEnumerable<MigrationSetValue> qualifying = UnionSets(versionGroup.SelectMany(o => o.Sets))
                 .Where(s => s.RunInRebuild
                     || ReadsOutsideModel(mapping, s)
@@ -647,6 +658,7 @@ public sealed class SQLiteMigrationRunner
                     || (notNullModel.Contains(s.Column) && liveNullable.Contains(s.Column))
                     || mapping.Checks.Count > 0)
                 .Where(s => s.ReadColumns.All(liveColumns.Contains))
+                .Where(s => !s.ReadColumns.Any(droppedEarlier.Contains))
                 .Where(s => !afterEarlierData
                     || s.RunInRebuild
                     || ReadsOutsideModel(mapping, s)
@@ -735,28 +747,71 @@ public sealed class SQLiteMigrationRunner
         }
     }
 
-    private void ReportProgress(MigrationOperation operation, ref int reported, int total)
+    private void ReportProgress(MigrationOperation operation, int total)
     {
-        reported++;
-        progress?.Invoke(new SQLiteMigrationProgress(operation.Version, operation.Description, reported, total));
+        progressReported++;
+        progress?.Invoke(new SQLiteMigrationProgress(operation.Version, operation.Description, progressReported, total));
     }
 
-    private int RenameTableIfPresent(string fromTable, string toTable)
+    private void ReportGroup(List<MigrationOperation> group, int total)
+    {
+        foreach (MigrationOperation operation in group)
+        {
+            ReportProgress(operation, total);
+        }
+    }
+
+    private int ReportAndApply(MigrationOperation operation, int total, Func<int> apply)
+    {
+        ReportProgress(operation, total);
+        return apply();
+    }
+
+    private (int Count, List<DeferredFill> Fills) RenameTableDeferred(MigrationOperation operation, int total, string fromTable, string toTable)
+    {
+        ReportProgress(operation, total);
+        return (RenameTableIfPresent(operation.Mapping!, fromTable, toTable), []);
+    }
+
+    private (int Count, List<DeferredFill> Fills) RenameColumnDeferred(MigrationOperation operation, int total, string tableName, string fromColumn, string toColumn)
+    {
+        ReportProgress(operation, total);
+        return (RenameColumnIfPresent(tableName, fromColumn, toColumn), []);
+    }
+
+    private (int Count, List<DeferredFill> Fills) CreateTableDeferred(MigrationOperation operation, int total, HashSet<string> newlyCreated)
+    {
+        ReportProgress(operation, total);
+        return (ApplyCreateTable(operation, newlyCreated), []);
+    }
+
+    private (int Count, List<DeferredFill> Fills) ReconcileSchemaDeferred(TableMapping mapping, List<MigrationOperation> group, HashSet<string> newlyCreated, List<(int Version, MigrationSetValue Set, MigrationSetValue ApplySet)> schemaSets, int total)
+    {
+        ReportGroup(group, total);
+        return (ApplyReconcileSchema(mapping, group, newlyCreated, schemaSets), []);
+    }
+
+    private int RenameTableIfPresent(TableMapping mapping, string fromTable, string toTable)
     {
         if (string.Equals(fromTable, toTable, StringComparison.Ordinal) || !schema.TableExists(fromTable))
         {
             return 0;
         }
 
+        bool keepSyncTriggers = mapping.IsFullTextSearch && mapping.FullTextSearch!.AutoSync == FtsAutoSync.Triggers;
         int count;
         if (string.Equals(fromTable, toTable, StringComparison.OrdinalIgnoreCase))
         {
             string temp = toTable + "__sqlitefw_case";
-            count = schema.RenameTableCore(fromTable, temp) + schema.RenameTableCore(temp, toTable);
+            count = keepSyncTriggers
+                ? schema.RenameTableKeepingSyncTriggers(fromTable, temp) + schema.RenameTableKeepingSyncTriggers(temp, toTable)
+                : schema.RenameTableCore(fromTable, temp) + schema.RenameTableCore(temp, toTable);
         }
         else
         {
-            count = schema.RenameTableCore(fromTable, toTable);
+            count = keepSyncTriggers
+                ? schema.RenameTableKeepingSyncTriggers(fromTable, toTable)
+                : schema.RenameTableCore(fromTable, toTable);
         }
 
         return count + RebuildFullTextSearchReferencing(fromTable, toTable);
@@ -794,7 +849,7 @@ public sealed class SQLiteMigrationRunner
 
     private int RenameColumnIfPresent(string tableName, string fromColumn, string toColumn)
     {
-        bool present = Database.Pragmas.TableInfo(tableName).ToList()
+        bool present = CommonHelpers.ReadLiveColumns(Database, tableName)
             .Any(c => string.Equals(c.Name, fromColumn, StringComparison.OrdinalIgnoreCase));
         if (!present || string.Equals(fromColumn, toColumn, StringComparison.Ordinal))
         {
@@ -819,7 +874,7 @@ public sealed class SQLiteMigrationRunner
             return 0;
         }
 
-        List<PragmaTableInfo> liveInfo = Database.Pragmas.TableInfo(mapping.TableName).ToList();
+        List<PragmaTableInfo> liveInfo = CommonHelpers.ReadLiveColumns(Database, mapping.TableName);
         PragmaTableInfo? liveColumn = liveInfo.FirstOrDefault(c => string.Equals(c.Name, columnName, StringComparison.OrdinalIgnoreCase));
         if (liveColumn == null)
         {
@@ -848,25 +903,24 @@ public sealed class SQLiteMigrationRunner
     private int DropObjectsReferencingColumn(string tableName, string columnName)
     {
         int count = 0;
-        string quoted = "\"" + columnName.Replace("\"", "\"\"") + "\"";
         string escapedTable = tableName.Replace("'", "''");
         List<Dictionary<string, object?>> indexes = Database.Query<Dictionary<string, object?>>(
-            $"SELECT name, sql FROM sqlite_master WHERE type = 'index' AND tbl_name = '{escapedTable}' AND sql IS NOT NULL");
+            $"SELECT name, sql FROM sqlite_master WHERE type = 'index' AND tbl_name = '{escapedTable}' COLLATE NOCASE AND sql IS NOT NULL");
         foreach (Dictionary<string, object?> index in indexes)
         {
             string sql = (string)index["sql"]!;
-            if (sql.Contains(quoted, StringComparison.OrdinalIgnoreCase) || ContainsUnquotedIdentifier(sql, columnName))
+            if (CommonHelpers.ReferencesIdentifier(sql, columnName))
             {
                 count += Database.Execute($"DROP INDEX \"main\".\"{((string)index["name"]!).Replace("\"", "\"\"")}\"");
             }
         }
 
         List<Dictionary<string, object?>> triggers = Database.Query<Dictionary<string, object?>>(
-            $"SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '{escapedTable}' AND sql IS NOT NULL");
+            $"SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '{escapedTable}' COLLATE NOCASE AND sql IS NOT NULL");
         foreach (Dictionary<string, object?> trigger in triggers)
         {
             string sql = (string)trigger["sql"]!;
-            if (sql.Contains(quoted, StringComparison.OrdinalIgnoreCase) || ContainsUnquotedIdentifier(sql, columnName))
+            if (CommonHelpers.ReferencesIdentifier(sql, columnName))
             {
                 count += Database.Execute($"DROP TRIGGER \"main\".\"{((string)trigger["name"]!).Replace("\"", "\"\"")}\"");
             }
@@ -912,7 +966,7 @@ public sealed class SQLiteMigrationRunner
     private int AlterColumnsInPlace(TableMapping mapping)
     {
         int count = 0;
-        List<PragmaTableInfo> liveInfo = Database.Pragmas.TableInfo(mapping.TableName).ToList();
+        List<PragmaTableInfo> liveInfo = CommonHelpers.ReadLiveColumns(Database, mapping.TableName);
         HashSet<string> liveColumns = liveInfo.Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         HashSet<string> computedColumns = mapping.ComputedColumns.Select(c => c.Column.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         HashSet<string> modelColumns = mapping.Columns.Select(c => c.Name)
@@ -1009,7 +1063,7 @@ public sealed class SQLiteMigrationRunner
             return false;
         }
 
-        if (ContainsUnquotedIdentifier(createSql, columnName))
+        if (CommonHelpers.ContainsUnquotedIdentifier(createSql, columnName))
         {
             return false;
         }
@@ -1022,7 +1076,7 @@ public sealed class SQLiteMigrationRunner
         }
 
         if (Database.Query<string>($"SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = '{mapping.TableName.Replace("'", "''")}' AND sql IS NOT NULL")
-            .Any(sql => sql.Contains(quoted, StringComparison.OrdinalIgnoreCase) || ContainsUnquotedIdentifier(sql, columnName)))
+            .Any(sql => CommonHelpers.ReferencesIdentifier(sql, columnName)))
         {
             return false;
         }
@@ -1033,7 +1087,7 @@ public sealed class SQLiteMigrationRunner
         }
 
         return !Database.Query<string>("SELECT sql FROM sqlite_master WHERE type IN ('trigger', 'view') AND sql IS NOT NULL")
-            .Any(sql => sql.Contains(quoted, StringComparison.OrdinalIgnoreCase) || ContainsUnquotedIdentifier(sql, columnName));
+            .Any(sql => CommonHelpers.ReferencesIdentifier(sql, columnName));
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2026", Justification = "Querying built-in index rows keeps their public members reachable.")]
@@ -1058,7 +1112,7 @@ public sealed class SQLiteMigrationRunner
         string table = mapping.TableName;
         string temp = table + "__sqlitefw_migrate";
 
-        List<PragmaTableInfo> liveInfo = Database.Pragmas.TableInfo(table).ToList();
+        List<PragmaTableInfo> liveInfo = CommonHelpers.ReadLiveColumns(Database, table);
         HashSet<string> liveColumns = liveInfo.Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         HashSet<string> setColumns = sets.Select(s => s.Column).ToHashSet(StringComparer.OrdinalIgnoreCase);
         HashSet<string> computedColumns = mapping.ComputedColumns.Select(c => c.Column.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -1115,8 +1169,9 @@ public sealed class SQLiteMigrationRunner
             selectExpressions.Insert(0, "\"__sqlitefw_rowid\"");
         }
 
+        HashSet<string> droppedColumns = liveColumns.Where(name => !modelColumns.Contains(name)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         IReadOnlyList<string> liveTriggers = Database.Query<string>(
-            $"SELECT sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '{table.Replace("'", "''")}' AND sql IS NOT NULL");
+            $"SELECT sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '{table.Replace("'", "''")}' COLLATE NOCASE AND sql IS NOT NULL");
 
         long? autoIncrementSeq = ReadAutoIncrementSequence(mapping, table);
 
@@ -1162,7 +1217,10 @@ public sealed class SQLiteMigrationRunner
             }
             foreach (string trigger in liveTriggers)
             {
-                Database.Execute(trigger);
+                if (!droppedColumns.Any(column => CommonHelpers.ReferencesIdentifier(trigger, column)))
+                {
+                    Database.Execute(trigger);
+                }
             }
 
             RestoreReferencingTables(dependents);
@@ -1233,6 +1291,7 @@ public sealed class SQLiteMigrationRunner
             EmptyReferencingTables(child, saved, visited);
 
             string childEscaped = child.Replace("'", "''");
+            string childQuoted = child.Replace("\"", "\"\"");
             List<Dictionary<string, object?>> triggers = Database.Query<Dictionary<string, object?>>(
                 $"SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name = '{childEscaped}' AND sql IS NOT NULL");
 
@@ -1244,7 +1303,7 @@ public sealed class SQLiteMigrationRunner
             }
 
             List<Dictionary<string, object?>> childInfo = Database
-                .Query<Dictionary<string, object?>>($"PRAGMA table_xinfo(\"{childEscaped}\")")
+                .Query<Dictionary<string, object?>>($"PRAGMA table_xinfo(\"{childQuoted}\")")
                 .Where(col => Convert.ToInt64(col["hidden"], CultureInfo.InvariantCulture) is not (2 or 3))
                 .ToList();
             List<string> insertableColumns = childInfo.Select(col => (string)col["name"]!).ToList();
@@ -1258,13 +1317,13 @@ public sealed class SQLiteMigrationRunner
 
             if (copyRowId)
             {
-                Database.Execute($"CREATE TABLE \"{child}__sqlitefw_hold\" AS SELECT {childRowId} AS \"__sqlitefw_rowid\", * FROM \"{child}\"");
+                Database.Execute($"CREATE TABLE \"{childQuoted}__sqlitefw_hold\" AS SELECT {childRowId} AS \"__sqlitefw_rowid\", * FROM \"{childQuoted}\"");
             }
             else
             {
-                Database.Execute($"CREATE TABLE \"{child}__sqlitefw_hold\" AS SELECT * FROM \"{child}\"");
+                Database.Execute($"CREATE TABLE \"{childQuoted}__sqlitefw_hold\" AS SELECT * FROM \"{childQuoted}\"");
             }
-            Database.Execute($"DELETE FROM \"{child}\"");
+            Database.Execute($"DELETE FROM \"{childQuoted}\"");
             saved.Add(new SavedTable { Name = child, Triggers = triggerSql, InsertableColumns = insertableColumns, CopyRowId = copyRowId, RowIdAccess = childRowId });
         }
 
@@ -1276,11 +1335,12 @@ public sealed class SQLiteMigrationRunner
         for (int i = saved.Count - 1; i >= 0; i--)
         {
             SavedTable child = saved[i];
+            string childQuoted = child.Name.Replace("\"", "\"\"");
             string columnList = string.Join(", ", child.InsertableColumns.Select(c => $"\"{c.Replace("\"", "\"\"")}\""));
             string insertList = child.CopyRowId ? child.RowIdAccess + ", " + columnList : columnList;
             string selectList = child.CopyRowId ? "\"__sqlitefw_rowid\", " + columnList : columnList;
-            Database.Execute($"INSERT INTO \"{child.Name}\" ({insertList}) SELECT {selectList} FROM \"{child.Name}__sqlitefw_hold\"");
-            Database.Execute($"DROP TABLE \"main\".\"{child.Name}__sqlitefw_hold\"");
+            Database.Execute($"INSERT INTO \"{childQuoted}\" ({insertList}) SELECT {selectList} FROM \"{childQuoted}__sqlitefw_hold\"");
+            Database.Execute($"DROP TABLE \"main\".\"{childQuoted}__sqlitefw_hold\"");
             foreach (string trigger in child.Triggers)
             {
                 Database.Execute(trigger);
@@ -1386,14 +1446,7 @@ public sealed class SQLiteMigrationRunner
         Dictionary<string, string> liveTypes = liveInfo.ToDictionary(c => c.Name, c => c.Type, StringComparer.OrdinalIgnoreCase);
         foreach (TableColumn column in mapping.Columns)
         {
-            if (!copySet.Contains(column.Name))
-            {
-                continue;
-            }
-
-            bool intendedBlob = column.ColumnType == SQLiteColumnType.Blob;
-            bool liveBlob = string.Equals(liveTypes[column.Name], "BLOB", StringComparison.OrdinalIgnoreCase);
-            if (intendedBlob == liveBlob)
+            if (!copySet.Contains(column.Name) || StrictCopyConverts(column, liveTypes[column.Name]))
             {
                 continue;
             }
@@ -1406,6 +1459,24 @@ public sealed class SQLiteMigrationRunner
             throw new InvalidOperationException(
                 $"Cannot migrate STRICT table '{table}'. Column '{column.Name}' changes storage class from " +
                 $"{liveTypes[column.Name].ToUpperInvariant()} to {column.ColumnType.ToString().ToUpperInvariant()}, but the migration does not rewrite its data. " +
+                "SQLite will not store the old value in the new column. Re-encode it with TableChanged(s => s.Reconvert(...)) or set a value with Set(...).");
+        }
+
+        foreach (ShadowColumnSpec shadow in mapping.ShadowColumns)
+        {
+            if (!copySet.Contains(shadow.Name) || StrictAffinityConverts(TypeAffinityResolver.Resolve(liveTypes[shadow.Name]), shadow.Type))
+            {
+                continue;
+            }
+
+            if (Database.ExecuteScalar<long>($"SELECT COUNT(*) FROM \"{table}\"") == 0)
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                $"Cannot migrate STRICT table '{table}'. Column '{shadow.Name}' changes storage class from " +
+                $"{liveTypes[shadow.Name].ToUpperInvariant()} to {shadow.Type.ToString().ToUpperInvariant()}, but the migration does not rewrite its data. " +
                 "SQLite will not store the old value in the new column. Re-encode it with TableChanged(s => s.Reconvert(...)) or set a value with Set(...).");
         }
     }
@@ -1487,6 +1558,74 @@ public sealed class SQLiteMigrationRunner
 
             nextSchema++;
         }
+    }
+
+    private static T RunWithSnapshotRetry<T>(Func<T> run)
+    {
+        while (true)
+        {
+            try
+            {
+                return run();
+            }
+            catch (SQLiteException ex) when (ex.Result == SQLiteResult.Busy)
+            {
+                Thread.Sleep(50);
+            }
+        }
+    }
+
+    private static async Task<T> RunWithSnapshotRetryAsync<T>(Func<Task<T>> run, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            try
+            {
+                return await run();
+            }
+            catch (SQLiteException ex) when (ex.Result == SQLiteResult.Busy)
+            {
+                await Task.Delay(50, cancellationToken);
+            }
+        }
+    }
+
+    private static bool StrictCopyConverts(TableColumn column, string liveType)
+    {
+        SQLiteTypeAffinity live = TypeAffinityResolver.Resolve(liveType);
+        if (StrictAffinityConverts(live, column.ColumnType))
+        {
+            return true;
+        }
+
+        Type enumType = column.PropertyType;
+        if (!enumType.IsEnum || enumType.IsDefined(typeof(FlagsAttribute), inherit: false))
+        {
+            return false;
+        }
+
+        bool liveText = live == SQLiteTypeAffinity.Text;
+        bool intendedText = column.ColumnType == SQLiteColumnType.Text;
+        bool liveInteger = live == SQLiteTypeAffinity.Integer;
+        bool intendedInteger = column.ColumnType == SQLiteColumnType.Integer;
+        return (liveText && intendedInteger) || (liveInteger && intendedText);
+    }
+
+    private static bool StrictAffinityConverts(SQLiteTypeAffinity live, SQLiteColumnType intended)
+    {
+        return ToStrictAffinity(intended) == live
+            || (live == SQLiteTypeAffinity.Integer && intended == SQLiteColumnType.Real);
+    }
+
+    private static SQLiteTypeAffinity ToStrictAffinity(SQLiteColumnType type)
+    {
+        return type switch
+        {
+            SQLiteColumnType.Integer => SQLiteTypeAffinity.Integer,
+            SQLiteColumnType.Real => SQLiteTypeAffinity.Real,
+            SQLiteColumnType.Text => SQLiteTypeAffinity.Text,
+            _ => SQLiteTypeAffinity.Blob,
+        };
     }
 
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Enum member values are read from a user-rooted enum type.")]
@@ -1787,70 +1926,6 @@ public sealed class SQLiteMigrationRunner
         }
 
         return result;
-    }
-
-    private static bool ContainsUnquotedIdentifier(string sql, string identifier)
-    {
-        string scan = sql + " ";
-        bool inLiteral = false;
-        bool inQuote = false;
-        int i = 0;
-        while (i < scan.Length)
-        {
-            char c = scan[i];
-            if (inLiteral)
-            {
-                inLiteral = c != '\'';
-                i++;
-                continue;
-            }
-
-            if (inQuote)
-            {
-                inQuote = c != '"';
-                i++;
-                continue;
-            }
-
-            if (c == '\'')
-            {
-                inLiteral = true;
-                i++;
-                continue;
-            }
-
-            if (c == '"')
-            {
-                inQuote = true;
-                i++;
-                continue;
-            }
-
-            if (IsIdentifierChar(c))
-            {
-                int start = i;
-                while (IsIdentifierChar(scan[i]))
-                {
-                    i++;
-                }
-
-                if (string.Equals(scan[start..i], identifier, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-
-                continue;
-            }
-
-            i++;
-        }
-
-        return false;
-    }
-
-    private static bool IsIdentifierChar(char c)
-    {
-        return char.IsLetterOrDigit(c) || c == '_' || c == '$';
     }
 
     private static string StripWhitespace(string value)
