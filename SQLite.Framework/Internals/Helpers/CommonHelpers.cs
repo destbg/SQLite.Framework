@@ -381,7 +381,7 @@ internal static class CommonHelpers
     public static List<PragmaTableInfo> ReadLiveColumns(SQLiteDatabase database, string table)
     {
         return database.Query<PragmaTableInfo>(
-            $"SELECT cid AS ColumnId, name AS Name, type AS Type, \"notnull\" AS IsNotNull, dflt_value AS DefaultValue, pk AS PrimaryKeyOrder FROM pragma_table_xinfo('{table.Replace("'", "''")}') WHERE hidden IN (0, 2, 3)").ToList();
+            $"SELECT cid AS ColumnId, name AS Name, type AS Type, \"notnull\" AS IsNotNull, dflt_value AS DefaultValue, pk AS PrimaryKeyOrder FROM pragma_table_xinfo('{table.Replace("'", "''")}', 'main') WHERE hidden IN (0, 2, 3)").ToList();
     }
 
     /// <summary>

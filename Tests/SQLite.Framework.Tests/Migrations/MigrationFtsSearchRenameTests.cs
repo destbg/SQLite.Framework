@@ -137,6 +137,7 @@ public class MigrationFtsSearchRenameTests
         using TestDatabase db = new(useFile: true);
         db.Execute("CREATE TABLE \"SecGDocOld\" (\"Id\" INTEGER NOT NULL PRIMARY KEY, \"Body\" TEXT NOT NULL)");
         db.Execute("CREATE VIRTUAL TABLE \"SecGDocSearchNew\" USING fts5(\"Body\", content='SecGDocOld', content_rowid='Id', tokenize='unicode61')");
+        db.Execute("CREATE VIRTUAL TABLE \"SecGContentless\" USING fts5(\"Body\", tokenize='unicode61')");
         db.Table<SecGOtherDoc>().Schema.CreateTable();
         db.Table<SecGOtherSearch>().Schema.CreateTable();
 

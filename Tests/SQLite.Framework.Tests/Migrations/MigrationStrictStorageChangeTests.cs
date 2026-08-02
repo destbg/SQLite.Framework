@@ -212,4 +212,35 @@ public class MigrationStrictStorageChangeTests
 
         Assert.Equal(0L, db.ExecuteScalar<long>("SELECT COUNT(*) FROM \"MigJStrictShadow\""));
     }
+
+    [Theory]
+    [InlineData(MigrateMode.InPlace)]
+    [InlineData(MigrateMode.Rebuild)]
+    public void StrictTableMissingAShadowColumnGainsItWithoutAGuardError(MigrateMode mode)
+    {
+        using ModelTestDatabase db = new(model => model.Entity<MigJStrictShadowRow>()
+            .Column("Meta", SQLiteColumnType.Text));
+        db.Execute("CREATE TABLE \"MigJStrictShadow\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT) STRICT");
+        db.Execute("INSERT INTO \"MigJStrictShadow\" (\"Id\", \"Name\") VALUES (1, 'a')");
+
+        db.Table<MigJStrictShadowRow>().Schema.Migrate(mode);
+
+        Assert.Equal(1L, db.ExecuteScalar<long>(
+            "SELECT COUNT(*) FROM pragma_table_xinfo('MigJStrictShadow', 'main') WHERE name = 'Meta'"));
+    }
+
+    [Theory]
+    [InlineData(MigrateMode.InPlace)]
+    [InlineData(MigrateMode.Rebuild)]
+    public void StrictShadowColumnWithoutAStorageChangeMigratesCleanly(MigrateMode mode)
+    {
+        using ModelTestDatabase db = new(model => model.Entity<MigJStrictShadowRow>()
+            .Column("Meta", SQLiteColumnType.Text));
+        db.Execute("CREATE TABLE \"MigJStrictShadow\" (\"Id\" INTEGER PRIMARY KEY, \"Name\" TEXT, \"Meta\" TEXT) STRICT");
+        db.Execute("INSERT INTO \"MigJStrictShadow\" (\"Id\", \"Name\", \"Meta\") VALUES (1, 'a', 'keep')");
+
+        db.Table<MigJStrictShadowRow>().Schema.Migrate(mode);
+
+        Assert.Equal("keep", db.ExecuteScalar<string>("SELECT \"Meta\" FROM \"MigJStrictShadow\""));
+    }
 }

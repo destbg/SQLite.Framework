@@ -112,8 +112,8 @@ public class MigrationDeferredStepProgressOrderTests
 
         Assert.Equal(
         [
-            (2, "rename table \"MigILegacyTable\" to \"MigIRenamedTable\"", 1, 2),
-            (1, "run SQL", 2, 2),
+            (1, "run SQL", 1, 2),
+            (2, "rename table \"MigILegacyTable\" to \"MigIRenamedTable\"", 2, 2),
         ], events);
         Assert.True(db.Schema.TableExists<MigIRenamedTableRow>());
     }
@@ -133,8 +133,8 @@ public class MigrationDeferredStepProgressOrderTests
 
         Assert.Equal(
         [
-            (2, "rename column \"OldName\" to \"Name\" on \"MigIColumnRename\"", 1, 2),
-            (1, "run SQL", 2, 2),
+            (1, "run SQL", 1, 2),
+            (2, "rename column \"OldName\" to \"Name\" on \"MigIColumnRename\"", 2, 2),
         ], events);
         Assert.True(db.Schema.ColumnExists<MigIColumnRenameRow>("Name"));
     }
@@ -154,8 +154,8 @@ public class MigrationDeferredStepProgressOrderTests
 
         Assert.Equal(
         [
-            (2, "create \"MigIDeferredCreated\"", 1, 2),
-            (1, "run SQL", 2, 2),
+            (1, "run SQL", 1, 2),
+            (2, "create \"MigIDeferredCreated\"", 2, 2),
         ], events);
         Assert.True(db.Schema.TableExists<MigIDeferredCreatedRow>());
     }

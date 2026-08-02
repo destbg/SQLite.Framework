@@ -115,7 +115,10 @@ public class SQLiteSchema
         int count = 0;
         if (mapping.IsFullTextSearch && mapping.FullTextSearch!.AutoSync == FtsAutoSync.Triggers)
         {
-            foreach (string trigger in TriggerNames(mapping))
+            string quotedName = mapping.TableName.Replace("\"", "\"\"");
+            foreach (string trigger in TriggerNames(mapping).Concat(Database.Query<string>(
+                "SELECT name FROM sqlite_master WHERE type = 'trigger'"
+                + $" AND sql LIKE '%INTO \"{EscapeLikePattern(quotedName).Replace("'", "''")}\"(%' ESCAPE '\\'").ToList()))
             {
                 count += Database.CreateCommand($"DROP TRIGGER IF EXISTS \"main\".\"{trigger}\"", []).ExecuteNonQuery();
             }
@@ -143,7 +146,7 @@ public class SQLiteSchema
         {
             foreach (string trigger in Database.Query<string>(
                 "SELECT name FROM sqlite_master WHERE type = 'trigger'"
-                + $" AND sql LIKE '%INTO \"{EscapeLikePattern(quotedName)}\"(%' ESCAPE '\\'").ToList())
+                + $" AND sql LIKE '%INTO \"{EscapeLikePattern(quotedName).Replace("'", "''")}\"(%' ESCAPE '\\'").ToList())
             {
                 count += Database.CreateCommand($"DROP TRIGGER IF EXISTS \"main\".\"{trigger.Replace("\"", "\"\"")}\"", []).ExecuteNonQuery();
             }
@@ -715,7 +718,7 @@ public class SQLiteSchema
         string toQuoted = toTable.Replace("\"", "\"\"");
         using SQLiteTransaction transaction = Database.BeginTransaction();
         List<(string Name, string Sql)> triggers = Database.Query<Dictionary<string, object?>>(
-            $"SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND sql LIKE '%INTO \"{EscapeLikePattern(fromQuoted)}\"(%' ESCAPE '\\'")
+            $"SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND sql LIKE '%INTO \"{EscapeLikePattern(fromQuoted).Replace("'", "''")}\"(%' ESCAPE '\\'")
             .Select(row => ((string)row["name"]!, (string)row["sql"]!))
             .ToList();
 
