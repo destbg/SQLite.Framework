@@ -14,7 +14,7 @@ internal sealed class ReflectedBindingsCollector : ExpressionVisitor
 
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
-        if (IsNonPublic(node.Method))
+        if (IsNonPublic(node.Method) || node.Object is ConstantExpression)
         {
             Methods.Add(node.Method);
             Instances.Add(node.Object != null && ExpressionHelpers.IsConstant(node.Object)

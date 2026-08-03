@@ -1128,7 +1128,11 @@ public static class SelectSignatureWriter
         if (receiver != null)
         {
             sb.Append(' ');
-            if (expandRowArgs && IsRowLikeReference(receiver, ctx))
+            if (receiver is ThisExpressionSyntax)
+            {
+                AppendImplicitThisReceiver(sb, invocation, ctx);
+            }
+            else if (expandRowArgs && IsRowLikeReference(receiver, ctx))
             {
                 if (!AppendExpandedRow(sb, receiver, ctx))
                 {
@@ -1139,6 +1143,11 @@ public static class SelectSignatureWriter
             {
                 return false;
             }
+        }
+        else if (!method.IsStatic)
+        {
+            sb.Append(' ');
+            AppendImplicitThisReceiver(sb, invocation, ctx);
         }
 
         SeparatedSyntaxList<ArgumentSyntax> args = invocation.ArgumentList.Arguments;
@@ -1319,6 +1328,13 @@ public static class SelectSignatureWriter
 
         ITypeSymbol? converted = ctx.Model.GetTypeInfo(args[args.Count - 1].Expression).ConvertedType;
         return !SymbolEqualityComparer.Default.Equals(converted, method.Parameters[method.Parameters.Length - 1].Type);
+    }
+
+    private static void AppendImplicitThisReceiver(StringBuilder sb, InvocationExpressionSyntax invocation, SelectSignatureCtx ctx)
+    {
+        ITypeSymbol enclosingType = ctx.Model.GetEnclosingSymbol(invocation.SpanStart)!.ContainingType!;
+        sb.Append("(Constant ").Append(FormatType(enclosingType, ctx.TypeArgSubstitutions))
+            .Append(' ').Append(FormatType(enclosingType, ctx.TypeArgSubstitutions)).Append(')');
     }
 
     private static ITypeSymbol? ResolveContainingTypeForExpressionTree(IMethodSymbol method, ExpressionSyntax? receiver, SelectSignatureCtx ctx)

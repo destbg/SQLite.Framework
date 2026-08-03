@@ -45,8 +45,8 @@ public class MigrationDeferredRebuildFillTests
         SeedTighten(collapsed);
         TightenChain(collapsed.Schema.Migrations(), 3).Migrate();
 
-        List<(string? Name, int Val, string? Note)> stepwiseRows = TightenRows(stepwise);
-        List<(string? Name, int Val, string? Note)> collapsedRows = TightenRows(collapsed);
+        List<(string Name, int Val, string? Note)> stepwiseRows = TightenRows(stepwise);
+        List<(string Name, int Val, string? Note)> collapsedRows = TightenRows(collapsed);
 
         Assert.Equal([("x", 99, null)], stepwiseRows);
         Assert.Equal(stepwiseRows, collapsedRows);
@@ -85,8 +85,8 @@ public class MigrationDeferredRebuildFillTests
         SeedTighten(collapsed);
         TightenChain(collapsed.Schema.Migrations(), 3).Migrate();
 
-        List<(string? Name, int Val, string? Note)> stepwiseRows = TightenRows(stepwise);
-        List<(string? Name, int Val, string? Note)> collapsedRows = TightenRows(collapsed);
+        List<(string Name, int Val, string? Note)> stepwiseRows = TightenRows(stepwise);
+        List<(string Name, int Val, string? Note)> collapsedRows = TightenRows(collapsed);
 
         Assert.Equal([("x", 99, null)], stepwiseRows);
         Assert.Equal(stepwiseRows, collapsedRows);
@@ -110,7 +110,7 @@ public class MigrationDeferredRebuildFillTests
         return runner;
     }
 
-    private static List<(string? Name, int Val, string? Note)> TightenRows(TestDatabase db)
+    private static List<(string Name, int Val, string? Note)> TightenRows(TestDatabase db)
     {
         return db.Table<ChnTightenRow>()
             .OrderBy(x => x.Id)
@@ -164,8 +164,8 @@ public class MigrationDeferredRebuildFillTests
         SeedReconvert(collapsed);
         ReconvertChain(collapsed.Schema.Migrations(), 3).Migrate();
 
-        List<(string? Name, int Val, string? City)> stepwiseRows = ReconvertRows(stepwise);
-        List<(string? Name, int Val, string? City)> collapsedRows = ReconvertRows(collapsed);
+        List<(string Name, int Val, string City)> stepwiseRows = ReconvertRows(stepwise);
+        List<(string Name, int Val, string City)> collapsedRows = ReconvertRows(collapsed);
 
         Assert.Equal([("x", 20, "A")], stepwiseRows);
         Assert.Equal(stepwiseRows, collapsedRows);
@@ -193,7 +193,7 @@ public class MigrationDeferredRebuildFillTests
         return runner;
     }
 
-    private static List<(string? Name, int Val, string? City)> ReconvertRows(TestDatabase db)
+    private static List<(string Name, int Val, string City)> ReconvertRows(TestDatabase db)
     {
         return db.Table<ChnReconvertRow>()
             .OrderBy(x => x.Id)

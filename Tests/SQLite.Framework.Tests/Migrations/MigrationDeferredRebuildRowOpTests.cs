@@ -73,8 +73,8 @@ public class MigrationDeferredRebuildRowOpTests
         SeedExpr(collapsed);
         ExprChain(collapsed.Schema.Migrations(), 3).Migrate();
 
-        List<(string? Name, int Val, string? Stamp, string? Note, int Total)> stepwiseRows = ExprRows(stepwise);
-        List<(string? Name, int Val, string? Stamp, string? Note, int Total)> collapsedRows = ExprRows(collapsed);
+        List<(string Name, int Val, string? Stamp, string? Note, int Total)> stepwiseRows = ExprRows(stepwise);
+        List<(string Name, int Val, string? Stamp, string? Note, int Total)> collapsedRows = ExprRows(collapsed);
 
         string version = stepwise.ExecuteScalar<string>("SELECT sqlite_version()")!;
         Assert.Equal([("x", 20, version, "n", 7)], stepwiseRows);
@@ -146,8 +146,8 @@ public class MigrationDeferredRebuildRowOpTests
         SeedEveryFill(collapsed);
         EveryFillChain(collapsed.Schema.Migrations(), 3).Migrate();
 
-        List<(string? Name, string? Name2, string? Tag, string? Note, int Val2, string? NewCol, string? City)> stepwiseRows = EveryFillRows(stepwise);
-        List<(string? Name, string? Name2, string? Tag, string? Note, int Val2, string? NewCol, string? City)> collapsedRows = EveryFillRows(collapsed);
+        List<(string Name, string Name2, string? Tag, string? Note, int Val2, string? NewCol, string City)> stepwiseRows = EveryFillRows(stepwise);
+        List<(string Name, string Name2, string? Tag, string? Note, int Val2, string? NewCol, string City)> collapsedRows = EveryFillRows(collapsed);
 
         Assert.Equal([("x", "x", "lg", "c", 10, "new", "A")], stepwiseRows);
         Assert.Equal(stepwiseRows, collapsedRows);
@@ -179,7 +179,7 @@ public class MigrationDeferredRebuildRowOpTests
         return runner;
     }
 
-    private static List<(string? Name, string? Name2, string? Tag, string? Note, int Val2, string? NewCol, string? City)> EveryFillRows(TestDatabase db)
+    private static List<(string Name, string Name2, string? Tag, string? Note, int Val2, string? NewCol, string City)> EveryFillRows(TestDatabase db)
     {
         return db.Table<ChnEveryRow>()
             .OrderBy(x => x.Id)
@@ -205,8 +205,8 @@ public class MigrationDeferredRebuildRowOpTests
         SeedComputed(collapsed);
         ComputedChain(collapsed.Schema.Migrations(), 3).Migrate();
 
-        List<(string? Name, int Val, int Doubled, string? Note)> stepwiseRows = ComputedRows(stepwise);
-        List<(string? Name, int Val, int Doubled, string? Note)> collapsedRows = ComputedRows(collapsed);
+        List<(string Name, int Val, int Doubled, string? Note)> stepwiseRows = ComputedRows(stepwise);
+        List<(string Name, int Val, int Doubled, string? Note)> collapsedRows = ComputedRows(collapsed);
 
         Assert.Equal([("x", 20, 40, null)], stepwiseRows);
         Assert.Equal(stepwiseRows, collapsedRows);
@@ -232,7 +232,7 @@ public class MigrationDeferredRebuildRowOpTests
         return runner;
     }
 
-    private static List<(string? Name, int Val, int Doubled, string? Note)> ComputedRows(TestDatabase db)
+    private static List<(string Name, int Val, int Doubled, string? Note)> ComputedRows(TestDatabase db)
     {
         return db.Table<ChnComputedRow>()
             .OrderBy(x => x.Id)
@@ -256,8 +256,8 @@ public class MigrationDeferredRebuildRowOpTests
         SeedShadow(collapsed);
         TightenChainLocal(collapsed.Schema.Migrations(), 3).Migrate();
 
-        List<(string? Name, int Val, string? Note)> stepwiseRows = ShadowRows(stepwise);
-        List<(string? Name, int Val, string? Note)> collapsedRows = ShadowRows(collapsed);
+        List<(string Name, int Val, string? Note)> stepwiseRows = ShadowRows(stepwise);
+        List<(string Name, int Val, string? Note)> collapsedRows = ShadowRows(collapsed);
 
         Assert.Equal([("x", 99, null)], stepwiseRows);
         Assert.Equal(stepwiseRows, collapsedRows);
@@ -283,7 +283,7 @@ public class MigrationDeferredRebuildRowOpTests
         return runner;
     }
 
-    private static List<(string? Name, int Val, string? Note)> ShadowRows(TestDatabase db)
+    private static List<(string Name, int Val, string? Note)> ShadowRows(TestDatabase db)
     {
         return db.Table<ChnTightenRow>()
             .OrderBy(x => x.Id)
@@ -339,7 +339,7 @@ public class MigrationDeferredRebuildRowOpTests
         return runner;
     }
 
-    private static List<(string? Name, int Val, string? Stamp, string? Note, int Total)> ExprRows(TestDatabase db)
+    private static List<(string Name, int Val, string? Stamp, string? Note, int Total)> ExprRows(TestDatabase db)
     {
         return db.Table<ChnExprRow>()
             .OrderBy(x => x.Id)

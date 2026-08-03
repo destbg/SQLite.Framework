@@ -11,7 +11,7 @@ internal sealed class InstanceMethodRow
     public string Name { get; set; } = "";
 }
 
-internal sealed class InstanceMethodDto
+internal sealed record InstanceMethodDto
 {
     public int Id { get; set; }
     public string Name { get; set; } = "";
@@ -50,4 +50,60 @@ public class InstanceMethodClientEvalProjectionTests
             new InstanceMethodDto { Id = 2, Name = "b", Running = true },
         ], actual);
     }
+
+    [Fact]
+    public void ExplicitThisInstanceMethodCallInProjectionMaterializes()
+    {
+        using TestDatabase db = new();
+        db.Table<InstanceMethodRow>().Schema.CreateTable();
+        db.Table<InstanceMethodRow>().AddRange(
+        [
+            new InstanceMethodRow { Id = 1, Name = "a" },
+            new InstanceMethodRow { Id = 2, Name = "b" },
+        ]);
+
+        List<InstanceMethodDto> actual = db.Table<InstanceMethodRow>()
+            .OrderBy(r => r.Id)
+            .Select(r => new InstanceMethodDto
+            {
+                Id = r.Id,
+                Name = r.Name,
+                Running = this.IsRunning(r.Id),
+            }).ToList();
+
+        Assert.Equal(
+        [
+            new InstanceMethodDto { Id = 1, Name = "a", Running = false },
+            new InstanceMethodDto { Id = 2, Name = "b", Running = true },
+        ], actual);
+    }
+
+    [Fact]
+    public void PublicInstanceMethodCallInProjectionMaterializes()
+    {
+        using TestDatabase db = new();
+        db.Table<InstanceMethodRow>().Schema.CreateTable();
+        db.Table<InstanceMethodRow>().AddRange(
+        [
+            new InstanceMethodRow { Id = 1, Name = "a" },
+            new InstanceMethodRow { Id = 2, Name = "b" },
+        ]);
+
+        List<InstanceMethodDto> actual = db.Table<InstanceMethodRow>()
+            .OrderBy(r => r.Id)
+            .Select(r => new InstanceMethodDto
+            {
+                Id = r.Id,
+                Name = r.Name,
+                Running = IsPublicRunning(r.Id),
+            }).ToList();
+
+        Assert.Equal(
+        [
+            new InstanceMethodDto { Id = 1, Name = "a", Running = false },
+            new InstanceMethodDto { Id = 2, Name = "b", Running = true },
+        ], actual);
+    }
+
+    public bool IsPublicRunning(int id) => runningIds.Contains(id);
 }

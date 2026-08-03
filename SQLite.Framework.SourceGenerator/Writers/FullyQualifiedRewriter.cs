@@ -317,6 +317,13 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
             return node;
         }
 
+        if (method.MethodKind == MethodKind.Ordinary
+            && !method.IsStatic
+            && (node.Expression is not MemberAccessExpressionSyntax implicitReceiver || implicitReceiver.Expression is ThisExpressionSyntax))
+        {
+            return BuildReflectedInvocation(node, method);
+        }
+
         if (!SelectMaterializerEmitter.IsSymbolAccessibleFromGenerator(method, ctx.GeneratorAssembly))
         {
             return BuildReflectedInvocation(node, method);
@@ -650,7 +657,9 @@ public sealed class FullyQualifiedRewriter : CSharpSyntaxRewriter
         int slot = reflectedMethodSlots++;
 
         ExpressionSyntax? receiverExpr = null;
-        if (!method.IsStatic && node.Expression is MemberAccessExpressionSyntax recv)
+        if (!method.IsStatic
+            && node.Expression is MemberAccessExpressionSyntax recv
+            && recv.Expression is not ThisExpressionSyntax)
         {
             if (Visit(recv.Expression) is ExpressionSyntax visited)
             {
