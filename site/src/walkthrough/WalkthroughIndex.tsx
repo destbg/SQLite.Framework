@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { walkthroughs } from "./walkthroughs";
 import { toggleTheme } from "../shared/theme";
+import { initMobileNav } from "../shared/nav";
+import { initReveal } from "../shared/reveal";
 
 const icons: Record<string, React.ReactNode> = {
     console: (
@@ -26,28 +28,44 @@ export function WalkthroughIndex() {
         document.title = "SQLite.Framework Walkthroughs";
     }, []);
 
+    useEffect(() => {
+        initMobileNav();
+        initReveal();
+    }, []);
+
     return (
         <div className="wt-index">
-            <header className="wt-header">
-                <div className="wt-header-inner">
-                    <a className="wt-brand" href="/">
-                        <img src="/SQLite.Framework.png" alt="" width="28" height="28" />
+            <header className="site-header">
+                <div className="container site-header-inner">
+                    <a className="brand" href="/">
+                        <img src="/SQLite.Framework.png" alt="" width="30" height="30" />
                         <span>SQLite.Framework</span>
                     </a>
-                    <nav className="wt-header-links">
-                        <a href="/">Back to home</a>
+                    <button
+                        type="button"
+                        className="nav-toggle"
+                        aria-label="Toggle navigation"
+                        aria-expanded="false"
+                        aria-controls="site-nav"
+                    >
+                        <svg className="nav-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
+                        <svg className="nav-toggle-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+                    </button>
+                    <nav className="site-nav" id="site-nav" aria-label="Main">
                         <a href="/Docs/">Docs</a>
-                        <button type="button" className="wt-iconbtn" aria-label="Toggle theme" onClick={toggleTheme}>
-                            <svg className="icon-sun" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
-                            <svg className="icon-moon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
+                        <a href="/Walkthrough/" aria-current="page">Walkthroughs</a>
+                        <a href="https://www.nuget.org/packages/SQLite.Framework/" target="_blank" rel="noopener">NuGet</a>
+                        <a href="https://github.com/destbg/SQLite.Framework" target="_blank" rel="noopener">GitHub</a>
+                        <button type="button" className="theme-toggle" aria-label="Toggle theme" onClick={toggleTheme}>
+                            <svg className="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+                            <svg className="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
                         </button>
                     </nav>
                 </div>
             </header>
             <main className="wt-index-main">
-                <p className="eyebrow">guided setup</p>
-                <h1>Walkthroughs</h1>
-                <p className="wt-index-sub">
+                <h1 data-reveal>Walkthroughs</h1>
+                <p className="wt-index-sub" data-reveal>
                     Step-by-step guides for adding SQLite.Framework to a fresh project.
                 </p>
                 <div className="wt-grid">
@@ -57,6 +75,7 @@ export function WalkthroughIndex() {
                             to={`/${w.slug}`}
                             className="wt-card"
                             data-accent={w.slug}
+                            data-reveal
                         >
                             <div className="wt-card-top">
                                 <span className="wt-card-icon">{icons[w.slug]}</span>

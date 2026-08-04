@@ -1,51 +1,41 @@
 [data-accent="console"] {
-    --wt-accent: #58a6ff;
-    --wt-accent-dim: rgba(88, 166, 255, 0.14);
+    --wt-accent: var(--accent-strong);
+    --wt-accent-dim: var(--accent-dim);
 }
 
 [data-accent="maui"] {
-    --wt-accent: #bc8cff;
-    --wt-accent-dim: rgba(188, 140, 255, 0.14);
+    --wt-accent: #9c8bc9;
+    --wt-accent-dim: rgba(156, 139, 201, 0.16);
 }
 
 [data-accent="avalonia"] {
-    --wt-accent: #3fd68f;
-    --wt-accent-dim: rgba(63, 214, 143, 0.14);
+    --wt-accent: #6fae82;
+    --wt-accent-dim: rgba(111, 174, 130, 0.16);
 }
 
 [data-accent="aspnet"] {
-    --wt-accent: #ffa657;
-    --wt-accent-dim: rgba(255, 166, 87, 0.14);
+    --wt-accent: var(--stamp);
+    --wt-accent-dim: var(--stamp-dim);
 }
 
 [data-accent="blazor"] {
-    --wt-accent: #ff7eb6;
-    --wt-accent-dim: rgba(255, 126, 182, 0.14);
-}
-
-html[data-theme="light"] [data-accent="console"] {
-    --wt-accent: #0969da;
-    --wt-accent-dim: rgba(9, 105, 218, 0.1);
+    --wt-accent: #c081a0;
+    --wt-accent-dim: rgba(192, 129, 160, 0.16);
 }
 
 html[data-theme="light"] [data-accent="maui"] {
-    --wt-accent: #8250df;
-    --wt-accent-dim: rgba(130, 80, 223, 0.1);
+    --wt-accent: #6b4f96;
+    --wt-accent-dim: rgba(107, 79, 150, 0.1);
 }
 
 html[data-theme="light"] [data-accent="avalonia"] {
-    --wt-accent: #11845d;
-    --wt-accent-dim: rgba(17, 132, 93, 0.1);
-}
-
-html[data-theme="light"] [data-accent="aspnet"] {
-    --wt-accent: #bc4c00;
-    --wt-accent-dim: rgba(188, 76, 0, 0.1);
+    --wt-accent: #3f7a52;
+    --wt-accent-dim: rgba(63, 122, 82, 0.1);
 }
 
 html[data-theme="light"] [data-accent="blazor"] {
-    --wt-accent: #bf3989;
-    --wt-accent-dim: rgba(191, 57, 137, 0.1);
+    --wt-accent: #96435d;
+    --wt-accent-dim: rgba(150, 67, 93, 0.1);
 }
 
 .wt-brand {
@@ -53,7 +43,8 @@ html[data-theme="light"] [data-accent="blazor"] {
     align-items: center;
     gap: 10px;
     color: var(--text);
-    font-weight: 700;
+    font-family: var(--font-display);
+    font-weight: 600;
     min-width: 0;
 }
 
@@ -79,7 +70,7 @@ html[data-theme="light"] [data-accent="blazor"] {
     width: 34px;
     height: 34px;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-muted);
     cursor: pointer;
@@ -104,35 +95,6 @@ html[data-theme="light"] .icon-moon {
 
 /* ---- index ---- */
 
-.wt-header {
-    border-bottom: 1px solid var(--border);
-}
-
-.wt-header-inner {
-    max-width: var(--container);
-    margin: 0 auto;
-    padding: 0 22px;
-    height: 62px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.wt-header-links {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
-.wt-header-links a {
-    color: var(--text-muted);
-    font-size: 0.92rem;
-}
-
-.wt-header-links a:hover {
-    color: var(--text);
-}
-
 .wt-index-main {
     max-width: var(--container);
     margin: 0 auto;
@@ -156,15 +118,19 @@ html[data-theme="light"] .icon-moon {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 16px;
     margin-top: 36px;
+    counter-reset: walkthrough;
 }
 
 .wt-card {
+    position: relative;
+    counter-increment: walkthrough;
     display: flex;
     flex-direction: column;
     padding: 24px;
     border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
+    border-radius: 0 var(--radius-lg) var(--radius-lg) var(--radius-lg);
     background: var(--surface);
+    background-image: var(--paper-grain);
     color: var(--text);
     transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
 }
@@ -185,7 +151,8 @@ html[data-theme="light"] .icon-moon {
 .wt-card-icon {
     display: inline-flex;
     padding: 10px;
-    border-radius: 12px;
+    border: 1px solid var(--wt-accent-dim);
+    border-radius: var(--radius-sm);
     background: var(--wt-accent-dim);
     color: var(--wt-accent);
 }
@@ -195,7 +162,7 @@ html[data-theme="light"] .icon-moon {
     font-size: 0.74rem;
     padding: 3px 10px;
     border: 1px solid var(--border);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     color: var(--text-muted);
 }
 
@@ -235,20 +202,21 @@ html[data-theme="light"] .icon-moon {
     align-items: center;
     gap: 18px;
     padding: 12px 22px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--border-strong);
+    background: var(--surface-2);
 }
 
 .wt-progress {
     flex: 1;
     height: 6px;
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     background: var(--surface-2);
     overflow: hidden;
 }
 
 .wt-progress-fill {
     height: 100%;
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     background: var(--wt-accent);
     transition: width 0.25s ease;
 }
@@ -308,6 +276,7 @@ html[data-theme="light"] .icon-moon {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
     .wt-step-fwd,
     .wt-step-back {
         animation: none;
@@ -315,15 +284,16 @@ html[data-theme="light"] .icon-moon {
 }
 
 .wt-step-number {
+    display: inline-block;
     margin: 0;
+    padding: 3px 10px;
+    border: 1px solid var(--wt-accent-dim);
+    border-radius: var(--radius-sm);
+    background: var(--wt-accent-dim);
     font-family: var(--font-mono);
-    font-size: 0.8rem;
+    font-size: 0.76rem;
+    letter-spacing: 0.03em;
     color: var(--wt-accent);
-}
-
-.wt-step-number::before {
-    content: "-- ";
-    color: var(--text-faint);
 }
 
 .wt-step h1 {
@@ -342,8 +312,9 @@ html[data-theme="light"] .icon-moon {
 .wt-step .code-block {
     margin-top: 22px;
     border: 1px solid var(--border-strong);
-    border-radius: var(--radius-lg);
+    border-radius: 0 var(--radius-lg) var(--radius-lg) var(--radius-lg);
     background: var(--surface);
+    background-image: var(--paper-grain);
     overflow: hidden;
 }
 
@@ -386,7 +357,7 @@ html[data-theme="light"] .icon-moon {
     gap: 8px;
     padding: 10px 18px;
     border: 1px solid var(--border-strong);
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     background: var(--surface);
     color: var(--text);
     font-size: 0.92rem;

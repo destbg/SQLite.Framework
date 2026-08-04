@@ -45,7 +45,6 @@ export default defineConfig({
                 landing: resolve(rootDir, "index.html"),
                 docs: resolve(rootDir, "Docs/index.html"),
                 walkthrough: resolve(rootDir, "Walkthrough/index.html"),
-                why: resolve(rootDir, "Why/index.html"),
             },
         },
     },

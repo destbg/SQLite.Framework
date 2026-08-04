@@ -117,7 +117,7 @@ export function initSavePace(): void {
         ctx.fill();
         if (dot.label) {
             ctx.fillStyle = labelColor;
-            ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+            ctx.font = "11px 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
             ctx.textBaseline = "middle";
             ctx.fillText(dot.label, x + 12, dot.y);
         }

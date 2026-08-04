@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import "../shared/tokens.css";
+import "../shared/chrome.css";
 import "../highlight/syntax.css";
 import "./walkthrough.css";
 import { findWalkthrough } from "./walkthroughs";

@@ -3,24 +3,25 @@
     top: 0;
     z-index: 40;
     background: var(--bg-overlay);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border-strong);
 }
 
 .site-header-inner {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 62px;
+    height: 64px;
 }
 
 .brand {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    font-weight: 700;
+    font-family: var(--font-display);
+    font-weight: 600;
     color: var(--text);
-    font-size: 1.02rem;
+    font-size: 1.05rem;
 }
 
 .brand:hover {
@@ -28,7 +29,7 @@
 }
 
 .brand img {
-    border-radius: 7px;
+    border-radius: 4px;
 }
 
 .site-nav {
@@ -42,13 +43,48 @@
     font-size: 0.92rem;
     font-weight: 500;
     padding: 7px 11px;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
 }
 
 .site-nav a:hover {
-    color: var(--text);
+    color: var(--accent-strong);
     background: var(--surface-2);
     text-decoration: none;
+}
+
+.nav-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+}
+
+.nav-toggle:hover {
+    border-color: var(--accent-line);
+}
+
+.nav-toggle-icon,
+.nav-toggle-close {
+    width: 18px;
+    height: 18px;
+}
+
+.nav-toggle-close {
+    display: none;
+}
+
+.nav-toggle[aria-expanded="true"] .nav-toggle-icon {
+    display: none;
+}
+
+.nav-toggle[aria-expanded="true"] .nav-toggle-close {
+    display: block;
 }
 
 .theme-toggle {
@@ -59,14 +95,14 @@
     height: 36px;
     margin-left: 6px;
     border: 1px solid var(--border);
-    border-radius: 9px;
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-muted);
     cursor: pointer;
 }
 
 .theme-toggle:hover {
-    color: var(--text);
+    color: var(--accent-strong);
     border-color: var(--border-strong);
 }
 
@@ -83,7 +119,7 @@ html[data-theme="light"] .icon-moon {
 }
 
 .site-footer {
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--border-strong);
     padding: 40px 0;
     margin-top: 30px;
 }
@@ -109,17 +145,52 @@ html[data-theme="light"] .icon-moon {
 }
 
 .site-footer-links a:hover {
-    color: var(--text);
+    color: var(--accent-strong);
 }
 
 .site-footer-meta {
     margin: 0;
     color: var(--text-faint);
     font-size: 0.85rem;
+    font-family: var(--font-mono);
 }
 
-@media (max-width: 620px) {
-    .nav-extra {
+@media (max-width: 700px) {
+    .nav-toggle {
+        display: inline-flex;
+    }
+
+    .site-nav {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 2px;
+        padding: 10px 22px 18px;
+        background: var(--bg-raised);
+        border-bottom: 1px solid var(--border-strong);
+        box-shadow: var(--shadow-pop);
         display: none;
+    }
+
+    .site-nav.is-open {
+        display: flex;
+    }
+
+    .site-nav a,
+    .site-nav .theme-toggle {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .site-nav a {
+        padding: 12px 10px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .theme-toggle {
+        margin: 6px 0 0;
     }
 }

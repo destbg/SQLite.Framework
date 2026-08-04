@@ -30,7 +30,8 @@
     align-items: center;
     gap: 10px;
     color: var(--text);
-    font-weight: 700;
+    font-family: var(--font-display);
+    font-weight: 600;
     font-size: 0.95rem;
     line-height: 1.2;
 }
@@ -40,7 +41,7 @@
 }
 
 .docs-sidebar-brand img {
-    border-radius: 6px;
+    border-radius: var(--radius);
 }
 
 .docs-sidebar-brand small {
@@ -62,7 +63,7 @@
     width: 100%;
     padding: 9px 12px;
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: var(--radius);
     background: var(--surface);
     color: var(--text-faint);
     font-size: 0.86rem;
@@ -79,7 +80,7 @@
     font-size: 0.68rem;
     padding: 2px 6px;
     border: 1px solid var(--border);
-    border-radius: 5px;
+    border-radius: var(--radius-sm);
     background: var(--surface-2);
 }
 
@@ -102,10 +103,11 @@
     padding: 6px 8px;
     border: none;
     background: none;
-    color: var(--text);
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     cursor: pointer;
 }
@@ -129,7 +131,7 @@
     display: block;
     padding: 6px 8px 6px 14px;
     border-left: 2px solid transparent;
-    border-radius: 0 8px 8px 0;
+    border-radius: 0 var(--radius) var(--radius) 0;
     color: var(--text-muted);
     font-size: 0.88rem;
 }
@@ -170,7 +172,7 @@
     width: 34px;
     height: 34px;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius);
     background: transparent;
     color: var(--text-muted);
     cursor: pointer;
@@ -257,6 +259,8 @@ html[data-theme="light"] .icon-moon {
 
 .docs-markdown h1 {
     margin: 10px 0 16px;
+    font-family: var(--font-display);
+    font-weight: 600;
     font-size: 2rem;
     letter-spacing: -0.02em;
 }
@@ -265,6 +269,8 @@ html[data-theme="light"] .icon-moon {
 .docs-markdown h3 {
     position: relative;
     margin: 34px 0 12px;
+    font-family: var(--font-display);
+    font-weight: 600;
     scroll-margin-top: 80px;
 }
 
@@ -302,7 +308,7 @@ html[data-theme="light"] .icon-moon {
 
 .docs-inline-code {
     padding: 2px 6px;
-    border-radius: 6px;
+    border-radius: var(--radius);
     background: var(--surface-2);
     border: 1px solid var(--border);
     font-size: 0.86em;
@@ -346,6 +352,10 @@ html[data-theme="light"] .icon-moon {
     background: var(--surface-2);
     color: var(--text-muted);
     font-size: 0.82rem;
+}
+
+.docs-markdown tbody tr:nth-child(even) td {
+    background: var(--bg-raised);
 }
 
 .docs-markdown tbody tr:last-child td {
@@ -419,8 +429,9 @@ html[data-theme="light"] .icon-moon {
 .code-block {
     margin: 16px 0;
     border: 1px solid var(--border-strong);
-    border-radius: var(--radius);
+    border-radius: 0 var(--radius-lg) var(--radius-lg) var(--radius-lg);
     background: var(--surface);
+    background-image: var(--paper-grain);
     overflow: hidden;
 }
 
@@ -461,8 +472,9 @@ html[data-theme="light"] .icon-moon {
     gap: 2px;
     padding: 14px 18px;
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: 0 var(--radius-lg) var(--radius-lg) var(--radius-lg);
     background: var(--surface);
+    background-image: var(--paper-grain);
 }
 
 .docs-pagenav-link:hover {
@@ -547,7 +559,7 @@ html[data-theme="light"] .icon-moon {
     gap: 6px;
     padding: 6px 12px;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius);
     background: var(--surface);
     color: var(--text-muted);
     font-size: 0.82rem;
@@ -583,7 +595,7 @@ html[data-theme="light"] .icon-moon {
     width: 100%;
     padding: 8px 12px;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--radius);
     background: none;
     color: var(--text);
     font-size: 0.86rem;
@@ -647,7 +659,7 @@ html[data-theme="light"] .icon-moon {
     font-size: 0.68rem;
     padding: 2px 6px;
     border: 1px solid var(--border);
-    border-radius: 5px;
+    border-radius: var(--radius-sm);
     background: var(--surface-2);
     color: var(--text-faint);
 }
@@ -697,7 +709,7 @@ html[data-theme="light"] .icon-moon {
 .docs-search-result-snippet mark {
     background: var(--accent-dim);
     color: var(--accent);
-    border-radius: 3px;
+    border-radius: var(--radius-sm);
     padding: 0 1px;
 }
 
@@ -785,7 +797,7 @@ html[data-theme="light"] .icon-moon {
     }
 
     .docs-mobilebrand img {
-        border-radius: 6px;
+        border-radius: var(--radius);
     }
 
     .docs-article {

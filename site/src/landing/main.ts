@@ -1,3 +1,10 @@
+import "@fontsource/ibm-plex-serif/latin-500.css";
+import "@fontsource/ibm-plex-serif/latin-600.css";
+import "@fontsource/ibm-plex-sans/latin-400.css";
+import "@fontsource/ibm-plex-sans/latin-500.css";
+import "@fontsource/ibm-plex-sans/latin-600.css";
+import "@fontsource/ibm-plex-mono/latin-400.css";
+import "@fontsource/ibm-plex-mono/latin-500.css";
 import "../shared/tokens.css";
 import "../shared/chrome.css";
 import "../shared/view-transitions.css";
@@ -7,6 +14,7 @@ import { highlightInto } from "../highlight/highlighter";
 import { attachCopyButtons } from "../highlight/copy";
 import { bindThemeToggles } from "../shared/theme";
 import { initReveal } from "../shared/reveal";
+import { initMobileNav } from "../shared/nav";
 import { initQueryTabs } from "./queryTabs";
 import { initSavePace } from "./savePace";
 
@@ -17,6 +25,7 @@ for (const code of document.querySelectorAll<HTMLElement>("code[data-lang]")) {
 attachCopyButtons(document);
 bindThemeToggles(".theme-toggle");
 initReveal();
+initMobileNav();
 initQueryTabs();
 initSavePace();
 
