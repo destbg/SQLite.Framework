@@ -257,6 +257,7 @@ section h2 {
     gap: 18px;
     align-items: stretch;
     margin-top: 22px;
+    align-items: center;
 }
 
 .translate-panel {
@@ -268,6 +269,7 @@ section h2 {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    justify-content: center;
 }
 
 .translate-panel-head {
