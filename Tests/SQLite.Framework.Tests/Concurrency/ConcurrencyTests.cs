@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Entities;
 using SQLite.Framework.Tests.Helpers;
@@ -408,6 +409,7 @@ public class ConcurrencyTests
     }
 
     [Fact]
+    [UnconditionalSuppressMessage("AOT", "IL2067", Justification = "The mapped types are typeof literals and keep their public property metadata.")]
     public async Task ConcurrentTableMapping_DistinctTypes_AllSucceed()
     {
         for (int attempt = 0; attempt < 20; attempt++)
@@ -421,10 +423,7 @@ public class ConcurrencyTests
             Task[] tasks = types.Select(t => Task.Run(() =>
             {
                 barrier.SignalAndWait();
-#pragma warning disable IL2067 // Target parameter argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to tapping(t);rget method. The parameter of method does not have matching annotations.
                 _ = db.TableMapping(t);
-#pragma warning restore IL2067 // Target parameter argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method. The parameter of method does not have matching annotations.
-
             })).ToArray();
 
             await Task.WhenAll(tasks);
