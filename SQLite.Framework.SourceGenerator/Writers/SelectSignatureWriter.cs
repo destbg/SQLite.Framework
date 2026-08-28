@@ -590,6 +590,9 @@ public static class SelectSignatureWriter
 
         switch (node)
         {
+            case CastExpressionSyntax constantNullCast when ctx.Model.GetConstantValue(constantNullCast) is { HasValue: true, Value: null }:
+                return AppendCast(sb, constantNullCast, type, ctx);
+
             case { } foldedConstant when ctx.Model.GetConstantValue(foldedConstant).HasValue:
                 AppendConstant(sb, foldedConstant, type, ctx);
                 return true;
@@ -598,8 +601,7 @@ public static class SelectSignatureWriter
                 return AppendAsExpression(sb, asExpr, type, ctx);
 
             case BinaryExpressionSyntax isExpr when isExpr.Kind() == SyntaxKind.IsExpression:
-                sb.Append("(TypeIs ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(')');
-                return true;
+                return AppendIsExpression(sb, isExpr, type, ctx);
 
             case BinaryExpressionSyntax bin:
                 return AppendBinary(sb, bin, type, ctx);
@@ -609,6 +611,9 @@ public static class SelectSignatureWriter
 
             case PostfixUnaryExpressionSyntax suppress when suppress.Kind() == SyntaxKind.SuppressNullableWarningExpression:
                 return AppendWithType(sb, suppress.Operand, type, ctx);
+
+            case ParenthesizedExpressionSyntax paren:
+                return AppendWithType(sb, paren.Expression, type, ctx);
 
             case ConditionalExpressionSyntax cond:
                 return AppendConditional(sb, cond, type, ctx);
@@ -799,6 +804,18 @@ public static class SelectSignatureWriter
     {
         sb.Append("(TypeAs ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ');
         if (!TryAppend(sb, asExpr.Left, ctx))
+        {
+            return false;
+        }
+        sb.Append(')');
+        return true;
+    }
+
+    private static bool AppendIsExpression(StringBuilder sb, BinaryExpressionSyntax isExpr, ITypeSymbol? type, SelectSignatureCtx ctx)
+    {
+        sb.Append("(TypeIs ").Append(FormatType(type, ctx.TypeArgSubstitutions)).Append(' ')
+            .Append(FormatType(ctx.Model.GetTypeInfo(isExpr.Right).Type, ctx.TypeArgSubstitutions)).Append(' ');
+        if (!TryAppend(sb, isExpr.Left, ctx))
         {
             return false;
         }
@@ -2006,6 +2023,11 @@ public static class SelectSignatureWriter
 
         if (inner.IsKind(SyntaxKind.NullLiteralExpression) || inner.IsKind(SyntaxKind.DefaultLiteralExpression))
         {
+            if (GetNullableUnderlying(ctx.Model.GetTypeInfo(cast).Type ?? type) != null)
+            {
+                return AppendConvertChain(sb, type, null, () => AppendWithType(sb, inner, null, ctx), ctx);
+            }
+
             return AppendWithType(sb, inner, type, ctx);
         }
 

@@ -332,7 +332,7 @@ public class SQLiteCommand
         {
             if (raw.sqlite3_bind_parameter_index(statement, parameter.Name) != 0)
             {
-                CommandHelpers.BindParameter(statement, parameter.Name, parameter.Value, options);
+                CommandHelpers.BindParameter(statement, parameter.Name, parameter.Value, options, parameter.DeclaredType);
                 continue;
             }
 
@@ -342,7 +342,7 @@ public class SQLiteCommand
                 continue;
             }
 
-            CommandHelpers.BindParameter(statement, statementName, parameter.Value, options);
+            CommandHelpers.BindParameter(statement, statementName, parameter.Value, options, parameter.DeclaredType);
         }
     }
 

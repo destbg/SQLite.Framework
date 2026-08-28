@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Rewriting;
 
 /// <summary>
 /// Rewrites member access on a trigger builder's <c>Old</c> and <c>New</c> rows into member access

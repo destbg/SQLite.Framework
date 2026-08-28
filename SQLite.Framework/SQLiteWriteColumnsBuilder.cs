@@ -33,7 +33,7 @@ public sealed class SQLiteWriteColumnsBuilder<[DynamicallyAccessedMembers(Dynami
     /// </summary>
     public SQLiteWriteColumnsBuilder<T> Set<TValue>(Expression<Func<T, TValue>> column, TValue value)
     {
-        string valueSql = ConverterSql.WrapParameter(SqlLiteralHelper.FormatLiteral(value, database.Options), typeof(TValue), database.Options);
+        string valueSql = ConverterSql.WrapParameter(SqlLiteralHelper.FormatLiteral(value, database.Options, typeof(TValue)), typeof(TValue), database.Options);
         columns.Add((CommonHelpers.Resolve(mapping, column), valueSql));
         return this;
     }

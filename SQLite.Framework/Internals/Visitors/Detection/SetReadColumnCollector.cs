@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Detection;
 
 /// <summary>
 /// Collects the database column names a <c>Set</c> value expression reads. Mapped property

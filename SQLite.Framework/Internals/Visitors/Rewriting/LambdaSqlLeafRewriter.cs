@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Rewriting;
 
 /// <summary>
 /// Replaces the SQL leaf reads inside a client evaluated lambda with the values of the current

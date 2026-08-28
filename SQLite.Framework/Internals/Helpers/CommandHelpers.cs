@@ -279,15 +279,15 @@ internal static class CommandHelpers
         return (decimal)d;
     }
 
-    public static int BindParameter(sqlite3_stmt statement, string name, object? value, SQLiteOptions options)
+    public static int BindParameter(sqlite3_stmt statement, string name, object? value, SQLiteOptions options, Type? declaredType = null)
     {
         int index = BindParameterIndex(statement, name);
-        return BindParameterByIndex(statement, index, value, options);
+        return BindParameterByIndex(statement, index, value, options, declaredType);
     }
 
-    public static int BindParameterByIndex(sqlite3_stmt statement, int index, object? value, SQLiteOptions options)
+    public static int BindParameterByIndex(sqlite3_stmt statement, int index, object? value, SQLiteOptions options, Type? declaredType = null)
     {
-        if (value != null && options.TypeConverters.TryGetValue(value.GetType(), out ISQLiteTypeConverter? converter))
+        if (value != null && options.TryResolveWriteConverter(declaredType, value, out ISQLiteTypeConverter? converter))
         {
             value = converter.ToDatabase(value);
         }

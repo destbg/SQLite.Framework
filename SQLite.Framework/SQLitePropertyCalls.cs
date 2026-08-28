@@ -55,7 +55,7 @@ public class SQLitePropertyCalls<T>
         string sql = ConverterSql.WrapParameter(paramName, member.Type, visitor.Database.Options);
 
         SQLiteExpression expression = SQLiteExpression.Leaf(member.Type, visitor.Counters.NextIdentifier(), sql,
-            [new SQLiteParameter { Name = paramName, Value = value }]);
+            [new SQLiteParameter { Name = paramName, Value = value, DeclaredType = member.Type }]);
 
         SetProperties.Add((targetColumn.Name, expression));
 
@@ -102,16 +102,17 @@ public class SQLitePropertyCalls<T>
             expr = EnumMemberVisitor.BuildEnumToNameText(visitor, targetColumn.PropertyType, expr);
         }
 
-        if (ExpressionHelpers.IsConstant(setter.Body))
+        Type memberType = ((MemberExpression)propertyGetter.Body).Type;
+        bool isConstant = ExpressionHelpers.IsConstant(setter.Body);
+        if (isConstant && visitor.Database.Options.TypeConverters.ContainsKey(memberType))
         {
-            string sql = expr.ToString();
-            string wrapped = ConverterSql.WrapParameter(sql, ((MemberExpression)propertyGetter.Body).Type, visitor.Database.Options);
-            if (wrapped != sql)
-            {
-                expr = SQLiteExpression.Leaf(expr.Type, expr.Identifier, wrapped, expr.Parameters);
-            }
+            object? constantValue = ExpressionHelpers.GetConstantValue(setter.Body);
+            string constantParam = visitor.Counters.NextParamName();
+            string constantSql = ConverterSql.WrapParameter(constantParam, memberType, visitor.Database.Options);
+            expr = SQLiteExpression.Leaf(memberType, visitor.Counters.NextIdentifier(), constantSql,
+                [new SQLiteParameter { Name = constantParam, Value = constantValue, DeclaredType = memberType }]);
         }
-        else
+        else if (!isConstant)
         {
             SQLiteExpression? stored = TryReadStoredColumn(setterBody, targetColumn);
             if (stored != null)

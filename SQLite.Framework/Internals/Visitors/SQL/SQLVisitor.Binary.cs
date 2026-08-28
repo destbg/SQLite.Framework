@@ -108,6 +108,13 @@ internal partial class SQLVisitor
             return constructedNullCheck;
         }
 
+        if (node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual
+            && !IsInSelectProjection
+            && JsonTypeCheckTranslator.TryTranslateAsNullCheck(this, node) is { } asNullCheck)
+        {
+            return asNullCheck;
+        }
+
         Expression leftNode = node.Left;
         Expression rightNode = node.Right;
 
@@ -631,7 +638,7 @@ internal partial class SQLVisitor
     private bool ConstantConvertsToDatabaseNull(ResolvedModel resolved)
     {
         return resolved is { IsConstant: true, Constant: { } constant }
-            && Database.Options.TypeConverters.TryGetValue(constant.GetType(), out ISQLiteTypeConverter? converter)
+            && Database.Options.TryResolveWriteConverter(resolved.Expression.Type, constant, out ISQLiteTypeConverter? converter)
             && converter.ToDatabase(constant) is null;
     }
 

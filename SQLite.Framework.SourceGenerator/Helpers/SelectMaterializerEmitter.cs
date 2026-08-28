@@ -820,7 +820,7 @@ public static class SelectMaterializerEmitter
             case BinaryExpressionSyntax bin:
                 if (bin.Kind() == SyntaxKind.AsExpression || bin.Kind() == SyntaxKind.IsExpression)
                 {
-                    return false;
+                    return TryCollectClientOperand(bin.Left, ctx);
                 }
 
                 return TryCollectClientOperand(bin.Left, ctx)

@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Detection;
 
 /// <summary>
 /// Collects the member paths that a result selector reads from one of its parameters, so the

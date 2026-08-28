@@ -296,7 +296,7 @@ public static class EntityMaterializerEmitter
 
             foreach (IParameterSymbol parameter in structPositional.Parameters)
             {
-                if (!IsEmittablePropertyType(parameter.Type) || !IsReachableFromGeneratedCode(parameter.Type))
+                if (!IsReachableFromGeneratedCode(parameter.Type))
                 {
                     return false;
                 }
@@ -310,10 +310,6 @@ public static class EntityMaterializerEmitter
         {
             foreach (IPropertySymbol anonProp in entity.GetMembers().OfType<IPropertySymbol>())
             {
-                if (!IsEmittablePropertyType(anonProp.Type))
-                {
-                    return false;
-                }
                 ITypeSymbol stripped = StripNullableSymbol(anonProp.Type);
                 if (!IsReachableFromGeneratedCode(stripped))
                 {
@@ -349,18 +345,10 @@ public static class EntityMaterializerEmitter
 
             if (positional != null)
             {
-                foreach (IParameterSymbol parameter in positional.Parameters)
-                {
-                    if (!IsEmittablePropertyType(parameter.Type))
-                    {
-                        return false;
-                    }
-                }
-
                 bool membersReachable = positional.Parameters.All(p => IsReachableFromGeneratedCode(p.Type))
                     && EnumerateInstanceProperties(entity)
                         .Where(p => p.DeclaredAccessibility == Accessibility.Public && p.SetMethod != null)
-                        .All(p => IsReachableFromGeneratedCode(p.Type) && IsEmittablePropertyType(p.Type));
+                        .All(p => IsReachableFromGeneratedCode(p.Type));
 
                 if (!membersReachable)
                 {
@@ -385,10 +373,6 @@ public static class EntityMaterializerEmitter
             }
 
             ITypeSymbol propType = prop.Type;
-            if (!IsEmittablePropertyType(propType))
-            {
-                return false;
-            }
 
             if (!IsReachableFromGeneratedCode(propType))
             {
@@ -698,26 +682,6 @@ public static class EntityMaterializerEmitter
         }
 
         return false;
-    }
-
-    private static bool IsEmittablePropertyType(ITypeSymbol type)
-    {
-        if (IsSupportedPropertyType(type))
-        {
-            return true;
-        }
-
-        if (type.SpecialType == SpecialType.System_Object || type.TypeKind == TypeKind.Interface)
-        {
-            return true;
-        }
-
-        if (type is INamedTypeSymbol nullable && nullable.IsGenericType && nullable.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T)
-        {
-            type = nullable.TypeArguments[0];
-        }
-
-        return !type.IsAbstract;
     }
 
     private static void EmitMaterializer(StringBuilder sb, INamedTypeSymbol entity, string methodName, HashSet<INamedTypeSymbol> entitySet, HashSet<(INamedTypeSymbol, string)> nestedInitSet)

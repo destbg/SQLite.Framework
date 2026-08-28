@@ -861,9 +861,9 @@ internal static class QueryableMemberVisitor
         return rows;
     }
 
-    private static bool ConvertsToDatabaseNull(SQLVisitor visitor, object value)
+    private static bool ConvertsToDatabaseNull(SQLVisitor visitor, object value, Type? declaredType)
     {
-        return visitor.Database.Options.TypeConverters.TryGetValue(value.GetType(), out ISQLiteTypeConverter? converter)
+        return visitor.Database.Options.TryResolveWriteConverter(declaredType, value, out ISQLiteTypeConverter? converter)
             && converter.ToDatabase(value) is null;
     }
 
@@ -886,7 +886,7 @@ internal static class QueryableMemberVisitor
         for (int i = 0; i < values.Count; i++)
         {
             object? value = values[i];
-            if (value is null || ConvertsToDatabaseNull(visitor, value))
+            if (value is null || ConvertsToDatabaseNull(visitor, value, itemType))
             {
                 hasNull = true;
                 continue;
@@ -897,7 +897,8 @@ internal static class QueryableMemberVisitor
             valueParameters.Add(new SQLiteParameter
             {
                 Name = visitor.Counters.NextParamName(),
-                Value = value
+                Value = value,
+                DeclaredType = itemType
             });
         }
 
@@ -1030,7 +1031,8 @@ internal static class QueryableMemberVisitor
                     valueParameters.Add(new SQLiteParameter
                     {
                         Name = paramName,
-                        Value = pureRows[r][c]
+                        Value = pureRows[r][c],
+                        DeclaredType = keyColumns[c].Type
                     });
                     pending.Append(paramName);
                 }
@@ -1060,7 +1062,7 @@ internal static class QueryableMemberVisitor
                 else
                 {
                     string paramName = visitor.Counters.NextParamName();
-                    valueParameters.Add(new SQLiteParameter { Name = paramName, Value = row[c] });
+                    valueParameters.Add(new SQLiteParameter { Name = paramName, Value = row[c], DeclaredType = keyColumns[c].Type });
                     pending.Append(paramName);
                 }
             }

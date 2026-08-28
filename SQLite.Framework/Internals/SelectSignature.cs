@@ -48,6 +48,11 @@ internal static class SelectSignature
                 sb.Append(' ');
                 AppendSignature(sb, ue.Operand);
                 break;
+            case TypeBinaryExpression tb:
+                sb.Append(' ').Append(FormatType(tb.TypeOperand));
+                sb.Append(' ');
+                AppendSignature(sb, tb.Expression);
+                break;
             case ConditionalExpression ce:
                 sb.Append(' ');
                 AppendSignature(sb, ce.Test);

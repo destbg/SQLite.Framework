@@ -151,7 +151,8 @@ public abstract class SQLiteExpression : Expression
             new SQLiteParameter
             {
                 Name = sql,
-                Value = parameter
+                Value = parameter,
+                DeclaredType = type
             }]);
     }
 

@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Rewriting;
 
 internal sealed class ParameterSubstitutor : ExpressionVisitor
 {

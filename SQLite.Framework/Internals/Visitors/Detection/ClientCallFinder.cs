@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Detection;
 
 /// <summary>
 /// Walks a visited projection tree and reports whether it still holds a method call or a delegate

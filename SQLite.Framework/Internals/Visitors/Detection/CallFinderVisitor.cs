@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Detection;
 
 /// <summary>
 /// Walks an expression tree and reports whether it contains a method call or a delegate

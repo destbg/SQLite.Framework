@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Rewriting;
 
 /// <summary>
 /// Expands table-row references that appear as method-call arguments into

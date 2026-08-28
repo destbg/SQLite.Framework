@@ -158,6 +158,13 @@ internal partial class SQLVisitor
 
     protected override Expression VisitTypeBinary(TypeBinaryExpression node)
     {
+        if (!IsInSelectProjection
+            && node.NodeType == ExpressionType.TypeIs
+            && JsonTypeCheckTranslator.TryTranslateTypeIs(this, node.Expression, node.TypeOperand) is { } typeCheck)
+        {
+            return typeCheck;
+        }
+
         return NotTranslatable(node, $"The '{node.NodeType}' operator is not translatable to SQL.");
     }
 

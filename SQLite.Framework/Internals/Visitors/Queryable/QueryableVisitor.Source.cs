@@ -190,7 +190,7 @@ internal partial class QueryableVisitor
             {
                 string paramName = visitor.Counters.NextParamName();
                 object? cellValue = isSimple ? row : row == null ? null : properties[c].GetValue(row);
-                sqlParams.Add(new SQLiteParameter { Name = paramName, Value = cellValue });
+                sqlParams.Add(new SQLiteParameter { Name = paramName, Value = cellValue, DeclaredType = isSimple ? genericType : properties[c].PropertyType });
                 cells[c] = paramName;
             }
             rowValues.Add("(" + string.Join(", ", cells) + ")");

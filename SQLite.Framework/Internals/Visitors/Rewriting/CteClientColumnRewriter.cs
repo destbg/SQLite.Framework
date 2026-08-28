@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Rewriting;
 
 /// <summary>
 /// Rewrites a CTE body column expression so every SQL leaf it holds reads the matching column of the

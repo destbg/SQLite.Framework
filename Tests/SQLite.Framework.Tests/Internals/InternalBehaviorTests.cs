@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using SQLite.Framework;
 using SQLite.Framework.Internals.Helpers;
-using SQLite.Framework.Internals.Visitors;
+using SQLite.Framework.Internals.Visitors.Detection;
 using SQLite.Framework.Models;
 using SQLite.Framework.Tests.Helpers;
 

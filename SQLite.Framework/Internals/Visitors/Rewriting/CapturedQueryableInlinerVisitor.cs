@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Rewriting;
 
 /// <summary>
 /// Walks a LINQ expression tree before translation and replaces every reference to a

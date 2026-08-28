@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Detection;
 
 /// <summary>
 /// Walks an expression tree and reports two facts about it. First, whether it references a given

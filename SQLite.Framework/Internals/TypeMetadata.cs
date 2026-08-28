@@ -42,6 +42,20 @@ internal static class TypeMetadata
 #endif
     }
 
+    public static bool TryResolveWriteConverter(this SQLiteOptions options, Type? declaredType, object value, [NotNullWhen(true)] out ISQLiteTypeConverter? converter)
+    {
+        if (declaredType != null)
+        {
+            Type stripped = Nullable.GetUnderlyingType(declaredType) ?? declaredType;
+            if (options.TypeConverters.TryGetValue(stripped, out converter))
+            {
+                return true;
+            }
+        }
+
+        return options.TypeConverters.TryGetValue(value.GetType(), out converter);
+    }
+
     public static JsonTypeInfo? ResolveJsonTypeInfo(this SQLiteOptions options, Type type)
     {
         Type stripped = Nullable.GetUnderlyingType(type) ?? type;

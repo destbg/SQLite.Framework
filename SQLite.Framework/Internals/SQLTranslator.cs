@@ -1631,6 +1631,6 @@ internal class SQLTranslator
             current = inner.Expression;
         }
 
-        return current is not (NewExpression or MemberInitExpression or MethodCallExpression or ListInitExpression or NewArrayExpression);
+        return current is not (NewExpression or MemberInitExpression or MethodCallExpression or ListInitExpression or NewArrayExpression or UnaryExpression);
     }
 }

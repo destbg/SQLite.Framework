@@ -22,7 +22,7 @@ internal static class SqlLiteralHelper
                 continue;
             }
 
-            string literal = FormatLiteral(parameter.Value, options);
+            string literal = FormatLiteral(parameter.Value, options, parameter.DeclaredType);
             exact[parameter.Name] = literal;
             string bareName = parameter.Name[0] is '@' or ':' or '$' or '?' ? parameter.Name[1..] : parameter.Name;
             if (bareName.Length > 0)
@@ -85,9 +85,9 @@ internal static class SqlLiteralHelper
         return result.ToString();
     }
 
-    public static string FormatLiteral(object? value, SQLiteOptions options)
+    public static string FormatLiteral(object? value, SQLiteOptions options, Type? declaredType = null)
     {
-        if (value != null && options.TypeConverters.TryGetValue(value.GetType(), out ISQLiteTypeConverter? converter))
+        if (value != null && options.TryResolveWriteConverter(declaredType, value, out ISQLiteTypeConverter? converter))
         {
             value = converter.ToDatabase(value);
         }

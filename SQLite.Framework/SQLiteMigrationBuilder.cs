@@ -30,7 +30,7 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
         sets.Add(new MigrationSetValue
         {
             Column = ResolveWritableColumn(column),
-            ValueSql = ConverterSql.WrapParameter(SqlLiteralHelper.FormatLiteral(value, database.Options), typeof(TValue), database.Options),
+            ValueSql = ConverterSql.WrapParameter(SqlLiteralHelper.FormatLiteral(value, database.Options, typeof(TValue)), typeof(TValue), database.Options),
         });
         return this;
     }
@@ -49,7 +49,7 @@ public sealed class SQLiteMigrationBuilder<[DynamicallyAccessedMembers(Dynamical
         if (ExpressionHelpers.IsConstant(value.Body))
         {
             valueSql = ConverterSql.WrapParameter(
-                SqlLiteralHelper.FormatLiteral(ExpressionHelpers.GetConstantValue(value.Body), database.Options),
+                SqlLiteralHelper.FormatLiteral(ExpressionHelpers.GetConstantValue(value.Body), database.Options, typeof(TValue)),
                 typeof(TValue),
                 database.Options);
         }

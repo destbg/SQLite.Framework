@@ -1,4 +1,4 @@
-namespace SQLite.Framework.Internals.Visitors;
+namespace SQLite.Framework.Internals.Visitors.Detection;
 
 internal sealed class GroupSequenceUsageWalker : ExpressionVisitor
 {

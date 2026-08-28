@@ -164,6 +164,8 @@ Where query behavior differs from LINQ-to-Objects. This is the complete list, ke
 - On a JSON list of enums that the JSON type info writes as strings, `Min` and `Max` read the member name back as a number, and that number is a signed 64-bit value. An enum backed by `ulong` whose member value is above `long.MaxValue` therefore compares as a negative number, so `Min` returns the largest member and `Max` the smallest. Enums whose values all fit in a signed 64-bit number are not affected.
 - The same rule applies to a JSON list of `decimal` under `Text` decimal storage and to a JSON list of `char` under `Integer` char storage. The query value binds in the storage-mode form while the JSON holds a plain number or a one-character string, so `Contains` and `IndexOf` do not match. A relational element comparison such as `list.Count(v => v > 15m)` does match, since the comparison casts both sides to a number.
 - A `[JsonPropertyName]` whose name contains a character that the JSON writer escapes, such as an apostrophe, reads back its value only on newer SQLite builds. The writer stores the escaped form (for example `it's`) and an older build, such as the one bundled with SQLCipher, does not match it during a query and returns the type default. A name with an unescaped special character, such as a dot, works on all builds.
+- A member read through a cast or the `as` operator on a polymorphic JSON column, such as `(r.Data as Derived).Value`, translates to `json_extract` on the member path. A row whose runtime type lacks that member returns the type default instead of throwing.
+- An `is` or `as` check on a polymorphic JSON column, such as `Where(r => r.Data is Derived)` or a bare `as` null check, compares the stored type discriminator. A check for a type also matches every derived type registered for it, even a derived type of a derived type. A row stored without a discriminator counts as the base type. A row whose stored discriminator matches no registered derived type cannot be read back. Such a row answers false to `is` checks and true to `as` null checks. These checks are not supported when the polymorphic setup allows unknown derived types. A check for a derived type that has no discriminator of its own is not supported. An exact type check through `GetType()` is not supported.
 
 ## Binary data
 
@@ -222,6 +224,7 @@ Where query behavior differs from LINQ-to-Objects. This is the complete list, ke
 
 - Two `FromSql` fragments composed in the same query that use the same parameter name share one bound value, so the last value wins.
 - A custom translator that hard-codes a parameter name in its SQL text can collide with a generated parameter name in the same query. The query then fails with an error instead of running.
+- A `SQLiteParameter` passed to `Execute` or `FromSql` uses the converter of the runtime type of its value. A derived value of a polymorphic JSON hierarchy is written without the type discriminator, unlike a typed column write. The row then does not match typed queries and reads back as the base type.
 
 ## Backup
 

@@ -29,6 +29,13 @@ internal partial class SQLVisitor
             node = node.Update(stripped);
         }
 
+        if (node.Expression is UnaryExpression { NodeType: ExpressionType.TypeAs } typeAs
+            && (Database.Options.HasJsonConverter(typeAs.Type) || Database.Options.HasJsonConverter(typeAs.Operand.Type)))
+        {
+            SQLiteExpression typeAsOperand = (SQLiteExpression)Visit(typeAs.Operand);
+            return InternJsonExtract(typeAsOperand, CommonHelpers.JsonMemberName(typeAs.Type, node.Member, Database.Options), node.Type);
+        }
+
         if (node.Expression is ConditionalExpression conditional
             && !TypeHelpers.IsSimple(conditional.Type, Database.Options)
             && Database.TryGetCachedTableMapping(conditional.Type, out _)

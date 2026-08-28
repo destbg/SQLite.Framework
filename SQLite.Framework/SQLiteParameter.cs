@@ -15,6 +15,13 @@ public class SQLiteParameter
     /// </summary>
     public required object? Value { get; init; }
 
+    /// <summary>
+    /// The type the value was declared with, such as the property type of the column it came from.
+    /// The write converter is chosen by this type first. The runtime type of the value is used only
+    /// when this is not set, so a derived value of a polymorphic JSON type keeps its type discriminator.
+    /// </summary>
+    internal Type? DeclaredType { get; init; }
+
     /// <inheritdoc/>
     public override string ToString()
     {

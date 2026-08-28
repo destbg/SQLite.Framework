@@ -699,7 +699,7 @@ internal static class BuildQueryObject
 
             object? convertedValue = slot.IsEnum
                 ? Enum.ToObject(slot.TargetType, Convert.ChangeType(val, slot.EnumUnderlyingType!))
-                : Convert.ChangeType(val, slot.TargetType);
+                : val;
             slot.Setter(instance, convertedValue);
             return true;
         }

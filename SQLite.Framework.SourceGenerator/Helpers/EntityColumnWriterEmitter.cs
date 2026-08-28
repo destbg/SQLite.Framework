@@ -85,7 +85,7 @@ public static class EntityColumnWriterEmitter
         bool isNullableValueType = type is INamedTypeSymbol nt && nt.IsGenericType && nt.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T;
 
         sb.Append("            if (options.HasConverter(typeof(").Append(underlying.ToDisplayString()).AppendLine(")))");
-        sb.Append("                options.BindParameter(stmt, idx, (object?)").Append(accessExpr).AppendLine(");");
+        sb.Append("                options.BindParameter(stmt, idx, (object?)").Append(accessExpr).Append(", typeof(").Append(underlying.ToDisplayString()).AppendLine("));");
         sb.AppendLine("            else");
         sb.AppendLine("            {");
 

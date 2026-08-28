@@ -1,5 +1,5 @@
 using System.Linq.Expressions;
-using SQLite.Framework.Internals.Visitors;
+using SQLite.Framework.Internals.Visitors.Rewriting;
 
 namespace SQLite.Framework.Tests;
 

@@ -7,7 +7,8 @@ using SQLite.Framework.Enums;
 using SQLite.Framework.Internals;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
-using SQLite.Framework.Internals.Visitors;
+using SQLite.Framework.Internals.Visitors.Detection;
+using SQLite.Framework.Internals.Visitors.Rewriting;
 using SQLite.Framework.Internals.Visitors.SQL;
 using SQLite.Framework.Extensions;
 using SQLite.Framework.Models;
@@ -420,7 +421,7 @@ public class InternalHelpersDirectTests
             level: 0);
 
         Type aliasVisitorType = typeof(SQLite.Framework.Internals.Helpers.CommonHelpers).Assembly
-            .GetType("SQLite.Framework.Internals.Visitors.AliasVisitor")!;
+            .GetType("SQLite.Framework.Internals.Visitors.Detection.AliasVisitor")!;
         object aliasVisitor = Activator.CreateInstance(aliasVisitorType, db, sqlVisitor)!;
 
         ConstructorInfo ctor = typeof(NoArgWithMembersHolder).GetConstructor(Type.EmptyTypes)!;
@@ -2317,7 +2318,7 @@ public class InternalHelpersDirectTests
     [Fact]
     public void QueryFilterInjector_TryResolveOwnedTable_NonConstantReceiver_ReturnsNull()
     {
-        MethodInfo method = Type.GetType("SQLite.Framework.Internals.Visitors.QueryFilterInjectorVisitor, SQLite.Framework")!
+        MethodInfo method = Type.GetType("SQLite.Framework.Internals.Visitors.Rewriting.QueryFilterInjectorVisitor, SQLite.Framework")!
             .GetMethod("TryResolveOwnedTable", BindingFlags.NonPublic | BindingFlags.Static)!;
         ParameterExpression repo = Expression.Parameter(typeof(DirectFilterRepository), "repo");
         MethodCallExpression node = Expression.Call(repo, typeof(DirectFilterRepository).GetMethod(nameof(DirectFilterRepository.Books))!);
@@ -2328,7 +2329,7 @@ public class InternalHelpersDirectTests
     [Fact]
     public void QueryFilterInjector_TryResolveOwnedTable_NullReceiver_ReturnsNull()
     {
-        MethodInfo method = Type.GetType("SQLite.Framework.Internals.Visitors.QueryFilterInjectorVisitor, SQLite.Framework")!
+        MethodInfo method = Type.GetType("SQLite.Framework.Internals.Visitors.Rewriting.QueryFilterInjectorVisitor, SQLite.Framework")!
             .GetMethod("TryResolveOwnedTable", BindingFlags.NonPublic | BindingFlags.Static)!;
         MethodCallExpression node = Expression.Call(
             Expression.Constant(null, typeof(DirectFilterRepository)),
@@ -2341,7 +2342,7 @@ public class InternalHelpersDirectTests
     public void QueryFilterInjector_TryResolveOwnedTable_NonConstantArgument_ReturnsNull()
     {
         using TestDatabase db = new();
-        MethodInfo method = Type.GetType("SQLite.Framework.Internals.Visitors.QueryFilterInjectorVisitor, SQLite.Framework")!
+        MethodInfo method = Type.GetType("SQLite.Framework.Internals.Visitors.Rewriting.QueryFilterInjectorVisitor, SQLite.Framework")!
             .GetMethod("TryResolveOwnedTable", BindingFlags.NonPublic | BindingFlags.Static)!;
         ParameterExpression flag = Expression.Parameter(typeof(bool), "flag");
         MethodCallExpression node = Expression.Call(
@@ -2356,7 +2357,7 @@ public class InternalHelpersDirectTests
     public void QueryFilterInjector_TryResolveOwnedTable_ConstantArgument_ReturnsTheTable()
     {
         using TestDatabase db = new();
-        MethodInfo method = Type.GetType("SQLite.Framework.Internals.Visitors.QueryFilterInjectorVisitor, SQLite.Framework")!
+        MethodInfo method = Type.GetType("SQLite.Framework.Internals.Visitors.Rewriting.QueryFilterInjectorVisitor, SQLite.Framework")!
             .GetMethod("TryResolveOwnedTable", BindingFlags.NonPublic | BindingFlags.Static)!;
         MethodCallExpression node = Expression.Call(
             Expression.Constant(new DirectFilterRepository(db)),
@@ -2372,7 +2373,7 @@ public class InternalHelpersDirectTests
     public void QueryFilterInjector_ResolveOwnerOptions_UnresolvableCall_FallsBackToTheQueryOptions()
     {
         using TestDatabase db = new();
-        Type visitorType = Type.GetType("SQLite.Framework.Internals.Visitors.QueryFilterInjectorVisitor, SQLite.Framework")!;
+        Type visitorType = Type.GetType("SQLite.Framework.Internals.Visitors.Rewriting.QueryFilterInjectorVisitor, SQLite.Framework")!;
         object visitor = Activator.CreateInstance(visitorType, db.Options, false)!;
         MethodInfo method = visitorType.GetMethod("ResolveOwnerOptions", BindingFlags.NonPublic | BindingFlags.Instance)!;
         ParameterExpression repo = Expression.Parameter(typeof(DirectFilterRepository), "repo");

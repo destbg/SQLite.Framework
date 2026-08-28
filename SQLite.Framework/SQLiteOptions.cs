@@ -347,6 +347,17 @@ public sealed class SQLiteOptions
     }
 
     /// <summary>
+    /// Binds <paramref name="value" /> to <paramref name="parameterIndex" /> on
+    /// <paramref name="statement" /> like <see cref="BindParameter(sqlite3_stmt, int, object?)" />,
+    /// but resolves the converter through <paramref name="declaredType" /> first, so a polymorphic
+    /// value serializes through the declared contract with its discriminator.
+    /// </summary>
+    public void BindParameter(sqlite3_stmt statement, int parameterIndex, object? value, Type? declaredType)
+    {
+        CommandHelpers.BindParameterByIndex(statement, parameterIndex, value, this, declaredType);
+    }
+
+    /// <summary>
     /// Returns true when a custom type converter is registered for <paramref name="type" />.
     /// Generated <see cref="EntityWriters" /> code calls this to decide whether to bind a column
     /// through the converter instead of a fast direct bind, matching the reflection path.

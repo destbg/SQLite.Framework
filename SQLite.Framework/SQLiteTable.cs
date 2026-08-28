@@ -606,7 +606,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                 value = null;
             }
             string placeholder = $"@p{i}";
-            parameters.Add(new SQLiteParameter { Name = placeholder, Value = value });
+            parameters.Add(new SQLiteParameter { Name = placeholder, Value = value, DeclaredType = column.PropertyType });
             names.Add(IdentifierGuard.Quote(column.Name));
             placeholders.Add(WrapParam(placeholder, column));
         }
@@ -652,7 +652,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             int keyIndex = substituted.Count;
             foreach (TableColumn primaryColumn in primaryColumns)
             {
-                substituted.Add(new SQLiteParameter { Name = $"@p{keyIndex++}", Value = primaryColumn.PropertyInfo.GetValue(item) });
+                substituted.Add(new SQLiteParameter { Name = $"@p{keyIndex++}", Value = primaryColumn.PropertyInfo.GetValue(item), DeclaredType = primaryColumn.PropertyType });
             }
 
             return (baseSql, substituted);
@@ -673,7 +673,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         {
             TableColumn column = setColumns[i];
             string placeholder = $"@p{i}";
-            parameters.Add(new SQLiteParameter { Name = placeholder, Value = column.PropertyInfo.GetValue(item) });
+            parameters.Add(new SQLiteParameter { Name = placeholder, Value = column.PropertyInfo.GetValue(item), DeclaredType = column.PropertyType });
             setClauses.Add($"{IdentifierGuard.Quote(column.Name)} = {WrapParam(placeholder, column)}");
         }
 
@@ -699,7 +699,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         for (int i = 0; i < primaryColumns.Length; i++)
         {
             string placeholder = $"@p{next++}";
-            parameters.Add(new SQLiteParameter { Name = placeholder, Value = primaryColumns[i].PropertyInfo.GetValue(item) });
+            parameters.Add(new SQLiteParameter { Name = placeholder, Value = primaryColumns[i].PropertyInfo.GetValue(item), DeclaredType = primaryColumns[i].PropertyType });
             primaryKeyClauses.Add($"{IdentifierGuard.Quote(primaryColumns[i].Name)} = {WrapParam(placeholder, primaryColumns[i])}");
         }
 
@@ -1261,7 +1261,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                 {
                     value = null;
                 }
-                return new SQLiteParameter { Name = $"@p{i}", Value = value };
+                return new SQLiteParameter { Name = $"@p{i}", Value = value, DeclaredType = c.PropertyType };
             })
             .ToList();
 
@@ -1291,7 +1291,8 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             .Select((c, i) => new SQLiteParameter
             {
                 Name = $"@p{i}",
-                Value = c.PropertyInfo.GetValue(item)
+                Value = c.PropertyInfo.GetValue(item),
+                DeclaredType = c.PropertyType
             })
             .ToList();
 
@@ -1310,14 +1311,16 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
             .Select((c, i) => new SQLiteParameter
             {
                 Name = $"@p{i + columns.Length}",
-                Value = c.PropertyInfo.GetValue(item)
+                Value = c.PropertyInfo.GetValue(item),
+                DeclaredType = c.PropertyType
             });
 
         List<SQLiteParameter> parameters = columns
             .Select((c, i) => new SQLiteParameter
             {
                 Name = $"@p{i}",
-                Value = c.PropertyInfo.GetValue(item)
+                Value = c.PropertyInfo.GetValue(item),
+                DeclaredType = c.PropertyType
             })
             .Concat(primaryParameters)
             .ToList();
@@ -1395,7 +1398,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
         int next = parameters.Count;
         foreach (TableColumn primaryColumn in primaryColumns)
         {
-            parameters.Add(new SQLiteParameter { Name = $"@p{next++}", Value = primaryColumn.PropertyInfo.GetValue(item) });
+            parameters.Add(new SQLiteParameter { Name = $"@p{next++}", Value = primaryColumn.PropertyInfo.GetValue(item), DeclaredType = primaryColumn.PropertyType });
         }
 
         StringBuilder extraSets = new();
@@ -1780,7 +1783,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                 value = null;
             }
 
-            parameters.Add(new SQLiteParameter { Name = $"@p{i}", Value = value });
+            parameters.Add(new SQLiteParameter { Name = $"@p{i}", Value = value, DeclaredType = column.PropertyType });
         }
 
         return parameters;
@@ -1840,7 +1843,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
 
     private static Action<sqlite3_stmt, T> CreateBoxedBinder(TableColumn column, int parameterIndex, SQLiteOptions options)
     {
-        return (stmt, item) => CommandHelpers.BindParameterByIndex(stmt, parameterIndex, column.PropertyInfo.GetValue(item), options);
+        return (stmt, item) => CommandHelpers.BindParameterByIndex(stmt, parameterIndex, column.PropertyInfo.GetValue(item), options, column.PropertyType);
     }
 
     private static Action<sqlite3_stmt, T> ResolveInsertBindRow(TableColumn[] columns, TableColumn? autoIncrement, SQLiteOptions options)
@@ -1860,7 +1863,7 @@ public class SQLiteTable<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
                 {
                     value = null;
                 }
-                CommandHelpers.BindParameterByIndex(stmt, i + 1, value, options);
+                CommandHelpers.BindParameterByIndex(stmt, i + 1, value, options, column.PropertyType);
             }
         };
     }
