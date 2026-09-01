@@ -86,6 +86,17 @@ internal static class ExpressionHelpers
         };
     }
 
+    public static bool IsConstantMethodCall(MethodCallExpression node)
+    {
+        if (node.Type.IsByRefLike)
+        {
+            return false;
+        }
+
+        return (node.Object == null || IsConstantMethodOperand(node.Object))
+            && node.Arguments.All(IsConstantMethodOperand);
+    }
+
     public static bool MayBeNull(Expression operand)
     {
         Expression stripped = operand;
@@ -148,6 +159,7 @@ internal static class ExpressionHelpers
             NewExpression ne => CreateNew(ne),
             ListInitExpression lie => CreateListInit(lie),
             MethodCallExpression { Method.Name: "get_Item" } mce => InvokeIndexer(mce),
+            MethodCallExpression mce => InvokeMethod(mce),
             _ => throw new NotSupportedException($"Cannot evaluate expression of type {node.NodeType}")
         };
     }
@@ -276,6 +288,26 @@ internal static class ExpressionHelpers
         {
             throw ex.InnerException;
         }
+    }
+
+    private static object? InvokeMethod(MethodCallExpression node)
+    {
+        object? target = node.Object != null ? GetConstantValue(node.Object) : null;
+        object?[] arguments = [.. node.Arguments.Select(GetConstantValue)];
+        try
+        {
+            return node.Method.Invoke(target, arguments);
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException != null)
+        {
+            throw ex.InnerException;
+        }
+    }
+
+    private static bool IsConstantMethodOperand(Expression node)
+    {
+        return IsConstant(node)
+            || node is MethodCallExpression methodCall && IsConstantMethodCall(methodCall);
     }
 
     private static object? ReadMemberValue(MemberExpression me)

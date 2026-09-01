@@ -175,6 +175,11 @@ internal partial class SQLVisitor
                 }
             }
 
+            if (ConstantMethodFoldingAllowed && ExpressionHelpers.IsConstantMethodCall(node))
+            {
+                return FoldConstantMethodCall(node);
+            }
+
             ResolvedModel obj = ResolveExpression(node.Object);
 
             if (obj is { IsConstant: true, Constant: IEnumerable }
@@ -219,6 +224,14 @@ internal partial class SQLVisitor
                 return NotTranslatable(node, $"{node.Method.Name} over a captured collection with a selector runs in memory in a Select and is not translatable in a Where.");
             }
 
+            if (ConstantMethodFoldingAllowed
+                && declaringType != typeof(Enumerable)
+                && declaringType != typeof(System.Linq.Queryable)
+                && ExpressionHelpers.IsConstantMethodCall(node))
+            {
+                return FoldConstantMethodCall(node);
+            }
+
             List<ResolvedModel> arguments = node.Arguments
                 .Select(ResolveExpression)
                 .ToList();
@@ -247,6 +260,12 @@ internal partial class SQLVisitor
         }
 
         return node;
+    }
+
+    private SQLiteExpression FoldConstantMethodCall(MethodCallExpression node)
+    {
+        object? value = ExpressionHelpers.GetConstantValue(node);
+        return SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), Counters.NextParamName(), value);
     }
 
     private bool RequiresClientEvalFallback(MethodCallExpression node, List<ResolvedModel> resolvedArguments, ResolvedModel? resolvedInstance)

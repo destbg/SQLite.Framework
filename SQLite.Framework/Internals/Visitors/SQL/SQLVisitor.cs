@@ -27,6 +27,7 @@ internal partial class SQLVisitor : ExpressionVisitor
     public bool InCustomMethodTranslator { get; set; }
     public bool ClientEvalAllowed { get; set; }
     public bool ClientEvalUsed { get; set; }
+    public bool ConstantMethodFoldingAllowed { get; set; }
     public bool SuppressUlongWindowOrderSplit { get; set; }
     public bool FtsMatchAsSubquery { get; set; }
     public bool OmitTableAlias { get; set; }

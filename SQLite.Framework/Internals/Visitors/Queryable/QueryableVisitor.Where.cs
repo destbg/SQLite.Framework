@@ -10,7 +10,17 @@ internal partial class QueryableVisitor
         ThrowIfGroupJoinGroupPredicate(lambda.Body);
         ThrowIfWindowPredicate(lambda.Body);
 
-        Expression result = visitor.Visit(lambda.Body);
+        bool previousConstantMethodFoldingAllowed = visitor.ConstantMethodFoldingAllowed;
+        visitor.ConstantMethodFoldingAllowed = true;
+        Expression result;
+        try
+        {
+            result = visitor.Visit(lambda.Body);
+        }
+        finally
+        {
+            visitor.ConstantMethodFoldingAllowed = previousConstantMethodFoldingAllowed;
+        }
 
         if (result is not SQLiteExpression sqlExpression)
         {

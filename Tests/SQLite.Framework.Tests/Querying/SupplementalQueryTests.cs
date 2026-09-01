@@ -351,16 +351,17 @@ public class SupplementalQueryTests
     }
 
     [Fact]
-    public void Guid_InstanceToStringInsideWhere_Throws()
+    public void Guid_InstanceToStringInsideWhere_IsEvaluatedBeforeTranslation()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
         Guid g = Guid.NewGuid();
-        Assert.ThrowsAny<Exception>(() =>
-            db.Table<Book>()
-                .Where(b => b.Title == g.ToString())
-                .ToSqlCommand());
+        db.Table<Book>().Add(new Book { Id = 1, Title = g.ToString(), AuthorId = 1, Price = 1 });
+
+        Book book = Assert.Single(db.Table<Book>().Where(b => b.Title == g.ToString()));
+
+        Assert.Equal(1, book.Id);
     }
 
     [Fact]
