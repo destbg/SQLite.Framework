@@ -22,23 +22,3 @@ initReveal();
 initMobileNav();
 initQueryTabs();
 initSavePace();
-
-const tilt = document.querySelector<HTMLElement>("[data-tilt]");
-if (
-    tilt &&
-    window.matchMedia("(pointer: fine)").matches &&
-    !window.matchMedia("(prefers-reduced-motion: reduce)").matches
-) {
-    const card = tilt.firstElementChild as HTMLElement | null;
-    if (card) {
-        tilt.addEventListener("pointermove", (e) => {
-            const rect = tilt.getBoundingClientRect();
-            const rx = ((e.clientY - rect.top) / rect.height - 0.5) * -5;
-            const ry = ((e.clientX - rect.left) / rect.width - 0.5) * 5;
-            card.style.transform = `perspective(900px) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg)`;
-        });
-        tilt.addEventListener("pointerleave", () => {
-            card.style.transform = "";
-        });
-    }
-}
