@@ -586,14 +586,17 @@ internal static class QueryableMemberVisitor
 
         if (!IsEvaluableLocalCollectionSource(source))
         {
-            if (isContains && source is NewArrayExpression { NodeType: ExpressionType.NewArrayBounds })
+            if (!isContains || sourceFilters.Count != 0 || source is not NewArrayExpression inlineArray)
+            {
+                return null;
+            }
+
+            if (inlineArray.NodeType == ExpressionType.NewArrayBounds)
             {
                 return visitor.NotTranslatable(node, "Contains over an array created with a row-dependent length is not translatable to SQL.");
             }
 
-            return isContains && sourceFilters.Count == 0 && source is NewArrayExpression { NodeType: ExpressionType.NewArrayInit } inlineArray
-                ? BuildInlineArrayContains(visitor, node, inlineArray)
-                : null;
+            return BuildInlineArrayContains(visitor, node, inlineArray);
         }
 
         object? sourceValue = ExpressionHelpers.GetConstantValue(source);

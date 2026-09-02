@@ -5,6 +5,7 @@ using SQLite.Framework.Enums;
 using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Internals.Visitors;
+using SQLite.Framework.Internals.Visitors.Detection;
 using SQLite.Framework.Internals.Visitors.Member;
 using SQLite.Framework.Internals.Visitors.SQL;
 using SQLite.Framework.Models;
@@ -58,6 +59,18 @@ public class CoverageCompletionTests
         object? result = method.Invoke(null, [visitor, typeof(bool), element, predicate, new List<object?> { 1 }, true]);
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public void LocalCollectionNotEqualNullCheckIsDetected()
+    {
+        ParameterExpression element = Expression.Parameter(typeof(string), "element");
+        BinaryExpression nullCheck = Expression.NotEqual(element, Expression.Constant(null, typeof(string)));
+        LocalCollectionPathCollector collector = new(element);
+
+        collector.Visit(nullCheck);
+
+        Assert.True(collector.HasNullCheck);
     }
 
     [Fact]

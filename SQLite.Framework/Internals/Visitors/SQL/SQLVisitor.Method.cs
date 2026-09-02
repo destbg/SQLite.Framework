@@ -415,7 +415,6 @@ internal partial class SQLVisitor
             ? StripSpanConversion(node.Arguments[0])
             : node;
         if (!IsByteArrayContainsMethod(node.Method)
-            || node.Arguments.Count != 2
             || sourceExpression.Type != typeof(byte[])
             || node.Arguments[1].Type != typeof(byte))
         {
@@ -492,9 +491,13 @@ internal partial class SQLVisitor
         }
 
         Type sourceGenericType = sourceType.GetGenericTypeDefinition();
-        return (method.DeclaringType == typeof(Enumerable) && sourceGenericType == typeof(IEnumerable<>))
-            || (method.DeclaringType == typeof(MemoryExtensions)
-                && (sourceGenericType == typeof(ReadOnlySpan<>) || sourceGenericType == typeof(Span<>)));
+        if (method.DeclaringType == typeof(Enumerable))
+        {
+            return sourceGenericType == typeof(IEnumerable<>);
+        }
+
+        return method.DeclaringType == typeof(MemoryExtensions)
+            && (sourceGenericType == typeof(ReadOnlySpan<>) || sourceGenericType == typeof(Span<>));
     }
 
     private static UnaryExpression BoxIfNeeded(Expression expr)

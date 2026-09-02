@@ -51,6 +51,7 @@ public class JsonCollectionMaterializerPrimitiveTests
     {
         Assert.Equal(0, ReadSingle(typeof(int), "null"));
         Assert.Null(ReadSingle(typeof(int?), "null"));
+        Assert.Null(ReadSingle(typeof(string), "null"));
         Assert.Equal(IntEnum.One, ReadSingle(typeof(IntEnum), "\"One\""));
         Assert.Equal(ByteEnum.One, ReadSingle(typeof(ByteEnum), "1"));
         Assert.Equal(SByteEnum.One, ReadSingle(typeof(SByteEnum), "1"));
