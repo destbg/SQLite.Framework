@@ -868,6 +868,11 @@ public static class SelectMaterializerEmitter
             return true;
         }
 
+        if (node is ArrayCreationExpressionSyntax { Initializer: null })
+        {
+            return CollectLeaves(node, ctx);
+        }
+
         if (node is MemberAccessExpressionSyntax access
             && access.Kind() == SyntaxKind.SimpleMemberAccessExpression
             && access.Expression is IdentifierNameSyntax rowIdent

@@ -96,6 +96,14 @@ internal partial class SQLVisitor
             {
                 if (TryGetColumnPath(expressions, path, node.Member.DeclaringType, out Expression? expression))
                 {
+                    if (expression is SQLiteExpression
+                        && RequiresConstructorEvaluation(expressions, path)
+                        && ResolveNestedConstructedMember(expressions, path) is { } constructedMember
+                        && constructedMember is not SQLiteExpression)
+                    {
+                        return constructedMember;
+                    }
+
                     if (expression is SQLiteExpression colExpr && !IsInSelectProjection)
                     {
                         Type colType = Nullable.GetUnderlyingType(colExpr.Type) ?? colExpr.Type;
@@ -297,6 +305,20 @@ internal partial class SQLVisitor
         }
 
         return false;
+    }
+
+    private bool RequiresConstructorEvaluation(Dictionary<string, Expression> expressions, string path)
+    {
+        if (!ConstructedProjectionNodes.TryGetValue(expressions, out Dictionary<string, Expression>? nodes))
+        {
+            return false;
+        }
+
+        int separator = path.LastIndexOf('.');
+        string basePath = separator < 0 ? string.Empty : path[..separator];
+        return nodes.TryGetValue(basePath, out Expression? constructed)
+            && ExpressionHelpers.StripUpcast(constructed) is NewExpression newExpression
+            && !TypeHelpers.HasPositionalIdentityMembers(newExpression.Type);
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Projection types are rooted by the user query.")]

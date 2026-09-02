@@ -470,6 +470,39 @@ internal class QueryCompilerVisitor : ExpressionVisitor
     [UnconditionalSuppressMessage("AOT", "IL2062", Justification = "The nullable underlying type is a value type with a default constructor.")]
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
+        if (node.Method.DeclaringType == typeof(MemoryExtensions)
+            && node.Method.Name == nameof(MemoryExtensions.Contains)
+            && node.Arguments.Count == 2
+            && TryGetSpanSource(node.Arguments[0], out Expression? spanSource))
+        {
+            CompiledExpression source = (CompiledExpression)Visit(spanSource);
+            CompiledExpression value = (CompiledExpression)Visit(node.Arguments[1]);
+            return new CompiledExpression(node.Type, ctx =>
+            {
+                object? collection = source.Call(ctx);
+                if (collection == null)
+                {
+                    return false;
+                }
+
+                object? item = value.Call(ctx);
+                if (collection is IList list)
+                {
+                    return list.Contains(item);
+                }
+
+                foreach (object? candidate in (IEnumerable)collection)
+                {
+                    if (Equals(candidate, item))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            });
+        }
+
         CompiledExpression? instance = Visit(node.Object) as CompiledExpression;
         CompiledExpression[] arguments = node.Arguments
             .Select(arg => (CompiledExpression)Visit(arg))
@@ -603,6 +636,24 @@ internal class QueryCompilerVisitor : ExpressionVisitor
         }
 
         return result;
+    }
+
+    private static bool TryGetSpanSource(Expression conversion, [NotNullWhen(true)] out Expression? source)
+    {
+        if (conversion is MethodCallExpression { Method.Name: "op_Implicit", Arguments.Count: 1 } methodCall)
+        {
+            source = methodCall.Arguments[0];
+            return true;
+        }
+
+        if (conversion is UnaryExpression { Method.Name: "op_Implicit" } unary)
+        {
+            source = unary.Operand;
+            return true;
+        }
+
+        source = null;
+        return false;
     }
 
     private static void ApplyNestedAssignment(object instance, MemberInfo[] path, object? value)

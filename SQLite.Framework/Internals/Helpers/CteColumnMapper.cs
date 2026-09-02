@@ -363,6 +363,11 @@ internal static class CteColumnMapper
     public static SQLiteExpression BuildDeclaredBodyLeaf(Expression value, string key, string alias, SQLiteCounters counters)
     {
         SQLiteExpression leaf = SQLiteExpression.Leaf(value.Type, counters.NextIdentifier(), $"{alias}.{IdentifierGuard.Quote(key)}");
+        if (value is SQLiteExpression { IsDayOfWeekInteger: true })
+        {
+            leaf.WithDayOfWeekInteger();
+        }
+
         if (value is SQLiteExpression { IsJsonSource: true })
         {
             leaf.WithJsonSource();

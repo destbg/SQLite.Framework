@@ -24,14 +24,14 @@ internal partial class SQLVisitor
         return BuildClientEvalFallback(node);
     }
 
-    public SQLiteExpression? TryResolveColumnLeaf(Expression node)
+    public Expression? TryResolveColumnLeaf(Expression node)
     {
         (string path, ParameterExpression? pe) = ExpressionHelpers.ResolveNullableParameterPath(node);
         if (pe != null
             && MethodArguments.TryGetValue(pe, out Dictionary<string, Expression>? columns)
             && IsSingleLeafColumn(columns, path, (node as MemberExpression)?.Member.DeclaringType))
         {
-            return Visit(node) as SQLiteExpression;
+            return Visit(node);
         }
 
         return null;

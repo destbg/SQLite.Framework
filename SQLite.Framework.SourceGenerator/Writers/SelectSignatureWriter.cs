@@ -554,6 +554,21 @@ public static class SelectSignatureWriter
         TypeInfo typeInfo = ctx.Model.GetTypeInfo(node);
         ITypeSymbol? declaredType = typeInfo.Type;
         ITypeSymbol? convertedType = typeInfo.ConvertedType;
+        if (declaredType is IArrayTypeSymbol
+            && convertedType is INamedTypeSymbol { IsRefLikeType: true } spanType
+            && spanType.Name is "Span" or "ReadOnlySpan")
+        {
+            sb.Append("(Call ").Append(FormatType(convertedType, ctx.TypeArgSubstitutions)).Append(' ')
+                .Append(FormatType(convertedType, ctx.TypeArgSubstitutions)).Append(".op_Implicit ");
+            if (!AppendWithType(sb, node, declaredType, ctx))
+            {
+                return false;
+            }
+
+            sb.Append(')');
+            return true;
+        }
+
         if (declaredType != null
             && convertedType != null
             && !SymbolEqualityComparer.Default.Equals(declaredType, convertedType)

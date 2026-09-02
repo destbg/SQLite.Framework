@@ -10,6 +10,7 @@ namespace SQLite.Framework.Internals;
 /// </remarks>
 internal class SQLTranslator
 {
+    private const int PreferredParameterCount = 500;
     private readonly SQLiteDatabase database;
     private readonly int level;
     private readonly bool isInnerQuery;
@@ -18,6 +19,7 @@ internal class SQLTranslator
     private readonly QueryableVisitor queryableMethodVisitor;
     private Expression? selectMethodExpression;
     private bool skipGeneratedMaterializers;
+    private bool suppressResultMaterializer;
 
     public SQLTranslator(SQLiteDatabase database)
     {
@@ -341,7 +343,8 @@ internal class SQLTranslator
            && ne.Type.Name.StartsWith("<>f__AnonymousType", StringComparison.Ordinal)
            && ne.Arguments.Any(a => !a.Type.IsVisible);
 
-        if (queryableMethodVisitor.SuppressSelectMaterializer)
+        if ((suppressResultMaterializer && !queryableMethodVisitor.ClientProjection)
+            || queryableMethodVisitor.SuppressSelectMaterializer)
         {
             createObject = null;
         }
@@ -501,7 +504,7 @@ internal class SQLTranslator
             database.GetActiveHandle(),
             raw.SQLITE_LIMIT_VARIABLE_NUMBER,
             -1);
-        int excessCount = parameters.Count - parameterLimit;
+        int excessCount = parameters.Count - Math.Min(parameterLimit, PreferredParameterCount);
         if (excessCount <= 0)
         {
             return;
@@ -511,6 +514,15 @@ internal class SQLTranslator
             .Where(parameter => parameter.InlineIfParameterLimitExceeded)
             .TakeLast(excessCount)
             .ToList();
+        if (inlineParameters.Count < excessCount)
+        {
+            excessCount = Math.Max(0, parameters.Count - parameterLimit);
+            inlineParameters = parameters
+                .Where(parameter => parameter.InlineIfParameterLimitExceeded)
+                .TakeLast(excessCount)
+                .ToList();
+        }
+
         if (inlineParameters.Count < excessCount)
         {
             throw new NotSupportedException(
@@ -924,6 +936,7 @@ internal class SQLTranslator
             }
 
             clientCheckedTranslator = Visitor.CloneDeeper(level + 1);
+            clientCheckedTranslator.suppressResultMaterializer = true;
             clientCheckedQuery = clientCheckedTranslator.Translate(methodCalls[wrapIdx].Arguments[0]);
             if (!clientCheckedTranslator.ClientProjection)
             {
@@ -1021,6 +1034,31 @@ internal class SQLTranslator
 
                                 outerColumns[innerSelect.Key] = dottedLeaf;
                                 flattened = true;
+                            }
+                        }
+
+                        if (!flattened
+                            && !property.CanWrite
+                            && !entityType.Name.StartsWith("<>f__AnonymousType", StringComparison.Ordinal)
+                            && Visitor.ConstructedProjectionNodes.TryGetValue(
+                                innerTranslator.Visitor.TableColumns,
+                                out Dictionary<string, Expression>? constructedNodes)
+                            && constructedNodes.ContainsKey(property.Name))
+                        {
+                            Dictionary<string, Expression> mappedColumns = CteColumnMapper.BuildBodyMappedColumns(
+                                innerTranslator.Visitor.TableColumns,
+                                innerTranslator.Selects,
+                                columnNames: null,
+                                alias,
+                                database.Options,
+                                Visitor.Counters);
+                            foreach (KeyValuePair<string, Expression> mappedColumn in mappedColumns)
+                            {
+                                if (mappedColumn.Key.StartsWith(dottedPrefix, StringComparison.Ordinal))
+                                {
+                                    outerColumns[mappedColumn.Key] = mappedColumn.Value;
+                                    flattened = true;
+                                }
                             }
                         }
                     }

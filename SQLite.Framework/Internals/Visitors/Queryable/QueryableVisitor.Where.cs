@@ -188,11 +188,10 @@ internal partial class QueryableVisitor
     {
         if (node.Arguments.Count >= 2)
         {
-            ThrowIfSetOperations(node.Method.Name);
-
             Expression stripped = ExpressionHelpers.StripQuotes(node.Arguments[1]);
             if (stripped is LambdaExpression lambda)
             {
+                ThrowIfSetOperations(node.Method.Name);
                 ThrowIfGroupJoinGroupPredicate(lambda.Body);
                 Expression result = visitor.Visit(lambda.Body);
 

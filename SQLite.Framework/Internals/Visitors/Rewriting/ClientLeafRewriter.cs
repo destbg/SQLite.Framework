@@ -27,9 +27,11 @@ internal sealed class ClientLeafRewriter : ExpressionVisitor
             && TypeHelpers.IsSimple(node.Type, owner.Database.Options)
             && owner.TryResolveColumnLeaf(node) is { } leaf)
         {
-            if (node.Type != leaf.Type && Nullable.GetUnderlyingType(node.Type) == leaf.Type)
+            if (leaf is SQLiteExpression sqlLeaf
+                && node.Type != sqlLeaf.Type
+                && Nullable.GetUnderlyingType(node.Type) == sqlLeaf.Type)
             {
-                return Expression.Convert(leaf, node.Type);
+                return Expression.Convert(sqlLeaf, node.Type);
             }
 
             return leaf;

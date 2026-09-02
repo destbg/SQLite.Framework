@@ -170,7 +170,7 @@ internal class AliasVisitor
 
             for (int i = 0; i < parameters.Length; i++)
             {
-                Expression argument = newExpression.Arguments[i];
+                Expression argument = ExpressionHelpers.StripUpcast(newExpression.Arguments[i]);
                 ParameterInfo parameter = parameters[i];
                 string memberName = ResolveConstructorMemberName(newExpression, parameter, i);
 
@@ -533,6 +533,7 @@ internal class AliasVisitor
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Projection types are rooted by the user query.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2075", Justification = "Projection types are rooted by the user query.")]
     private static string ResolveConstructorMemberName(NewExpression expression, ParameterInfo parameter, int argumentIndex)
     {
         if (expression.Members != null)
