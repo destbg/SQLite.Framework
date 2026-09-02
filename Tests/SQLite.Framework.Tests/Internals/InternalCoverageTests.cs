@@ -32,16 +32,16 @@ public class InternalCoverageTests
     public void WindowCallDetectorClassifiesCallKinds()
     {
         Expression<Func<SQLiteWindow<double>>> windowFunc = () => SQLiteWindowFunctions.Sum(1.0);
-        Assert.True(WindowCallDetector.Contains(windowFunc.Body));
+        Assert.True(CommonHelpers.ContainsWindowCall(windowFunc.Body));
 
         Expression<Func<SQLiteWindow<double>>> windowChain = () => SQLiteWindowFunctions.Sum(1.0).Over();
-        Assert.True(WindowCallDetector.Contains(windowChain.Body));
+        Assert.True(CommonHelpers.ContainsWindowCall(windowChain.Body));
 
         Expression<Func<bool>> genericNonWindow = () => new List<int>().Contains(1);
-        Assert.False(WindowCallDetector.Contains(genericNonWindow.Body));
+        Assert.False(CommonHelpers.ContainsWindowCall(genericNonWindow.Body));
 
         Expression<Func<string>> nonGeneric = () => string.Empty.ToUpper();
-        Assert.False(WindowCallDetector.Contains(nonGeneric.Body));
+        Assert.False(CommonHelpers.ContainsWindowCall(nonGeneric.Body));
 
         if (RuntimeFeature.IsDynamicCodeSupported)
         {
@@ -49,7 +49,7 @@ public class InternalCoverageTests
             ILGenerator il = nullDeclaringType.GetILGenerator();
             il.Emit(OpCodes.Ldc_I4_1);
             il.Emit(OpCodes.Ret);
-            Assert.False(WindowCallDetector.Contains(Expression.Call(nullDeclaringType)));
+            Assert.False(CommonHelpers.ContainsWindowCall(Expression.Call(nullDeclaringType)));
         }
     }
 

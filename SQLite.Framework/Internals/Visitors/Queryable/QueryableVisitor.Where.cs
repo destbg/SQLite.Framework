@@ -8,7 +8,11 @@ internal partial class QueryableVisitor
 
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
         ThrowIfGroupJoinGroupPredicate(lambda.Body);
-        ThrowIfWindowPredicate(lambda.Body);
+        if (CommonHelpers.ContainsWindowCall(lambda.Body))
+        {
+            throw new NotSupportedException(
+                "A window function in Where needs a one-parameter predicate that can be moved to an outer query.");
+        }
 
         bool previousConstantMethodFoldingAllowed = visitor.ConstantMethodFoldingAllowed;
         visitor.ConstantMethodFoldingAllowed = true;
@@ -67,7 +71,9 @@ internal partial class QueryableVisitor
         }
         else
         {
-            throw new Exception($"Unsupported expression type {node.Arguments[1].GetType().Name} in Contains.");
+            throw new NotSupportedException(
+                $"Contains needs a value that SQLite can translate. The value expression is {node.Arguments[1].GetType().Name}. " +
+                "Read the value into a local variable or call Contains after AsEnumerable.");
         }
 
         if (visitor.TableColumns.Values.First() is not SQLiteExpression columnExpr)
@@ -158,7 +164,6 @@ internal partial class QueryableVisitor
 
             LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
             ThrowIfGroupJoinGroupPredicate(lambda.Body);
-            ThrowIfWindowPredicate(lambda.Body);
             bool previousFtsMatchAsSubquery = visitor.FtsMatchAsSubquery;
             visitor.FtsMatchAsSubquery = true;
             Expression result = visitor.Visit(lambda.Body);
@@ -189,7 +194,6 @@ internal partial class QueryableVisitor
             if (stripped is LambdaExpression lambda)
             {
                 ThrowIfGroupJoinGroupPredicate(lambda.Body);
-                ThrowIfWindowPredicate(lambda.Body);
                 Expression result = visitor.Visit(lambda.Body);
 
                 if (result is not SQLiteExpression sqlExpression)
@@ -249,14 +253,5 @@ internal partial class QueryableVisitor
 
         DefaultValue = resolved.Constant;
         HasDefaultValue = true;
-    }
-
-    private static void ThrowIfWindowPredicate(Expression body)
-    {
-        if (WindowCallDetector.Contains(body))
-        {
-            throw new NotSupportedException(
-                "A window function cannot be used in a Where predicate, because SQL filters rows before window functions run.");
-        }
     }
 }

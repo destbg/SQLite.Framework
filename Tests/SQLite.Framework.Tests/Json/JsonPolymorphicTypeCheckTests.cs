@@ -452,14 +452,72 @@ public class JsonPolymorphicTypeCheckTests
     }
 
     [Fact]
-    public void Where_IsTypeEqualCheck_ThrowsNotSupported()
+    public void Where_IsTypeEqualCheck_MatchesExactType()
     {
         using TestDatabase db = Db();
+        List<PolyContainer> inMemory =
+        [
+            new PolyContainer { Id = 1, Data = new PolyX { X = 11 }, Data2 = [], Data3 = [] },
+            new PolyContainer { Id = 2, Data = new PolyX2 { X = 5, X2 = 9 }, Data2 = [], Data3 = [] },
+            new PolyContainer { Id = 3, Data = new PolyBase(), Data2 = [], Data3 = [] },
+            new PolyContainer { Id = 4, Data = null, Data2 = [], Data3 = [] },
+        ];
+        db.Table<PolyContainer>().AddRange(inMemory);
         ParameterExpression parameter = Expression.Parameter(typeof(PolyContainer), "c");
         Expression<Func<PolyContainer, bool>> predicate = Expression.Lambda<Func<PolyContainer, bool>>(
             Expression.TypeEqual(Expression.Property(parameter, nameof(PolyContainer.Data)), typeof(PolyX)), parameter);
 
-        Assert.Throws<NotSupportedException>(() => db.Table<PolyContainer>().Where(predicate).ToList());
+        List<int> expected = inMemory.Where(predicate.Compile()).Select(c => c.Id).ToList();
+        List<int> actual = db.Table<PolyContainer>().Where(predicate).Select(c => c.Id).ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void Where_GetTypeCheck_MatchesExactBaseType()
+    {
+        using TestDatabase db = Db();
+        List<PolyContainer> inMemory = SeedRows(db, includeUnknown: false);
+
+        List<int> expected = inMemory.Where(c => c.Data != null && c.Data.GetType() == typeof(PolyBase)).Select(c => c.Id).ToList();
+        List<int> actual = db.Table<PolyContainer>().Where(c => c.Data != null && c.Data.GetType() == typeof(PolyBase)).Select(c => c.Id).ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void Where_GetTypeNotEqualCheck_MatchesOtherExactTypes()
+    {
+        using TestDatabase db = Db();
+        List<PolyContainer> inMemory = SeedRows(db, includeUnknown: false);
+
+        List<int> expected = inMemory.Where(c => c.Data != null && c.Data.GetType() != typeof(PolyX)).Select(c => c.Id).ToList();
+        List<int> actual = db.Table<PolyContainer>().Where(c => c.Data != null && c.Data.GetType() != typeof(PolyX)).Select(c => c.Id).ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void Where_GetTypeComparedToNull_ThrowsNotSupported()
+    {
+        using TestDatabase db = Db();
+        Type? missing = null;
+
+        Assert.Throws<NotSupportedException>(() => db.Table<PolyContainer>()
+            .Where(c => c.Data != null && c.Data.GetType() == missing)
+            .Select(c => c.Id)
+            .ToList());
+    }
+
+    [Fact]
+    public void Where_GetTypeComparedToRowType_ThrowsNotSupported()
+    {
+        using TestDatabase db = Db();
+
+        Assert.Throws<NotSupportedException>(() => db.Table<PolyContainer>()
+            .Where(c => c.Data != null && c.Data.GetType() == c.GetType())
+            .Select(c => c.Id)
+            .ToList());
     }
 
     private static List<PolyContainer> SeedRows(TestDatabase db, bool includeUnknown)

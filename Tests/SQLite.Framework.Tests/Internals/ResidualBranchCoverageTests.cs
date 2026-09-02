@@ -550,24 +550,6 @@ public class ResidualBranchCoverageTests
     }
 
     [Fact]
-    public void RequireKeyExpressionThrowsForRowShapedKeys()
-    {
-        MethodInfo method = typeof(SQLiteExpression).Assembly
-            .GetType("SQLite.Framework.Internals.Visitors.Member.WindowFunctionsMemberVisitor")!
-            .GetMethod("RequireKeyExpression", BindingFlags.NonPublic | BindingFlags.Static)!;
-        ResolvedModel arg = new()
-        {
-            IsConstant = false,
-            Constant = null,
-            SQLiteExpression = null,
-            Expression = Expression.Constant(1)
-        };
-
-        TargetInvocationException ex = Assert.Throws<TargetInvocationException>(() => method.Invoke(null, [arg]));
-        Assert.IsType<NotSupportedException>(ex.InnerException);
-    }
-
-    [Fact]
     public void CompletePendingSavepointCleanupSkipsWhenNotInTransaction()
     {
         using TestDatabase db = new(null, nameof(CompletePendingSavepointCleanupSkipsWhenNotInTransaction));

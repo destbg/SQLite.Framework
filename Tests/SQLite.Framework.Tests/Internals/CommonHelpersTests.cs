@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Reflection;
 using SQLite.Framework.Enums;
 using SQLite.Framework.Internals.Models;
 using SQLite.Framework.Tests.Helpers;
@@ -71,6 +72,15 @@ public class CommonHelpersTests
     {
         MethodCallExpression mc = Expression.Call(typeof(int).GetMethod(nameof(int.Parse), new[] { typeof(string) })!, Expression.Constant("1"));
         Assert.False(ExpressionHelpers.IsConstant(mc));
+    }
+
+    [Fact]
+    public void IsConstantMethodCall_FrameworkMethod_IsNotConstant()
+    {
+        MethodCallExpression call = Expression.Call(
+            typeof(SQLiteFunctions).GetMethod(nameof(SQLiteFunctions.Random), Type.EmptyTypes)!);
+
+        Assert.False(ExpressionHelpers.IsConstantMethodCall(call));
     }
 
     [Fact]
@@ -193,6 +203,12 @@ public class CommonHelpersTests
         SQLiteOptions options = new SQLiteOptionsBuilder(":memory:").Build();
         Assert.Throws<NotSupportedException>(() =>
             TypeHelpers.TypeToSQLiteType(typeof(IntPtr), options));
+    }
+
+    [Fact]
+    public void IsCollectionResult_ByteArray_IsFalse()
+    {
+        Assert.False(TypeHelpers.IsCollectionResult(typeof(byte[])));
     }
 
     [Fact]
@@ -355,6 +371,136 @@ public class CommonHelpersTests
         Assert.Throws<NotSupportedException>(() => ExpressionHelpers.GetConstantValue(mie));
     }
 
+    [Fact]
+    public void SpanIndexOfRecognitionRejectsOtherMemoryMethod()
+    {
+        MethodInfo contains = typeof(MemoryExtensions).GetMethods()
+            .Single(m => m.Name == nameof(MemoryExtensions.Contains)
+                && m.IsGenericMethodDefinition
+                && m.GetParameters()[0].ParameterType.IsGenericType
+                && m.GetParameters()[0].ParameterType.GetGenericTypeDefinition() == typeof(ReadOnlySpan<>)
+                && m.GetParameters() is [_, { ParameterType.IsGenericParameter: true }])
+            .MakeGenericMethod(typeof(int));
+        MethodCallExpression call = Expression.Call(
+            contains,
+            Expression.Default(typeof(ReadOnlySpan<int>)),
+            Expression.Constant(1));
+
+        Assert.False(InvokeTrySpanIndexOf(call));
+    }
+
+    [Fact]
+    public void SpanIndexOfRecognitionRejectsOtherArgumentCount()
+    {
+        MethodInfo indexOf = typeof(MemoryExtensions).GetMethod(
+            nameof(MemoryExtensions.IndexOf),
+            [typeof(ReadOnlySpan<char>), typeof(ReadOnlySpan<char>), typeof(StringComparison)])!;
+        MethodCallExpression call = Expression.Call(
+            indexOf,
+            Expression.Default(typeof(ReadOnlySpan<char>)),
+            Expression.Default(typeof(ReadOnlySpan<char>)),
+            Expression.Constant(StringComparison.Ordinal));
+
+        Assert.False(InvokeTrySpanIndexOf(call));
+    }
+
+    [Fact]
+    public void SpanIndexOfRecognitionRejectsDirectSpanExpression()
+    {
+        MethodCallExpression call = BuildSpanIndexOf(Expression.Default(typeof(ReadOnlySpan<int>)));
+
+        Assert.False(InvokeTrySpanIndexOf(call));
+        Assert.False(ExpressionHelpers.IsConstantMethodCall(call));
+    }
+
+    [Fact]
+    public void SpanIndexOfRecognitionRejectsNonEnumerableSource()
+    {
+        CommonHelpersSpanSource source = new();
+        MethodInfo conversion = typeof(CommonHelpersSpanSource).GetMethod("op_Implicit")!;
+        MethodCallExpression converted = Expression.Call(conversion, Expression.Constant(source));
+        MethodCallExpression call = BuildSpanIndexOf(converted);
+
+        Assert.False(InvokeTrySpanIndexOf(call));
+    }
+
+    [Fact]
+    public void SpanSourceRecognitionRejectsOtherExpressions()
+    {
+        UnaryExpression builtIn = Expression.Convert(Expression.Constant(1), typeof(long));
+        UnaryExpression explicitConversion = Expression.Convert(
+            Expression.Constant(new CommonHelpersExplicitSource()),
+            typeof(int));
+
+        Assert.False(InvokeTryGetSpanSource(Expression.Constant(1)));
+        Assert.False(InvokeTryGetSpanSource(builtIn));
+        Assert.False(InvokeTryGetSpanSource(explicitConversion));
+    }
+
+    [Fact]
+    public void ConstantSpanMethodRecognitionRejectsParameterSource()
+    {
+        MethodInfo conversion = typeof(ReadOnlySpan<int>).GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Single(method => method.Name == "op_Implicit"
+                && method.GetParameters() is [{ ParameterType: Type parameterType }]
+                && parameterType == typeof(int[]));
+        ParameterExpression source = Expression.Parameter(typeof(int[]), "source");
+        MethodCallExpression call = BuildSpanIndexOf(Expression.Call(conversion, source));
+
+        Assert.False(ExpressionHelpers.IsConstantMethodCall(call));
+    }
+
+    [Fact]
+    public void LocalCollectionSafetyRejectsNewGuid()
+    {
+        MethodInfo method = typeof(QueryableMemberVisitor).GetMethod(
+            "IsSafeLocalCollectionValue",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        MethodCallExpression newGuid = Expression.Call(
+            typeof(Guid).GetMethod(nameof(Guid.NewGuid), Type.EmptyTypes)!);
+        MethodCallExpression parse = Expression.Call(
+            typeof(Guid).GetMethod(nameof(Guid.Parse), [typeof(string)])!,
+            Expression.Constant("00000000-0000-0000-0000-000000000000"));
+
+        Assert.False(ExpressionHelpers.IsConstantMethodCall(newGuid));
+        Assert.True(ExpressionHelpers.IsConstantMethodCall(parse));
+        Assert.False((bool)method.Invoke(null, [newGuid])!);
+    }
+
+    private static MethodCallExpression BuildSpanIndexOf(Expression source)
+    {
+        MethodInfo indexOf = typeof(MemoryExtensions).GetMethods()
+            .Single(m => m.Name == nameof(MemoryExtensions.IndexOf)
+                && m.IsGenericMethodDefinition
+                && m.GetParameters()[0].ParameterType.IsGenericType
+                && m.GetParameters()[0].ParameterType.GetGenericTypeDefinition() == typeof(ReadOnlySpan<>)
+                && m.GetParameters() is [_, { ParameterType.IsGenericParameter: true }])
+            .MakeGenericMethod(typeof(int));
+        return Expression.Call(indexOf, source, Expression.Constant(1));
+    }
+
+    private static bool InvokeTryGetSpanSource(Expression expression)
+    {
+        MethodInfo method = typeof(ExpressionHelpers).GetMethod("TryGetSpanSource", BindingFlags.NonPublic | BindingFlags.Static)!;
+        object?[] arguments = [expression, null];
+
+        bool result = (bool)method.Invoke(null, arguments)!;
+
+        Assert.Null(arguments[1]);
+        return result;
+    }
+
+    private static bool InvokeTrySpanIndexOf(MethodCallExpression expression)
+    {
+        MethodInfo method = typeof(ExpressionHelpers).GetMethod("TryInvokeSpanIndexOf", BindingFlags.NonPublic | BindingFlags.Static)!;
+        object?[] arguments = [expression, null];
+
+        bool result = (bool)method.Invoke(null, arguments)!;
+
+        Assert.Null(arguments[1]);
+        return result;
+    }
+
     public struct StructWithoutCtor
     {
         public int Value;
@@ -374,4 +520,20 @@ public class CommonHelpersFieldHolder
 public class CommonHelpersOuterTarget
 {
     public CommonHelpersTestTarget Inner { get; } = new();
+}
+
+public sealed class CommonHelpersSpanSource
+{
+    public static implicit operator ReadOnlySpan<int>(CommonHelpersSpanSource source)
+    {
+        return [];
+    }
+}
+
+public sealed class CommonHelpersExplicitSource
+{
+    public static explicit operator int(CommonHelpersExplicitSource source)
+    {
+        return 0;
+    }
 }

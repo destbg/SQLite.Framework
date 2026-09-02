@@ -79,6 +79,8 @@ internal partial class QueryableVisitor
             nameof(System.Linq.Queryable.OrderByDescending) => VisitOrder(node),
             nameof(System.Linq.Queryable.ThenBy) => VisitOrder(node),
             nameof(System.Linq.Queryable.ThenByDescending) => VisitOrder(node),
+            nameof(System.Linq.Queryable.Order) => VisitOrder(node),
+            nameof(System.Linq.Queryable.OrderDescending) => VisitOrder(node),
             nameof(System.Linq.Queryable.First) => VisitScalar(node),
             nameof(System.Linq.Queryable.FirstOrDefault) => VisitScalar(node),
             nameof(System.Linq.Queryable.Single) => VisitScalar(node),
@@ -209,24 +211,12 @@ internal partial class QueryableVisitor
                         string finalName = $"cte{visitor.CteRegistry.Ctes.Count}";
                         string fixedSql = recursive.Query.Sql.Replace(placeholder, finalName);
 
-                        Dictionary<string, Expression>? recursiveNodes = CteColumnMapper.BodyConstructedNodes(recursive.Translator.Visitor);
-                        cteName = visitor.CteRegistry.Register(
+                        cteName = CteColumnMapper.RegisterRecursiveCte(
+                            visitor.CteRegistry,
                             fixedSql,
                             recursive.Query.Parameters.ToArray(),
-                            isRecursive: true,
-                            key: cte,
-                            columnNames: recursive.ColumnNames,
-                            dayOfWeekColumns: recursive.DayOfWeekColumns,
-                            jsonSourceColumns: recursive.JsonSourceColumns,
-                            constructedPaths: CteColumnMapper.BodyConstructedPaths(recursive.Translator.Visitor),
-                            constructedNodes: recursiveNodes,
-                            bodyColumns: recursive.HasClientMember ? recursive.Translator.Visitor.TableColumns : null,
-                            bodySelects: recursive.HasClientMember || recursiveNodes != null ? recursive.Translator.Selects : null,
-                            emittedColumns: CteColumnMapper.EmittedColumnNames(recursive.ColumnNames, recursive.Translator.Selects),
-                            optionalRow: recursive.Translator.Visitor.OptionalRowColumns.Contains(recursive.Translator.Visitor.TableColumns),
-                            optionalRowPaths: recursive.Translator.Visitor.OptionalRowPaths.TryGetValue(recursive.Translator.Visitor.TableColumns, out HashSet<string>? recursiveOptionalPaths)
-                                ? recursiveOptionalPaths
-                                : null);
+                            cte,
+                            recursive);
 
                         visitor.CteParameters.Remove(selfParam);
                         visitor.MethodArguments.Remove(selfParam);
@@ -379,6 +369,11 @@ internal partial class QueryableVisitor
                 visitor.ConstructedProjectionPaths[newTableColumns] = [.. innerConstructedPaths];
             }
 
+            if (innerVisitor.Visitor.ConstructedProjectionNodes.TryGetValue(innerVisitor.Visitor.TableColumns, out Dictionary<string, Expression>? innerConstructedNodes))
+            {
+                visitor.ConstructedProjectionNodes[newTableColumns] = new Dictionary<string, Expression>(innerConstructedNodes);
+            }
+
             visitor.TableColumnPrefixes[newTableColumns] = new Dictionary<string, string?> { [string.Empty] = alias };
             sql = SQLiteExpression.Leaf(
                 body.Type,
@@ -387,10 +382,35 @@ internal partial class QueryableVisitor
                 query.Parameters.Count != 0 ? query.Parameters.ToArray() : null
             );
         }
-        else if (body is MemberExpression jsonMember && database.Options.HasJsonConverter(jsonMember.Type))
+        else if (body.Type.IsGenericType
+            && body.Type.GetGenericTypeDefinition() == typeof(Dictionary<,>))
         {
             throw new NotSupportedException(
-                $"SelectMany over the JSON collection column '{jsonMember.Member.Name}' is not supported at the query level.");
+                "A Dictionary<TKey, TValue> source cannot be used in a join or SelectMany. " +
+                "SQLite json_each exposes dictionary keys separately from values, but this query shape expects KeyValuePair rows. " +
+                "Project Keys or Values before combining the source.");
+        }
+        else if (TypeHelpers.GetEnumerableElementType(body.Type) is { } jsonElementType
+            && visitor.ResolveExpression(body).SQLiteExpression is { } jsonSource
+            && (database.Options.HasJsonConverter(body.Type) || jsonSource.IsJsonSource))
+        {
+            if (body.Type is { } scalarType && (scalarType == typeof(string) || scalarType == typeof(byte[])))
+            {
+                throw new NotSupportedException(
+                    "A JSON string or byte[] source cannot be used in a join or SelectMany. " +
+                    "SQLite json_each treats a scalar as one value, not as the characters or bytes that .NET enumerates. " +
+                    "Project the value and enumerate it after ToList.");
+            }
+
+            string jsonAlias = $"j{visitor.Counters.NextTableIndex('j')}";
+            newTableColumns = BuildJsonElementColumns(jsonElementType, jsonAlias);
+            entityType = jsonElementType;
+            sql = SQLiteExpression.Leaf(body.Type, -1,
+                $"json_each({jsonSource}) AS {jsonAlias}", jsonSource.Parameters);
+            if (OrderBys.Count > 0)
+            {
+                OrderBys.Add(SQLiteExpression.Leaf(typeof(int), visitor.Counters.NextIdentifier(), $"{jsonAlias}.\"key\" ASC"));
+            }
         }
         else
         {
@@ -414,6 +434,35 @@ internal partial class QueryableVisitor
 
                 return SQLiteExpression.Leaf(f.PropertyType, visitor.Counters.NextIdentifier(), colSql);
             });
+    }
+
+    private Dictionary<string, Expression> BuildJsonElementColumns(Type elementType, string alias)
+    {
+        string valueSql = $"{alias}.\"value\"";
+        Dictionary<string, Expression> columns = new()
+        {
+            [string.Empty] = SQLiteExpression.Leaf(elementType, visitor.Counters.NextIdentifier(), valueSql).WithJsonSource()
+        };
+
+        JsonTypeInfo? typeInfo = database.Options.ResolveJsonTypeInfo(elementType);
+        if (typeInfo == null)
+        {
+            return columns;
+        }
+
+        foreach (JsonPropertyInfo jsonProperty in typeInfo.Properties)
+        {
+            if (jsonProperty.AttributeProvider is not PropertyInfo property)
+            {
+                continue;
+            }
+
+            string path = CommonHelpers.JsonPathSegment(jsonProperty.Name);
+            columns[property.Name] = SQLiteExpression.Leaf(jsonProperty.PropertyType, visitor.Counters.NextIdentifier(),
+                $"json_extract({valueSql}, {CommonHelpers.JsonExtractPathLiteral(path)})").WithJsonSource();
+        }
+
+        return columns;
     }
 
     private static bool ContainsClientCall(Expression node)

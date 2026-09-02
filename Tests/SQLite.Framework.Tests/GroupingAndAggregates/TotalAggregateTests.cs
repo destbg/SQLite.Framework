@@ -272,43 +272,80 @@ public class TotalAggregateTests
     }
 
     [Fact]
-    public void RootTotal_AfterTake_Throws()
+    public void RootTotal_AfterTake()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = -4 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 0 },
+            new Book { Id = 3, Title = "C", AuthorId = 1, Price = 9 }
+        ];
+        db.Table<Book>().AddRange(books);
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Take(5).Total(b => b.Price));
+        double expected = books.OrderBy(book => book.Id).Take(2).Sum(book => book.Price);
+        double actual = db.Table<Book>().OrderBy(book => book.Id).Take(2).Total(book => book.Price);
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void RootTotal_AfterSkip_Throws()
+    public void RootTotal_AfterSkip()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = -4 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 0 },
+            new Book { Id = 3, Title = "C", AuthorId = 1, Price = 9 }
+        ];
+        db.Table<Book>().AddRange(books);
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Skip(2).Total(b => b.Price));
+        double expected = books.OrderBy(book => book.Id).Skip(3).Sum(book => book.Price);
+        double actual = db.Table<Book>().OrderBy(book => book.Id).Skip(3).Total(book => book.Price);
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void RootTotal_AfterConcat_Throws()
+    public void RootTotal_AfterConcat()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = -4 },
+            new Book { Id = 2, Title = "B", AuthorId = 2, Price = 9 }
+        ];
+        db.Table<Book>().AddRange(books);
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Concat(db.Table<Book>()).Total(b => b.Price));
+        double expected = books.Concat(books.Where(book => book.AuthorId == 1)).Sum(book => book.Price);
+        double actual = db.Table<Book>()
+            .Concat(db.Table<Book>().Where(book => book.AuthorId == 1))
+            .Total(book => book.Price);
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void RootTotal_AfterDistinct_Throws()
+    public void RootTotal_AfterDistinct()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = -4 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = 0 },
+            new Book { Id = 3, Title = "C", AuthorId = 1, Price = 9 }
+        ];
+        db.Table<Book>().AddRange(books);
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Distinct().Total(b => b.Price));
+        double expected = books.Select(book => book.AuthorId).Distinct().Sum();
+        double actual = db.Table<Book>().Select(book => book.AuthorId).Distinct().Total(authorId => authorId);
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]

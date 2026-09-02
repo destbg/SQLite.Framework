@@ -7,11 +7,11 @@ internal partial class QueryableVisitor
         ThrowIfReverse(node.Method.Name);
         ComparerArgumentGuard.ThrowIfComparer(node);
 
-        if (ClientTake != null || ClientSkip != null || OrderBys.Count > 0 || Take != null || Skip != null)
+        if (OrderBys.Count > 0)
         {
             throw new NotSupportedException(
-                $"{node.Method.Name} after OrderBy, Take or Skip is not supported because it would require wrapping the operand in a subquery. " +
-                "Materialize the ordered or paged operand into a list before combining.");
+                $"{node.Method.Name} after OrderBy without paging is not supported because a set operand has no row order. " +
+                "Order the complete combined query instead.");
         }
 
         if ((ClientProjection || (IsDistinct && LastSelectIsClient)) && !IsInnerQuery)
@@ -25,12 +25,12 @@ internal partial class QueryableVisitor
         sqlTranslator.SelectWrapFormats = visitor.SelectWrapFormats;
         SQLQuery query = sqlTranslator.Translate(node.Arguments[1], visitor.ExcludedSelectColumns);
 
-        if (sqlTranslator.HasTopLevelOrderingOrPaging)
+        if (sqlTranslator.HasTopLevelOrdering && !sqlTranslator.HasTopLevelPaging)
         {
             throw new NotSupportedException(
-                $"{node.Method.Name} with an OrderBy, Take or Skip on the combined operand is not supported because " +
-                "its ORDER BY or LIMIT would apply to the whole combined result, not just that operand. " +
-                "Materialize the ordered or paged operand into a list before combining.");
+                $"{node.Method.Name} with an OrderBy on the combined operand is not supported because " +
+                "SQL does not preserve the order of an individual set operand. " +
+                "Order the complete combined query instead.");
         }
 
         if ((sqlTranslator.ClientProjection || sqlTranslator.LastSelectIsClient) && !IsInnerQuery)
@@ -42,13 +42,14 @@ internal partial class QueryableVisitor
 
         ReconcileDayOfWeekSelects(sqlTranslator);
         ReconcileConstructedPaths(sqlTranslator);
+        MergeOptionalRowPaths(sqlTranslator);
 
         if (sqlTranslator.Visitor.OptionalRowColumns.Contains(sqlTranslator.Visitor.TableColumns))
         {
             visitor.OptionalRowColumns.Add(visitor.TableColumns);
         }
 
-        string operandSql = sqlTranslator.HasSetOperations
+        string operandSql = sqlTranslator.HasSetOperations || sqlTranslator.HasTopLevelPaging
             ? $"SELECT * FROM ({query.Sql})"
             : query.Sql;
 
@@ -63,6 +64,17 @@ internal partial class QueryableVisitor
         SetOperandSelects.Add(sqlTranslator.Selects.Select(s => s.IdentifierText).ToList());
 
         return sqlExpression;
+    }
+
+    private void MergeOptionalRowPaths(SQLTranslator operand)
+    {
+        if (!operand.Visitor.OptionalRowPaths.TryGetValue(operand.Visitor.TableColumns, out HashSet<string>? operandPaths))
+        {
+            return;
+        }
+
+        visitor.OptionalRowPaths.TryAdd(visitor.TableColumns, new HashSet<string>(StringComparer.Ordinal));
+        visitor.OptionalRowPaths[visitor.TableColumns].UnionWith(operandPaths);
     }
 
     private void ReconcileConstructedPaths(SQLTranslator operand)

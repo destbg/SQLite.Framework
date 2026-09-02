@@ -22,7 +22,7 @@ Where query behavior differs from LINQ-to-Objects. This is the complete list, ke
 - `uint` and `ulong` arithmetic wraps while the result fits 64 bits, then throws.
 - A `Sum` over a `ulong` column, including a window `Sum`, throws `SQLiteException` once the running total passes 2^63, even when the true unsigned total still fits a `ulong`. SQLite adds with signed 64-bit integers, so it overflows at half the `ulong` range.
 - A `uint` multiplication keeps the full 64-bit product instead of the 32-bit wrapped value, both when widened (`(long)(a * b)`) and when used directly (`a * b == 0u`).
-- A widening cast such as `(long)` or `(double)` of an `int` (or a `short`, `ushort`, `sbyte` or `byte`) multiplication, addition, subtraction or unary negation that overflows `int` keeps the full 64-bit result instead of the 32-bit wrapped value that .NET produces and does not throw. For example `(long)(a * a)` where `a` is `100000` reads back `10000000000` instead of `1410065408`, and `(long)(a - b)` where `a` is `-2000000000` and `b` is `2000000000` reads back `-4000000000` instead of `294967296`. The same result read back as an `int`, such as `a * a` or `-int.MinValue`, still throws `OverflowException`. This follows the `uint` rule above.
+- A widening cast such as `(long)` or `(double)` of an `int` (or a `short`, `ushort`, `sbyte` or `byte`) multiplication, addition, subtraction or unary negation that overflows `int` keeps the full 64-bit result instead of the 32-bit wrapped value that .NET produces and does not throw. For example `(long)(a * a)` where `a` is `100000` reads back `10000000000` instead of `1410065408` and `(long)(a - b)` where `a` is `-2000000000` and `b` is `2000000000` reads back `-4000000000` instead of `294967296`. The same result read back as an `int`, such as `a * a` or `-int.MinValue`, still throws `OverflowException`. This follows the `uint` rule above.
 - `.Equals` compares by value, so `intColumn.Equals(5L)` is `true` in SQL but `false` in .NET, where `object.Equals` on two different boxed numeric types is always false.
 - `Math.Round` with `AwayFromZero` can differ in the last digit.
 - `NaN` does not round-trip (stored as `NULL`). Infinity is fine.
@@ -54,7 +54,7 @@ Where query behavior differs from LINQ-to-Objects. This is the complete list, ke
 - The `CultureInfo` overloads of `ToUpper` and `ToLower`, on both `string` and `char` throw in a `Where`.
 - Case-insensitive `Equals`, `Compare`, `Contains`, `StartsWith` and `EndsWith` (`OrdinalIgnoreCase`) also fold only ASCII. The `(value, ignoreCase, culture)` overloads of `StartsWith` and `EndsWith` follow the `ignoreCase` flag with the same ASCII-only folding.
 - `string.Compare` and `CompareTo` order by byte value, the same as the comparison operators, even when a `CultureInfo` or a culture-aware `StringComparison` such as `InvariantCulture` is given. The sign of the result can differ from .NET, which compares by language rules.
-- `Enum.Parse` of a string that is not a defined member name and not a number reads back as the enum's zero value instead of throwing. A string that mixes a number and a name, or that has extra characters after a number, such as `"1,2"`, `"2,Read"` or `"2extra"`, reads back a partial value (the bitwise OR of any matched member names with the leading digits read as a number) instead of the zero value or the `ArgumentException` that .NET throws.
+- `Enum.Parse` of a string that is not a defined member name and not a number reads back as the enum's zero value instead of throwing. A string that mixes a number and a name or has extra characters after a number, such as `"1,2"`, `"2,Read"` or `"2extra"`, reads back a partial value (the bitwise OR of any matched member names with the leading digits read as a number) instead of the zero value or the `ArgumentException` that .NET throws.
 - `Enum.Parse` of a numeric string that does not fit the enum's underlying type, such as `300` for a `byte` backed enum, wraps to a value in range instead of throwing `OverflowException`.
 - Concatenating a non-string column keeps its stored form (`bool` to `1`/`0`, `enum` to its number, `DateTime` to ticks or text).
 - A `char` taken from a string can be half of a character that needs two slots in .NET, such as an emoji. SQLite stores whole characters only, so reading that half on its own does not come back the same and can throw.
@@ -73,15 +73,13 @@ Where query behavior differs from LINQ-to-Objects. This is the complete list, ke
 - `GroupBy` returns groups in key order, not the first-seen order that LINQ-to-Objects uses.
 - `Reverse` on one side of a `Union`, `Concat`, `Except` or `Intersect` does not take effect, because SQLite has no row order to flip inside a combined query.
 - Branches of a `Union`, `Concat`, `Intersect` or `Except` that build an object must set the same members in the same order, also inside a common table expression. SQLite matches the branch values by position, so branches that set different members would put a value into the wrong member. The framework throws `NotSupportedException` instead.
-- After a `Union`, `Concat`, `Intersect` or `Except`, an `OrderBy`/`OrderByDescending`/`ThenBy` whose key is a computed expression (anything other than a bare column, such as `OrderBy(x => -x)`) is not supported and throws, because SQLite only allows a result column of the combined query, not an expression over it, in a compound `ORDER BY`.
 - `string.Join` over a query whose last step is `Reverse` is not supported and throws.
 - A common table expression body whose last steps are `Reverse` or `Reverse` followed by `Distinct` is not supported and throws, the same as a view body. The reverse only runs in memory after the query returns, so the expression cannot keep that order.
 
 ## Query operators
 
-- Some LINQ operators are not translated to SQL and throw `NotSupportedException` on a table query. These are `Last`, `LastOrDefault`, `Order`, `OrderDescending`, `MaxBy`, `MinBy`, `DistinctBy`, `SkipLast`, `TakeLast`, `Append`, `Prepend`, `Chunk`, `ExceptBy`, `UnionBy`, `IntersectBy`, `SkipWhile` and `TakeWhile`.
+- Some LINQ operators are not translated to SQL and throw `NotSupportedException` on a table query. These are `Last`, `LastOrDefault`, `MaxBy`, `MinBy`, `DistinctBy`, `SkipLast`, `TakeLast`, `Append`, `Prepend`, `Chunk`, `ExceptBy`, `UnionBy`, `IntersectBy`, `SkipWhile` and `TakeWhile`.
 - The `DefaultIfEmpty` overload that takes an explicit default value is not supported on a table query and throws. The no-argument `DefaultIfEmpty()` used to build a left join works.
-- `Contains` over an inline collection literal, such as `new[] { ... }.Contains(column)` or `new List<T> { ... }.Contains(column)`, works only when every element is a constant or a captured value. An element that is a method call, such as `int.Parse("10")`, is not folded to a value, so the query throws `NotSupportedException`. Assign the collection to a variable first, then call `Contains` on the variable.
 - `Contains` over a collection compares each element with SQLite's byte comparison and ignores a collection's custom comparer. A `HashSet<string>` built with `StringComparer.OrdinalIgnoreCase` still compares byte for byte, so a value with different casing does not match.
 - A collection method with a selector lambda over a captured collection, such as `ConvertAll` or `FindAll`, runs in memory in a `Select` and throws in a `Where`.
 - Invoking a captured delegate, such as a stored `Func`, runs in memory in a `Select` and throws in a `Where`.
@@ -97,7 +95,6 @@ Where query behavior differs from LINQ-to-Objects. This is the complete list, ke
 
 ## Joins and SelectMany
 
-- A correlated subquery used directly as a second `from` source, for example `from a in db.Table<Author>() from b in db.Table<Book>().Where(b => b.AuthorId == a.Id)`, is not supported, since SQLite has no `LATERAL` join.
 - In a common table expression or a view, a positional constructor projection whose parameter names or order do not match the entity's properties lines the columns up wrong or cannot be read back. Use a member-initializer projection (`new T { Prop = value }`) instead.
 
 ## Null comparisons
@@ -117,6 +114,7 @@ Where query behavior differs from LINQ-to-Objects. This is the complete list, ke
 
 ## Dates, times and storage
 
+- `DateTime.IsLeapYear` outside a root `Select` uses SQLite's date rules for an integer outside 1 through 9999 instead of throwing `ArgumentOutOfRangeException`. Year zero is treated as a leap year. Other out-of-range years return false. A root `Select` runs the method in .NET and still throws.
 - `AddMonths` and `AddYears` whose result lands in December of year 9999 return the default date, since the date math overflows past SQLite's maximum date.
 - `AddSeconds`, `AddMinutes`, `AddHours`, `AddDays`, `AddMilliseconds` and the other `Add` methods that take a fractional amount can land one tick away from the .NET result. SQLite multiplies the amount by the tick scale in one floating-point step, while .NET reaches the tick count through a different intermediate unit, so the last tick can round the other way. Multiplying or dividing a `TimeSpan` by a number rounds to a whole tick the same way and can also differ from .NET in the last tick.
 - `DateTimeOffset` drops its offset.
@@ -154,22 +152,19 @@ Where query behavior differs from LINQ-to-Objects. This is the complete list, ke
 - An inline array that holds a whole entity, such as `string.Concat(new object?[] { r.Name, r })`, renders that element through the entity's own `ToString`, so the call runs in memory. It works in a `Select` and throws in a `Where` or `OrderBy`.
 - `Contains` after a `Select` whose projection runs in memory, such as one that calls your own method, is not supported. SQL cannot compare a value the database never computes. Call `AsEnumerable` before `Contains`.
 - Projecting a JSON dictionary's `Keys` or `Values` collection on its own is not supported.
-- Building a new collection from a JSON list with `ToArray` or `ToHashSet` is not supported.
 - On a JSON list, `Distinct` over a value that comes from a column outside the list, followed by `ElementAt`, `Reverse` or a second `Select`, reads that outside column from inside a nested subquery. Older SQLite builds cannot resolve a column at that depth and report that the column does not exist.
-- A `Select` over a JSON list that changes the element type before `ToList`, such as `list.Select(x => (long)x).ToList()` or `list.Select(x => x.Member).ToList()`, builds a new collection type that has no registered converter and throws. A `Select` that keeps the element type, such as `list.Select(x => x * 2).ToList()` over a `List<int>`, reuses the source converter and works.
-- On a JSON dictionary, `ContainsKey` and the indexer work in a `Where` or `OrderBy` only with a constant key. A key taken from a column or variable and `Dictionary.Contains` of a whole key-value pair, are not supported there.
 - On a JSON dictionary, the indexer for a key that is not present returns the type default instead of throwing.
 - On a JSON list of enums, when the registered JSON type info writes the enum as a string, for example through `UseStringEnumConverter`, `Contains` and comparisons bind the serialized member name and match the stored text. Otherwise the query value binds in the form of the global enum storage mode, so a JSON that holds the enum in a different form, by default as a number under `Text` enum storage, does not match. A value the string converter still writes as a number, such as an undefined `[Flags]` combination, also binds in the storage-mode form.
 - On a JSON object member that the JSON type info writes as a string, `OrderBy` sorts by the stored member name text, not by the numeric value that LINQ-to-Objects uses. The same holds for a JSON list of enums ordered by the element itself.
-- On a JSON list of enums that the JSON type info writes as strings, `Min` and `Max` read the member name back as a number, and that number is a signed 64-bit value. An enum backed by `ulong` whose member value is above `long.MaxValue` therefore compares as a negative number, so `Min` returns the largest member and `Max` the smallest. Enums whose values all fit in a signed 64-bit number are not affected.
+- On a JSON list of enums that the JSON type info writes as strings, `Min` and `Max` read the member name back as a number. That number is a signed 64-bit value. An enum backed by `ulong` whose member value is above `long.MaxValue` therefore compares as a negative number, so `Min` returns the largest member and `Max` the smallest. Enums whose values all fit in a signed 64-bit number are not affected.
 - The same rule applies to a JSON list of `decimal` under `Text` decimal storage and to a JSON list of `char` under `Integer` char storage. The query value binds in the storage-mode form while the JSON holds a plain number or a one-character string, so `Contains` and `IndexOf` do not match. A relational element comparison such as `list.Count(v => v > 15m)` does match, since the comparison casts both sides to a number.
 - A `[JsonPropertyName]` whose name contains a character that the JSON writer escapes, such as an apostrophe, reads back its value only on newer SQLite builds. The writer stores the escaped form (for example `it's`) and an older build, such as the one bundled with SQLCipher, does not match it during a query and returns the type default. A name with an unescaped special character, such as a dot, works on all builds.
 - A member read through a cast or the `as` operator on a polymorphic JSON column, such as `(r.Data as Derived).Value`, translates to `json_extract` on the member path. A row whose runtime type lacks that member returns the type default instead of throwing.
-- An `is` or `as` check on a polymorphic JSON column, such as `Where(r => r.Data is Derived)` or a bare `as` null check, compares the stored type discriminator. A check for a type also matches every derived type registered for it, even a derived type of a derived type. A row stored without a discriminator counts as the base type. A row whose stored discriminator matches no registered derived type cannot be read back. Such a row answers false to `is` checks and true to `as` null checks. These checks are not supported when the polymorphic setup allows unknown derived types. A check for a derived type that has no discriminator of its own is not supported. An exact type check through `GetType()` is not supported.
+- An `is` or `as` check on a polymorphic JSON column, such as `Where(r => r.Data is Derived)` or a bare `as` null check, compares the stored type discriminator. A check for a type also matches every derived type registered for it, even a derived type of a derived type. A row stored without a discriminator counts as the base type. A row whose stored discriminator matches no registered derived type cannot be read back. Such a row answers false to `is` checks and true to `as` null checks. These checks are not supported when the polymorphic setup allows unknown derived types. A check for a derived type that has no discriminator of its own is not supported.
 
 ## Binary data
 
-- A `byte[]` column supports `Length` and value equality (`==` and `SequenceEqual`) in a query. Reading a single byte by index and `Contains` of a single byte are not supported in a query.
+- A `byte[]` column supports `Length`, value equality (`==` and `SequenceEqual`) and `Contains` of a single byte in a query. Reading a single byte by index is not supported in a query.
 
 ## Custom converters
 
@@ -190,8 +185,6 @@ Where query behavior differs from LINQ-to-Objects. This is the complete list, ke
 ## Projections
 
 - A projection that builds an object (`Select(r => new Dto { ... })`) binds public properties only. Public fields are left at their default value.
-- Reading a collection-typed member of a projection in a following step, such as `Select(r => new { Arr = new[] { r.A, r.B } }).Select(x => x.Arr)`, throws `NotSupportedException`. The same holds when the projection sits inside a common table expression and the array is the whole row of the expression.
-- Chaining a second `Select` that reads a member set through the constructor of an object built with both constructor arguments and an object initializer, such as `Select(r => new Dto(a) { Note = b }).Select(d => d.A)`, is not supported and throws.
 - An `object`-typed member read back through a conditional projection can carry the storage type, so a boxed `int` can read back as a boxed `long`.
 - A member of a nested object built by a projection cannot be read after `Take`, `Skip` or `Distinct` when the projection runs in memory. The wrapped subquery exposes only plain columns.
 - A member that a projected object's constructor computes, such as `Doubled` set to `x * 2` inside the constructor body, reads back correctly in a `Select` but cannot be used in a `Where` and throws. The database never sees the value the constructor computes. The same holds for any other member of an object built by a constructor that takes arguments, including a member left at its property initializer value.

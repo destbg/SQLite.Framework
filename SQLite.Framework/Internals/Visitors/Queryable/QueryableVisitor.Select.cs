@@ -26,7 +26,7 @@ internal partial class QueryableVisitor
             && lambda.Body is MemberExpression outerMa
             && outerMa.Expression is ParameterExpression outerParam
             && outerParam == lambda.Parameters[0]
-            && !prevMie.Bindings.OfType<MemberAssignment>().Any(mb => mb.Member.Name == outerMa.Member.Name))
+            && !TryResolveConstructedMember(prevMie, outerMa.Member.Name, out _))
         {
             throw new NotSupportedException(
                 $"Chained Select cannot read '{outerMa.Member.Name}': the inner projection did not initialize that member. " +
@@ -95,7 +95,6 @@ internal partial class QueryableVisitor
         Selects.Clear();
 
         if (visitor.TableColumns.All(f => f.Value is SQLiteExpression)
-            && lambda.Body is not NewArrayExpression
             && !IsScalarBoxingToObject(lambda.Body)
             && !ContainsListBinding(lambda.Body))
         {
@@ -142,7 +141,18 @@ internal partial class QueryableVisitor
 
         if (lambda.Body is ParameterExpression)
         {
-            if (lambda.Body.Type.IsArray || (lambda.Body.Type.IsGenericType && typeof(IEnumerable).IsAssignableFrom(lambda.Body.Type)))
+            if (TypeHelpers.IsCollectionResult(lambda.Body.Type)
+                && visitor.TableColumns.TryGetValue(string.Empty, out Expression? collectionExpression)
+                && TypeHelpers.IsCollectionResult(collectionExpression.Type))
+            {
+                visitor.IsInSelectProjection = false;
+                visitor.ClientEvalAllowed = false;
+                LastSelectIsClient = collectionExpression is not SQLiteExpression;
+                ClientProjection = false;
+                return selectVisitor.Visit(collectionExpression)!;
+            }
+
+            if (TypeHelpers.IsCollectionResult(lambda.Body.Type))
             {
                 throw new NotSupportedException(
                     $"Cannot read a query result into the collection type '{lambda.Body.Type.FullName}'.");
@@ -293,7 +303,11 @@ internal partial class QueryableVisitor
             }
         }
 
-        if (hasDefaultIfEmpty || groupJoin != null)
+        if (TryVisitSelectManyWhere(flattenSource, selector, resultSelector, hasDefaultIfEmpty))
+        {
+            resultSelector = CommonHelpers.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
+        }
+        else if (hasDefaultIfEmpty || groupJoin != null)
         {
             List<LambdaExpression> groupFilters = [];
 
@@ -432,6 +446,53 @@ internal partial class QueryableVisitor
         return node;
     }
 
+    private bool TryVisitSelectManyWhere(Expression flattenSource, LambdaExpression selector, LambdaExpression resultSelector, bool hasDefaultIfEmpty)
+    {
+        if (flattenSource is not MethodCallExpression whereCall
+            || whereCall.Method.DeclaringType != typeof(System.Linq.Queryable)
+            || whereCall.Method.Name != nameof(System.Linq.Queryable.Where))
+        {
+            return false;
+        }
+
+        LambdaExpression predicate = (LambdaExpression)ExpressionHelpers.StripQuotes(whereCall.Arguments[1]);
+        Dictionary<string, Expression> outerColumns = visitor.TableColumns;
+        (Dictionary<string, Expression> innerColumns, Type entityType, SQLiteExpression sql) = ResolveTable(whereCall.Arguments[0]);
+
+        visitor.MethodArguments[selector.Parameters[0]] = outerColumns;
+        visitor.MethodArguments[predicate.Parameters[0]] = innerColumns;
+
+        Expression predicateResult = visitor.Visit(predicate.Body);
+        if (predicateResult is not SQLiteExpression predicateSql)
+        {
+            throw new NotSupportedException($"Unsupported WHERE expression {predicate.Body}");
+        }
+
+        visitor.MethodArguments[resultSelector.Parameters[0]] = outerColumns;
+        visitor.MethodArguments[resultSelector.Parameters[1]] = innerColumns;
+
+        LambdaExpression expandedResult = CommonHelpers.ExpandRowsInMethodCalls(resultSelector, visitor.MethodArguments.Keys);
+        if (hasDefaultIfEmpty)
+        {
+            visitor.OptionalRowColumns.Add(innerColumns);
+        }
+
+        visitor.IsInSelectProjection = true;
+        visitor.TableColumns = aliasVisitor.ResolveResultAlias(expandedResult);
+        visitor.IsInSelectProjection = false;
+
+        Joins.Add(new JoinInfo
+        {
+            EntityType = entityType,
+            JoinType = hasDefaultIfEmpty ? "LEFT JOIN" : "JOIN",
+            Sql = sql,
+            OnClause = predicateSql,
+            IsGroupJoin = false
+        });
+
+        return true;
+    }
+
     private Expression CoerceArrayElement(Expression element, Type elementType)
     {
         if (element is SQLiteExpression sql && sql.Type != elementType)
@@ -506,11 +567,10 @@ internal partial class QueryableVisitor
         if (outer.Body is MemberExpression outerMa
             && outerMa.Expression is ParameterExpression outerParam1
             && outerParam1 == outer.Parameters[0]
-            && inner.Body is MemberInitExpression innerMie)
+            && TryResolveConstructedMember(inner.Body, outerMa.Member.Name, out Expression? memberValue)
+            && (inner.Body is MemberInitExpression || TypeHelpers.IsCollectionResult(memberValue.Type)))
         {
-            MemberAssignment match = innerMie.Bindings.OfType<MemberAssignment>()
-                .First(b => b.Member.Name == outerMa.Member.Name);
-            return match.Expression;
+            return memberValue;
         }
 
         ParameterExpression outerParam = outer.Parameters[0];
@@ -522,5 +582,53 @@ internal partial class QueryableVisitor
         }
 
         return null;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "Projection types are rooted by the user query.")]
+    private static bool TryResolveConstructedMember(Expression expression, string memberName, [NotNullWhen(true)] out Expression? value)
+    {
+        if (expression is MemberInitExpression memberInit)
+        {
+            MemberAssignment? assignment = memberInit.Bindings
+                .OfType<MemberAssignment>()
+                .FirstOrDefault(binding => binding.Member.Name == memberName);
+            if (assignment != null)
+            {
+                value = assignment.Expression;
+                return true;
+            }
+
+            expression = memberInit.NewExpression;
+        }
+
+        if (expression is NewExpression newExpression)
+        {
+            int argumentIndex;
+            if (newExpression.Members != null)
+            {
+                argumentIndex = newExpression.Members.TakeWhile(member => member.Name != memberName).Count();
+            }
+            else if (newExpression.Constructor != null
+                && (TypeHelpers.HasPositionalIdentityMembers(newExpression.Type)
+                    || newExpression.Type.GetProperty(memberName) is { CanWrite: false }))
+            {
+                argumentIndex = newExpression.Constructor.GetParameters()
+                    .TakeWhile(parameter => !string.Equals(parameter.Name, memberName, StringComparison.OrdinalIgnoreCase))
+                    .Count();
+            }
+            else
+            {
+                argumentIndex = newExpression.Arguments.Count;
+            }
+
+            if (argumentIndex < newExpression.Arguments.Count)
+            {
+                value = newExpression.Arguments[argumentIndex];
+                return true;
+            }
+        }
+
+        value = null;
+        return false;
     }
 }

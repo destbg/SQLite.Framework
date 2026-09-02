@@ -94,20 +94,44 @@ public class GroupConcatTests
     }
 
     [Fact]
-    public void StringJoin_SubqueryWithDistinct_Throws()
+    public void StringJoin_SubqueryWithDistinct()
     {
         using TestDatabase db = new();
 
-        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
-            db.Table<Author>()
-                .Select(a => string.Join("|", db.Table<Book>()
-                    .Where(b => b.AuthorId == a.Id)
-                    .Select(b => b.Title)
-                    .Distinct()))
-                .ToSqlCommand());
+        Author[] authors =
+        [
+            new Author { Id = 1, Name = "Anna", Email = "a@example.com", BirthDate = new DateTime(1980, 1, 1) },
+            new Author { Id = 2, Name = "Ben", Email = "b@example.com", BirthDate = new DateTime(1981, 1, 1) }
+        ];
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "Alpha", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "Alpha", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "Beta", AuthorId = 1, Price = 3 }
+        ];
 
-        Assert.Contains("group_concat", ex.Message);
-        Assert.Contains("DISTINCT", ex.Message);
+        db.Table<Author>().Schema.CreateTable();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Author>().AddRange(authors);
+        db.Table<Book>().AddRange(books);
+
+        List<string> expected = authors
+            .OrderBy(author => author.Id)
+            .Select(author => string.Join("|", books
+                .Where(book => book.AuthorId == author.Id)
+                .Select(book => book.Title)
+                .Distinct()))
+            .ToList();
+
+        List<string> actual = db.Table<Author>()
+            .OrderBy(author => author.Id)
+            .Select(author => string.Join("|", db.Table<Book>()
+                .Where(book => book.AuthorId == author.Id)
+                .Select(book => book.Title)
+                .Distinct()))
+            .ToList();
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
@@ -147,31 +171,63 @@ public class GroupConcatTests
     }
 
     [Fact]
-    public void StringJoin_SubqueryAfterTake_Throws()
+    public void StringJoin_SubqueryAfterTake()
     {
         using TestDatabase db = new();
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Author>()
-                .Select(a => string.Join(", ", db.Table<Book>()
-                    .Where(b => b.AuthorId == a.Id)
-                    .Select(b => b.Title)
-                    .Take(5)))
-                .ToSqlCommand());
+        Author author = new() { Id = 1, Name = "Anna", Email = "a@example.com", BirthDate = new DateTime(1980, 1, 1) };
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "Alpha", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "Beta", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "Gamma", AuthorId = 1, Price = 3 }
+        ];
+
+        db.Table<Author>().Schema.CreateTable();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Author>().Add(author);
+        db.Table<Book>().AddRange(books);
+
+        string expected = string.Join(", ", books.OrderBy(book => book.Id).Select(book => book.Title).Take(2));
+        string actual = db.Table<Author>()
+            .Select(a => string.Join(", ", db.Table<Book>()
+                .Where(book => book.AuthorId == a.Id)
+                .OrderBy(book => book.Id)
+                .Select(book => book.Title)
+                .Take(2)))
+            .First();
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void StringJoin_SubqueryAfterSkip_Throws()
+    public void StringJoin_SubqueryAfterSkip()
     {
         using TestDatabase db = new();
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Author>()
-                .Select(a => string.Join(", ", db.Table<Book>()
-                    .Where(b => b.AuthorId == a.Id)
-                    .Select(b => b.Title)
-                    .Skip(2)))
-                .ToSqlCommand());
+        Author author = new() { Id = 1, Name = "Anna", Email = "a@example.com", BirthDate = new DateTime(1980, 1, 1) };
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "Alpha", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "Beta", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "Gamma", AuthorId = 1, Price = 3 }
+        ];
+
+        db.Table<Author>().Schema.CreateTable();
+        db.Table<Book>().Schema.CreateTable();
+        db.Table<Author>().Add(author);
+        db.Table<Book>().AddRange(books);
+
+        string expected = string.Join(", ", books.OrderBy(book => book.Id).Select(book => book.Title).Skip(3));
+        string actual = db.Table<Author>()
+            .Select(a => string.Join(", ", db.Table<Book>()
+                .Where(book => book.AuthorId == a.Id)
+                .OrderBy(book => book.Id)
+                .Select(book => book.Title)
+                .Skip(3)))
+            .First();
+
+        Assert.Equal(expected, actual);
     }
 
 #if !SQLITECIPHER
@@ -366,16 +422,22 @@ public class GroupConcatTests
     }
 
     [Fact]
-    public void StringJoin_RootCall_WithDistinct_Throws()
+    public void StringJoin_RootCall_WithDistinct()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "Alpha", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "Alpha", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "", AuthorId = 1, Price = 3 }
+        ];
+        db.Table<Book>().AddRange(books);
 
-        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Select(b => b.Title).Distinct().StringJoin(","));
+        string expected = string.Join(",", books.Select(book => book.Title).Distinct());
+        string actual = db.Table<Book>().Select(book => book.Title).Distinct().StringJoin(",");
 
-        Assert.Contains("group_concat", ex.Message);
-        Assert.Contains("DISTINCT", ex.Message);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]

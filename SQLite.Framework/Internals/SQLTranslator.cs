@@ -44,9 +44,10 @@ internal class SQLTranslator
 
     public IReadOnlyList<SQLiteExpression> Selects => queryableMethodVisitor.Selects;
 
-    public bool HasTopLevelOrderingOrPaging =>
-        queryableMethodVisitor.OrderBys.Count > 0
-        || queryableMethodVisitor.Take != null
+    public bool HasTopLevelOrdering => queryableMethodVisitor.OrderBys.Count > 0;
+
+    public bool HasTopLevelPaging =>
+        queryableMethodVisitor.Take != null
         || queryableMethodVisitor.Skip != null
         || queryableMethodVisitor.ClientTake != null
         || queryableMethodVisitor.ClientSkip != null;
@@ -325,6 +326,8 @@ internal class SQLTranslator
             }
         }
 
+        ApplyParameterLimit(ref sql);
+
         Func<SQLiteQueryContext, object?>? createObject;
         IReadOnlyList<MethodInfo>? reflectedMethods = null;
         IReadOnlyList<object?>? reflectedInstances = null;
@@ -484,6 +487,40 @@ internal class SQLTranslator
 
         collectedParameterValues[parameter.Name] = parameter.Value;
         parameters.Add(parameter);
+    }
+
+    private void ApplyParameterLimit(ref string sql)
+    {
+        if (!parameters.Any(parameter => parameter.InlineIfParameterLimitExceeded))
+        {
+            return;
+        }
+
+        database.OpenConnection();
+        int parameterLimit = raw.sqlite3_limit(
+            database.GetActiveHandle(),
+            raw.SQLITE_LIMIT_VARIABLE_NUMBER,
+            -1);
+        int excessCount = parameters.Count - parameterLimit;
+        if (excessCount <= 0)
+        {
+            return;
+        }
+
+        List<SQLiteParameter> inlineParameters = parameters
+            .Where(parameter => parameter.InlineIfParameterLimitExceeded)
+            .TakeLast(excessCount)
+            .ToList();
+        if (inlineParameters.Count < excessCount)
+        {
+            throw new NotSupportedException(
+                $"The query needs {parameters.Count} SQLite parameters, but this connection allows {parameterLimit}. " +
+                "Reduce the number of separate parameter values in the query.");
+        }
+
+        sql = SqlLiteralHelper.InlineParameters(sql, inlineParameters, database.Options);
+        HashSet<SQLiteParameter> inlined = [.. inlineParameters];
+        parameters.RemoveAll(inlined.Contains);
     }
 
     private bool ReverseScalarDedup(QueryableVisitor q)
@@ -880,7 +917,7 @@ internal class SQLTranslator
 
             SpreadSubqueryOrderOverChain(methodCalls, isSubqueryOrder);
 
-            wrapIdx = FindSubqueryBoundary(methodCalls, isWindowProjection, isSubqueryOrder);
+            wrapIdx = FindSubqueryBoundary(methodCalls, isWindowProjection, isSubqueryOrder, database.Options);
             if (wrapIdx < 0)
             {
                 break;
@@ -909,7 +946,9 @@ internal class SQLTranslator
 
         bool wrappedAsSubquery = false;
 
-        if (wrapIdx >= 0)
+        if (wrapIdx >= 0
+            && !IsTerminalCountOverGroupBy(methodCalls)
+            && !IsTerminalScalarAggregateOverGroupBy(methodCalls, out _))
         {
             Expression innerExpr = methodCalls[wrapIdx].Arguments[0];
             SQLTranslator innerTranslator = clientCheckedTranslator!;
@@ -1030,6 +1069,11 @@ internal class SQLTranslator
                     Visitor.ConstructedProjectionPaths[outerColumns] = [.. innerConstructedPaths];
                 }
 
+                if (Visitor.ConstructedProjectionNodes.TryGetValue(innerTranslator.Visitor.TableColumns, out Dictionary<string, Expression>? innerConstructedNodes))
+                {
+                    Visitor.ConstructedProjectionNodes[outerColumns] = new Dictionary<string, Expression>(innerConstructedNodes);
+                }
+
                 Visitor.TableColumns = outerColumns;
             }
 
@@ -1134,6 +1178,11 @@ internal class SQLTranslator
             wrappedAsSubquery = true;
         }
 
+        if (TryWrapDirectWindowOperator(methodCalls))
+        {
+            wrappedAsSubquery = true;
+        }
+
         if (!wrappedAsSubquery)
         {
             if (callExpression.Method.ReturnType.IsAssignableTo(typeof(BaseSQLiteTable)))
@@ -1213,6 +1262,337 @@ internal class SQLTranslator
         }
 
         return selectExpression;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Builds an expression tree from rooted query types.")]
+    private bool TryWrapDirectWindowOperator(List<MethodCallExpression> methodCalls)
+    {
+        int candidateIndex = -1;
+        int lambdaArgumentIndex = -1;
+        LambdaExpression? lambda = null;
+        for (int i = 0; i < methodCalls.Count; i++)
+        {
+            MethodCallExpression candidate = methodCalls[i];
+            if (candidate.Method.DeclaringType != typeof(Queryable)
+                || candidate.Method.Name is not (nameof(Queryable.Where)
+                    or nameof(Queryable.Count) or nameof(Queryable.LongCount)
+                    or nameof(Queryable.Any) or nameof(Queryable.All)
+                    or nameof(Queryable.First) or nameof(Queryable.FirstOrDefault)
+                    or nameof(Queryable.Single) or nameof(Queryable.SingleOrDefault)
+                    or nameof(Queryable.GroupBy))
+                || candidate.Method.Name == nameof(Queryable.GroupBy) && candidate.Arguments.Count != 2)
+            {
+                continue;
+            }
+
+            for (int argumentIndex = 1; argumentIndex < candidate.Arguments.Count; argumentIndex++)
+            {
+                if (ExpressionHelpers.StripQuotes(candidate.Arguments[argumentIndex]) is LambdaExpression candidateLambda
+                    && candidateLambda.Parameters.Count == 1
+                    && CommonHelpers.ContainsWindowCall(candidateLambda.Body))
+                {
+                    candidateIndex = i;
+                    lambdaArgumentIndex = argumentIndex;
+                    lambda = candidateLambda;
+                    break;
+                }
+            }
+
+            if (candidateIndex >= 0)
+            {
+                break;
+            }
+        }
+
+        if (candidateIndex < 0)
+        {
+            return false;
+        }
+
+        MethodCallExpression windowCall = methodCalls[candidateIndex];
+        Expression innerSource = windowCall.Arguments[0];
+        int retainedOrderingCount = 0;
+        if (windowCall.Method.Name is nameof(Queryable.Where)
+            or nameof(Queryable.First) or nameof(Queryable.FirstOrDefault)
+            or nameof(Queryable.Single) or nameof(Queryable.SingleOrDefault))
+        {
+            while (innerSource is MethodCallExpression ordering
+                && ordering.Method.DeclaringType == typeof(Queryable)
+                && ordering.Method.Name is nameof(Queryable.OrderBy) or nameof(Queryable.OrderByDescending)
+                    or nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending)
+                    or nameof(Queryable.Order) or nameof(Queryable.OrderDescending))
+            {
+                retainedOrderingCount++;
+                innerSource = ordering.Arguments[0];
+            }
+        }
+
+        SQLTranslator innerTranslator = Visitor.CloneDeeper(level + 1);
+        innerTranslator.Visit(innerSource);
+        if (innerTranslator.ClientProjection || innerTranslator.LastSelectIsClient)
+        {
+            throw new NotSupportedException(
+                $"{windowCall.Method.Name} cannot use a window function after a projection that runs in memory. " +
+                "Move the window operation before the client projection.");
+        }
+
+        int rowSelectCount = innerTranslator.queryableMethodVisitor.Selects.Count;
+        innerTranslator.Visitor.MethodArguments[lambda!.Parameters[0]] = innerTranslator.Visitor.TableColumns;
+        bool previousProjection = innerTranslator.Visitor.IsInSelectProjection;
+        bool previousClientEval = innerTranslator.Visitor.ClientEvalAllowed;
+        Expression translatedValue;
+        innerTranslator.Visitor.IsInSelectProjection = true;
+        innerTranslator.Visitor.ClientEvalAllowed = false;
+        try
+        {
+            translatedValue = innerTranslator.Visitor.Visit(lambda.Body);
+        }
+        finally
+        {
+            innerTranslator.Visitor.IsInSelectProjection = previousProjection;
+            innerTranslator.Visitor.ClientEvalAllowed = previousClientEval;
+        }
+
+        Type rowType = TypeHelpers.GetEnumerableElementType(windowCall.Arguments[0].Type)!;
+        char aliasChar = char.ToLowerInvariant(rowType.Name.FirstOrDefault(char.IsLetter, 'w'));
+        string alias = $"{aliasChar}{Visitor.Counters.NextTableIndex(aliasChar)}";
+        Expression outerValue = ProjectDirectWindowValue(
+            innerTranslator,
+            translatedValue,
+            "__WindowValue",
+            alias);
+        SQLQuery innerQuery = innerTranslator.Translate(null);
+        if (innerQuery.Reverse || innerQuery.ReverseBeforeDistinct)
+        {
+            throw new NotSupportedException(
+                $"Reverse cannot run before {windowCall.Method.Name} with a window function. " +
+                "Use an explicit descending order before the window operation.");
+        }
+
+        SQLiteParameter[]? innerParameters = innerQuery.Parameters.Count == 0
+            ? null
+            : innerQuery.Parameters.ToArray();
+        Visitor.From = SQLiteExpression.Leaf(
+            rowType,
+            -1,
+            $"({Environment.NewLine}{innerQuery.Sql}{Environment.NewLine}) AS {alias}",
+            innerParameters);
+        MapDirectWindowSourceColumns(innerTranslator, rowSelectCount, rowType, alias);
+
+        Expression[] arguments = windowCall.Arguments.ToArray();
+        LambdaExpression outerLambda = Expression.Lambda(outerValue, lambda.Parameters);
+        arguments[lambdaArgumentIndex] = Expression.Quote(outerLambda);
+        methodCalls[candidateIndex] = windowCall.Update(windowCall.Object, arguments);
+
+        int keepCount = candidateIndex + retainedOrderingCount + 1;
+        if (methodCalls.Count > keepCount)
+        {
+            methodCalls.RemoveRange(keepCount, methodCalls.Count - keepCount);
+        }
+
+        return true;
+    }
+
+    private Expression ProjectDirectWindowValue(SQLTranslator innerTranslator, Expression translatedValue, string columnName, string tableAlias)
+    {
+        if (translatedValue is SQLiteExpression sqlValue)
+        {
+            string uniqueName = columnName;
+            while (innerTranslator.queryableMethodVisitor.Selects.Any(select => select.IdentifierText == uniqueName))
+            {
+                uniqueName += "_";
+            }
+
+            SQLiteExpression projected = SQLiteExpression.Alias(
+                sqlValue.Type,
+                Visitor.Counters.NextIdentifier(),
+                sqlValue,
+                sqlValue.Parameters);
+            projected.IdentifierText = uniqueName;
+            if (sqlValue.IsDayOfWeekInteger)
+            {
+                projected.WithDayOfWeekInteger();
+            }
+
+            if (sqlValue.IsJsonSource)
+            {
+                projected.WithJsonSource();
+            }
+
+            innerTranslator.queryableMethodVisitor.Selects.Add(projected);
+
+            SQLiteExpression outer = SQLiteExpression.Leaf(
+                sqlValue.Type,
+                Visitor.Counters.NextIdentifier(),
+                $"{tableAlias}.{IdentifierGuard.Quote(uniqueName)}");
+            if (sqlValue.IsDayOfWeekInteger)
+            {
+                outer.WithDayOfWeekInteger();
+            }
+
+            if (sqlValue.IsJsonSource)
+            {
+                outer.WithJsonSource();
+            }
+
+            return outer;
+        }
+
+        if (translatedValue is NewExpression newValue)
+        {
+            Expression[] arguments = new Expression[newValue.Arguments.Count];
+            for (int i = 0; i < arguments.Length; i++)
+            {
+                string memberName = newValue.Members?[i].Name ?? $"Item{i + 1}";
+                arguments[i] = ProjectDirectWindowValue(
+                    innerTranslator,
+                    newValue.Arguments[i],
+                    $"{columnName}.{memberName}",
+                    tableAlias);
+            }
+
+            return newValue.Update(arguments);
+        }
+
+        throw new NotSupportedException(
+            "The window expression must be fully translatable to SQL before it can be used by this query operator.");
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "The query element type is rooted by IQueryable<T>.")]
+    private void MapDirectWindowSourceColumns(SQLTranslator innerTranslator, int rowSelectCount, Type rowType, string alias)
+    {
+        IReadOnlyList<SQLiteExpression> rowSelects = innerTranslator.Selects.Take(rowSelectCount).ToList();
+        Dictionary<string, Expression> outerColumns;
+        if (TypeHelpers.IsSimple(rowType, database.Options) && rowSelects.Count == 1)
+        {
+            KeyValuePair<string, Expression> shape = innerTranslator.Visitor.TableColumns.First();
+            SQLiteExpression source = rowSelects[0];
+            SQLiteExpression leaf = SQLiteExpression.Leaf(
+                rowType,
+                Visitor.Counters.NextIdentifier(),
+                $"{alias}.{IdentifierGuard.Quote(source.IdentifierText)}");
+            if (source.IsDayOfWeekInteger)
+            {
+                leaf.WithDayOfWeekInteger();
+            }
+
+            if (source.IsJsonSource)
+            {
+                leaf.WithJsonSource();
+            }
+
+            outerColumns = new Dictionary<string, Expression>
+            {
+                [shape.Key] = leaf
+            };
+        }
+        else
+        {
+            Dictionary<string, SQLiteExpression> innerSelects = rowSelects
+                .Where(select => !string.IsNullOrEmpty(select.IdentifierText))
+                .GroupBy(select => select.IdentifierText)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+            outerColumns = [];
+            List<PropertyInfo> properties = database.TryGetCachedTableMapping(rowType, out TableMapping? mapping)
+                ? [.. mapping.Columns.Select(column => column.PropertyInfo)]
+                : [.. rowType.GetProperties().Where(property => property.GetCustomAttribute<NotMappedAttribute>() == null)];
+            foreach (PropertyInfo property in properties)
+            {
+                bool flattened = false;
+                if (!TypeHelpers.IsSimple(property.PropertyType, database.Options))
+                {
+                    string dottedPrefix = property.Name + ".";
+                    foreach (KeyValuePair<string, SQLiteExpression> innerSelect in innerSelects)
+                    {
+                        if (!innerSelect.Key.StartsWith(dottedPrefix, StringComparison.Ordinal))
+                        {
+                            continue;
+                        }
+
+                        SQLiteExpression dottedLeaf = SQLiteExpression.Leaf(
+                            innerSelect.Value.Type,
+                            Visitor.Counters.NextIdentifier(),
+                            $"{alias}.{IdentifierGuard.Quote(innerSelect.Key)}");
+                        if (innerSelect.Value.IsDayOfWeekInteger)
+                        {
+                            dottedLeaf.WithDayOfWeekInteger();
+                        }
+
+                        if (innerSelect.Value.IsJsonSource)
+                        {
+                            dottedLeaf.WithJsonSource();
+                        }
+
+                        outerColumns[innerSelect.Key] = dottedLeaf;
+                        flattened = true;
+                    }
+                }
+
+                if (flattened)
+                {
+                    continue;
+                }
+
+                if (!TypeHelpers.IsSimple(property.PropertyType, database.Options)
+                    && !innerSelects.ContainsKey(property.Name))
+                {
+                    throw new NotSupportedException(
+                        $"Reading the nested projected object '{property.Name}' after a window operation is not supported " +
+                        "when the object is built in memory. Read the member before the window operation.");
+                }
+
+                SQLiteExpression leaf = SQLiteExpression.Leaf(
+                    property.PropertyType,
+                    Visitor.Counters.NextIdentifier(),
+                    $"{alias}.{IdentifierGuard.Quote(property.Name)}");
+                if (innerSelects.TryGetValue(property.Name, out SQLiteExpression? source))
+                {
+                    if (source.IsDayOfWeekInteger)
+                    {
+                        leaf.WithDayOfWeekInteger();
+                    }
+
+                    if (source.IsJsonSource)
+                    {
+                        leaf.WithJsonSource();
+                    }
+                }
+
+                outerColumns[property.Name] = leaf;
+            }
+        }
+
+        if (innerTranslator.Visitor.OptionalRowColumns.Contains(innerTranslator.Visitor.TableColumns))
+        {
+            Visitor.OptionalRowColumns.Add(outerColumns);
+        }
+
+        if (innerTranslator.Visitor.OptionalRowPaths.TryGetValue(
+            innerTranslator.Visitor.TableColumns,
+            out HashSet<string>? optionalPaths))
+        {
+            Visitor.OptionalRowPaths[outerColumns] = [.. optionalPaths];
+        }
+
+        if (innerTranslator.Visitor.ConstructedProjectionPaths.TryGetValue(
+            innerTranslator.Visitor.TableColumns,
+            out HashSet<string>? constructedPaths))
+        {
+            Visitor.ConstructedProjectionPaths[outerColumns] = [.. constructedPaths];
+        }
+
+        if (innerTranslator.Visitor.ConstructedProjectionNodes.TryGetValue(
+            innerTranslator.Visitor.TableColumns,
+            out Dictionary<string, Expression>? constructedNodes))
+        {
+            Visitor.ConstructedProjectionNodes[outerColumns] = new Dictionary<string, Expression>(constructedNodes);
+        }
+
+        Visitor.TableColumnPrefixes[outerColumns] = new Dictionary<string, string?>
+        {
+            [string.Empty] = alias
+        };
+        Visitor.TableColumns = outerColumns;
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2075", Justification = "We are checking the Queryable class")]
@@ -1400,7 +1780,7 @@ internal class SQLTranslator
             return false;
         }
 
-        return WindowCallDetector.Contains(selector.Body);
+        return CommonHelpers.ContainsWindowCall(selector.Body);
     }
 
     private static bool IsSubqueryOrder(MethodCallExpression candidate, SQLiteOptions options)
@@ -1456,8 +1836,7 @@ internal class SQLTranslator
         for (int i = 0; i <= wrapIdx; i++)
         {
             MethodCallExpression call = methodCalls[i];
-            bool hasLambda = call.Arguments.Count > 1
-                && ExpressionHelpers.StripQuotes(call.Arguments[^1]) is LambdaExpression;
+            bool hasLambda = HasLambdaArgument(call);
             bool safeName = call.Method.Name is nameof(Queryable.Distinct) or nameof(Queryable.Reverse)
                 or nameof(Queryable.Take) or nameof(Queryable.Skip)
                 or nameof(Queryable.ElementAt) or nameof(Queryable.ElementAtOrDefault)
@@ -1475,7 +1854,7 @@ internal class SQLTranslator
         return true;
     }
 
-    private static int FindSubqueryBoundary(List<MethodCallExpression> methodCalls, bool[] isWindowProjection, bool[] isSubqueryOrder)
+    private static int FindSubqueryBoundary(List<MethodCallExpression> methodCalls, bool[] isWindowProjection, bool[] isSubqueryOrder, SQLiteOptions options)
     {
         QueryLevelParts level = QueryLevelParts.None;
         int boundary = -1;
@@ -1484,11 +1863,17 @@ internal class SQLTranslator
         {
             string name = methodCalls[i].Method.Name;
             bool windowProjection = isWindowProjection[i];
-            bool hasPredicate = methodCalls[i].Arguments.Count > 1;
+            bool hasPredicate = HasLambdaArgument(methodCalls[i]);
+            bool requiresSetBoundary = RequiresSetOperationBoundary(methodCalls[i], level, options);
 
-            if (ConflictsWithLevel(name, level, windowProjection, hasPredicate, isSubqueryOrder[i]))
+            if (requiresSetBoundary
+                || RequiresDistinctAggregateBoundary(methodCalls[i], level, options)
+                || ConflictsWithLevel(name, level, windowProjection, hasPredicate, isSubqueryOrder[i]))
             {
-                boundary = i;
+                boundary = requiresSetBoundary
+                    && name is nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending)
+                    ? FindOrderingChainBoundary(methodCalls, i)
+                    : i;
                 level = QueryLevelParts.None;
             }
 
@@ -1498,24 +1883,133 @@ internal class SQLTranslator
         return boundary;
     }
 
+    private static bool IsDirectSetOperationOrderKey(Expression body)
+    {
+        if (body is not MemberExpression member)
+        {
+            return body is ParameterExpression;
+        }
+
+        body = member.Expression!;
+        while (body is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } unary)
+        {
+            body = unary.Operand;
+        }
+
+        return body is ParameterExpression;
+    }
+
+    private static bool RequiresDistinctAggregateBoundary(MethodCallExpression call, QueryLevelParts level, SQLiteOptions options)
+    {
+        if ((level & QueryLevelParts.Distinct) == 0)
+        {
+            return false;
+        }
+
+        if (call.Method.Name is nameof(Queryable.Sum) or nameof(Queryable.Average)
+            && call.Arguments.Count == 2)
+        {
+            return true;
+        }
+
+        if (call.Method.Name is not (nameof(Queryable.Count) or nameof(Queryable.LongCount)))
+        {
+            return false;
+        }
+
+        Type sourceType = TypeHelpers.GetEnumerableElementType(call.Arguments[0].Type)!;
+        return !TypeHelpers.IsSimple(sourceType, options);
+    }
+
+    private static bool RequiresSetOperationBoundary(MethodCallExpression call, QueryLevelParts level, SQLiteOptions options)
+    {
+        string name = call.Method.Name;
+        if (name is nameof(Queryable.Concat) or nameof(Queryable.Union)
+            or nameof(Queryable.Intersect) or nameof(Queryable.Except))
+        {
+            return (level & QueryLevelParts.Limit) != 0;
+        }
+
+        if ((level & QueryLevelParts.SetOperation) == 0)
+        {
+            return false;
+        }
+
+        if (name == nameof(Queryable.Select))
+        {
+            LambdaExpression selector = (LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[1]);
+            return selector.Body is not ParameterExpression;
+        }
+
+        if (name is nameof(Queryable.Order) or nameof(Queryable.OrderDescending))
+        {
+            Type elementType = TypeHelpers.GetEnumerableElementType(call.Arguments[0].Type)!;
+            Type keyType = Nullable.GetUnderlyingType(elementType) ?? elementType;
+            if (keyType.IsEnum)
+            {
+                keyType = Enum.GetUnderlyingType(keyType);
+            }
+
+            return keyType == typeof(ulong)
+                || options.DecimalStorage == DecimalStorageMode.Text && keyType == typeof(decimal);
+        }
+
+        if (name is nameof(Queryable.OrderBy) or nameof(Queryable.OrderByDescending)
+            or nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending))
+        {
+            LambdaExpression keySelector = (LambdaExpression)ExpressionHelpers.StripQuotes(call.Arguments[1]);
+            return !IsDirectSetOperationOrderKey(keySelector.Body);
+        }
+
+        if (name is nameof(Queryable.First) or nameof(Queryable.FirstOrDefault)
+            or nameof(Queryable.Single) or nameof(Queryable.SingleOrDefault))
+        {
+            return HasLambdaArgument(call);
+        }
+
+        return false;
+    }
+
+    private static int FindOrderingChainBoundary(List<MethodCallExpression> methodCalls, int thenByIndex)
+    {
+        int boundary = thenByIndex + 1;
+        while (methodCalls[boundary].Method.Name is nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending))
+        {
+            boundary++;
+        }
+
+        return boundary;
+    }
+
+    private static bool HasLambdaArgument(MethodCallExpression call)
+    {
+        return call.Arguments.Skip(1)
+            .Any(argument => ExpressionHelpers.StripQuotes(argument) is LambdaExpression);
+    }
+
     private static bool ConflictsWithLevel(string name, QueryLevelParts level, bool windowProjection, bool hasPredicate, bool subqueryOrder)
     {
         QueryLevelParts blockedBy = name switch
         {
-            nameof(Queryable.Where) => QueryLevelParts.Limit | QueryLevelParts.Window,
-            nameof(Queryable.Any) or nameof(Queryable.All) or nameof(Queryable.Contains) => QueryLevelParts.Limit | QueryLevelParts.Window,
+            nameof(Queryable.Where) => QueryLevelParts.Limit | QueryLevelParts.Window | QueryLevelParts.SetOperation,
+            nameof(Queryable.Any) or nameof(Queryable.All) or nameof(Queryable.Contains) =>
+                QueryLevelParts.Limit | QueryLevelParts.Window | QueryLevelParts.SetOperation,
             nameof(Queryable.First) or nameof(Queryable.FirstOrDefault)
                 or nameof(Queryable.Single) or nameof(Queryable.SingleOrDefault)
                 when hasPredicate => QueryLevelParts.Limit | QueryLevelParts.Window,
             nameof(Queryable.Count) or nameof(Queryable.LongCount) or nameof(Queryable.Sum)
-                or nameof(Queryable.Max) or nameof(Queryable.Min) or nameof(Queryable.Average) => QueryLevelParts.Window | QueryLevelParts.Limit,
+                or nameof(Queryable.Max) or nameof(Queryable.Min) or nameof(Queryable.Average) =>
+                QueryLevelParts.Window | QueryLevelParts.Limit | QueryLevelParts.SetOperation,
+            nameof(QueryableExtensions.GroupConcatMarker) or nameof(QueryableExtensions.TotalMarker) =>
+                QueryLevelParts.Limit | QueryLevelParts.Distinct | QueryLevelParts.SetOperation,
             nameof(Queryable.OrderBy) or nameof(Queryable.OrderByDescending)
                 or nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending) =>
                 subqueryOrder ? QueryLevelParts.Limit | QueryLevelParts.SetOperation : QueryLevelParts.Limit,
-            nameof(Queryable.Distinct) => QueryLevelParts.Limit,
+            nameof(Queryable.Distinct) => QueryLevelParts.Limit | QueryLevelParts.SetOperation,
             nameof(Queryable.Select) when windowProjection => QueryLevelParts.Distinct | QueryLevelParts.Limit | QueryLevelParts.Window,
             nameof(Queryable.Select) => QueryLevelParts.Distinct,
-            nameof(Queryable.GroupBy) => QueryLevelParts.Limit | QueryLevelParts.Distinct | QueryLevelParts.Window,
+            nameof(Queryable.GroupBy) =>
+                QueryLevelParts.Limit | QueryLevelParts.Distinct | QueryLevelParts.Window | QueryLevelParts.SetOperation,
             _ when IsJoinLikeMethod(name) => QueryLevelParts.Where | QueryLevelParts.Projection
                 | QueryLevelParts.GroupBy | QueryLevelParts.Limit | QueryLevelParts.Distinct | QueryLevelParts.Reverse
                 | QueryLevelParts.Window,
@@ -1533,7 +2027,8 @@ internal class SQLTranslator
             nameof(Queryable.Select) => QueryLevelParts.Projection,
             nameof(Queryable.GroupBy) => QueryLevelParts.GroupBy,
             nameof(Queryable.OrderBy) or nameof(Queryable.OrderByDescending)
-                or nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending) => QueryLevelParts.OrderBy,
+                or nameof(Queryable.ThenBy) or nameof(Queryable.ThenByDescending)
+                or nameof(Queryable.Order) or nameof(Queryable.OrderDescending) => QueryLevelParts.OrderBy,
             nameof(Queryable.Distinct) => QueryLevelParts.Distinct,
             nameof(Queryable.Take) or nameof(Queryable.Skip)
                 or nameof(Queryable.First) or nameof(Queryable.FirstOrDefault)

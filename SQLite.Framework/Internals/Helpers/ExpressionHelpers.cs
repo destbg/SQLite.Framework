@@ -88,9 +88,19 @@ internal static class ExpressionHelpers
 
     public static bool IsConstantMethodCall(MethodCallExpression node)
     {
-        if (node.Type.IsByRefLike)
+        if (node.Type.IsByRefLike
+            || node.Method.DeclaringType == typeof(Guid) && node.Method.Name == nameof(Guid.NewGuid)
+            || node.Method.Module.Assembly == typeof(SQLiteDatabase).Assembly)
         {
             return false;
+        }
+
+        if (node.Method.DeclaringType == typeof(MemoryExtensions)
+            && node.Method.Name == nameof(MemoryExtensions.IndexOf)
+            && node.Arguments is [Expression conversion, Expression value]
+            && TryGetSpanSource(conversion, out Expression? source))
+        {
+            return IsConstant(source) && IsConstantMethodOperand(value);
         }
 
         return (node.Object == null || IsConstantMethodOperand(node.Object))
@@ -177,6 +187,7 @@ internal static class ExpressionHelpers
     public static Expression StripUpcast(Expression node)
     {
         return node is UnaryExpression { NodeType: ExpressionType.Convert } cast
+            && Nullable.GetUnderlyingType(cast.Type) == null
             && cast.Type.IsAssignableFrom(cast.Operand.Type)
             ? cast.Operand
             : node;
@@ -292,6 +303,11 @@ internal static class ExpressionHelpers
 
     private static object? InvokeMethod(MethodCallExpression node)
     {
+        if (TryInvokeSpanIndexOf(node, out object? spanResult))
+        {
+            return spanResult;
+        }
+
         object? target = node.Object != null ? GetConstantValue(node.Object) : null;
         object?[] arguments = [.. node.Arguments.Select(GetConstantValue)];
         try
@@ -308,6 +324,59 @@ internal static class ExpressionHelpers
     {
         return IsConstant(node)
             || node is MethodCallExpression methodCall && IsConstantMethodCall(methodCall);
+    }
+
+    private static bool TryInvokeSpanIndexOf(MethodCallExpression node, out object? result)
+    {
+        result = null;
+        if (node.Method.DeclaringType != typeof(MemoryExtensions)
+            || node.Method.Name != nameof(MemoryExtensions.IndexOf)
+            || node.Arguments.Count != 2
+            || !TryGetSpanSource(node.Arguments[0], out Expression? sourceExpression)
+            || GetConstantValue(sourceExpression) is not IEnumerable source)
+        {
+            return false;
+        }
+
+        object? value = GetConstantValue(node.Arguments[1]);
+        if (source is IList list)
+        {
+            result = list.IndexOf(value);
+            return true;
+        }
+
+        int index = 0;
+        foreach (object? item in source)
+        {
+            if (Equals(item, value))
+            {
+                result = index;
+                return true;
+            }
+
+            index++;
+        }
+
+        result = -1;
+        return true;
+    }
+
+    private static bool TryGetSpanSource(Expression conversion, [NotNullWhen(true)] out Expression? source)
+    {
+        if (conversion is MethodCallExpression { Method.Name: "op_Implicit", Arguments.Count: 1 } methodCall)
+        {
+            source = methodCall.Arguments[0];
+            return true;
+        }
+
+        if (conversion is UnaryExpression { Method.Name: "op_Implicit" } unary)
+        {
+            source = unary.Operand;
+            return true;
+        }
+
+        source = null;
+        return false;
     }
 
     private static object? ReadMemberValue(MemberExpression me)

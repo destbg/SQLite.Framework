@@ -60,4 +60,16 @@ public class JsonDictionaryTemporalKeyTests
 
         Assert.Equal(expected, actual);
     }
+
+    [Fact]
+    public void ContainsPairWithDateTimeKeyMatches()
+    {
+        using TestDatabase db = Seed(out Dictionary<DateTime, int> local);
+        KeyValuePair<DateTime, int> pair = new(Key, 10);
+
+        bool expected = local.Contains(pair);
+        bool actual = db.Table<TemporalDictKeyRow>().Select(r => r.Map.Contains(pair)).First();
+
+        Assert.Equal(expected, actual);
+    }
 }

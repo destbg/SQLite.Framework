@@ -172,6 +172,13 @@ public sealed class SQLiteOptions
     public required IReadOnlyDictionary<string, Func<SQLiteQueryContext, object?>> SelectMaterializers { get; init; }
 
     /// <summary>
+    /// Generated JSON collection materializers, keyed by the declared collection result type.
+    /// Each value builds the collection without runtime reflection. Populated by the
+    /// <c>UseGeneratedMaterializers</c> extension emitted by <c>SQLite.Framework.SourceGenerator</c>.
+    /// </summary>
+    public required IReadOnlyDictionary<Type, Func<string, SQLiteOptions, object?>> JsonCollectionMaterializers { get; init; }
+
+    /// <summary>
     /// Generated GroupBy key-selector extractors, keyed by a canonical signature derived from the
     /// key selector lambda's body. Each entry reads <see cref="SQLiteQueryContext.Input" /> (the
     /// already-materialized row) and returns the group key. Populated by the
@@ -365,6 +372,35 @@ public sealed class SQLiteOptions
     public bool HasConverter(Type type)
     {
         return TypeConverters.Count != 0 && TypeConverters.ContainsKey(type);
+    }
+
+    /// <summary>
+    /// Reads one JSON collection element through registered source-generated JSON metadata.
+    /// Generated collection materializers use this overload for object values.
+    /// </summary>
+    public T ReadJsonElement<T>(JsonElement element)
+    {
+        return ReadJsonElement<T>(element, static _ => throw new InvalidOperationException(
+            $"No JSON type information is registered for collection element type '{typeof(T).FullName}'."));
+    }
+
+    /// <summary>
+    /// Reads one JSON collection element through registered source-generated JSON metadata.
+    /// When no metadata is registered, <paramref name="fallback" /> reads the built-in value.
+    /// </summary>
+    public T ReadJsonElement<T>(JsonElement element, Func<JsonElement, T> fallback)
+    {
+        if (element.ValueKind == JsonValueKind.Null)
+        {
+            return default!;
+        }
+
+        if (this.ResolveJsonTypeInfo(typeof(T)) is not { } typeInfo)
+        {
+            return fallback(element);
+        }
+
+        return (T)JsonSerializer.Deserialize(element.GetRawText(), typeInfo)!;
     }
 
     internal void ThrowMinimumVersionNotSupported(SQLiteMinimumVersion requiredVersion, string featureName)

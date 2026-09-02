@@ -172,10 +172,11 @@ internal class AliasVisitor
             {
                 Expression argument = newExpression.Arguments[i];
                 ParameterInfo parameter = parameters[i];
+                string memberName = ResolveConstructorMemberName(newExpression, parameter, i);
 
                 if (argument is ParameterExpression parameterExpression)
                 {
-                    string alias = CheckPrefix(prefix, parameter.Name!);
+                    string alias = CheckPrefix(prefix, memberName);
                     Dictionary<string, Expression> parameterTableColumns = visitor.MethodArguments[parameterExpression];
 
                     if (TypeHelpers.IsSimple(parameterExpression.Type, database.Options))
@@ -197,7 +198,7 @@ internal class AliasVisitor
                 else if (argument is MemberExpression memberExpression
                     && !TypeHelpers.IsSimple(memberExpression.Type, database.Options))
                 {
-                    string alias = CheckPrefix(prefix, parameter.Name!);
+                    string alias = CheckPrefix(prefix, memberName);
                     (string path, ParameterExpression rangeParameter) = ExpressionHelpers.ResolveParameterPath(memberExpression);
                     Dictionary<string, Expression> sourceColumns = visitor.MethodArguments[rangeParameter];
                     string prefixToMatch = path + ".";
@@ -216,7 +217,7 @@ internal class AliasVisitor
                 }
                 else if (argument is NewExpression or MemberInitExpression)
                 {
-                    string alias = CheckPrefix(prefix, parameter.Name!);
+                    string alias = CheckPrefix(prefix, memberName);
                     AliasVisitor nestedVisitor = new(database, visitor);
                     nestedVisitor.ResolveResultAlias(resultSelector, argument, alias);
                     foreach (KeyValuePair<string, Expression> tableColumn in nestedVisitor.result)
@@ -237,9 +238,9 @@ internal class AliasVisitor
                 }
                 else
                 {
-                    string alias = CheckPrefix(prefix, parameter.Name!);
+                    string alias = CheckPrefix(prefix, memberName);
                     SQLVisitor innerVisitor = visitor.CloneForProjection(visitor.IsInSelectProjection);
-                    Expression expression = innerVisitor.Visit(argument);
+                    Expression expression = VisitProjectionExpression(innerVisitor, argument);
 
                     result.Add(alias, CoalesceIfLiftedComparison(argument, expression));
                 }
@@ -392,7 +393,7 @@ internal class AliasVisitor
                 string alias = CheckPrefix(prefix, memberAssignment.Member.Name);
                 Expression valueExpression = ExpressionHelpers.StripUpcast(memberAssignment.Expression);
                 SQLVisitor innerVisitor = visitor.CloneForProjection(visitor.IsInSelectProjection);
-                Expression expression = innerVisitor.Visit(valueExpression);
+                Expression expression = VisitProjectionExpression(innerVisitor, valueExpression);
                 result[alias] = CoalesceIfLiftedComparison(valueExpression, expression);
             }
         }
@@ -409,6 +410,13 @@ internal class AliasVisitor
         {
             (string path, ParameterExpression parameter) = ExpressionHelpers.ResolveParameterPath(memberExpression);
             Dictionary<string, Expression> sourceColumns = visitor.MethodArguments[parameter];
+            if (sourceColumns.TryGetValue(path, out Expression? exactExpression)
+                && TypeHelpers.IsCollectionResult(exactExpression.Type))
+            {
+                result.Add(CheckPrefix(prefix, memberExpression.Member.Name), exactExpression);
+                return;
+            }
+
             string prefixToMatch = path + ".";
 
             foreach (KeyValuePair<string, Expression> tableColumn in sourceColumns)
@@ -495,8 +503,21 @@ internal class AliasVisitor
     private void VisitInnerExpression(Expression body, string prefix)
     {
         SQLVisitor innerVisitor = visitor.CloneForProjection(isInSelectProjection: false);
-        Expression expression = innerVisitor.Visit(body);
+        Expression expression = VisitProjectionExpression(innerVisitor, body);
         result.Add(prefix, CoalesceIfLiftedComparison(body, expression));
+    }
+
+    private Expression VisitProjectionExpression(SQLVisitor innerVisitor, Expression expression)
+    {
+        if (visitor.Level > 0
+            && expression is NewArrayExpression { NodeType: ExpressionType.NewArrayInit }
+            && TypeHelpers.IsCollectionResult(expression.Type)
+            && JsonArrayLiteralTranslator.TryTranslate(innerVisitor, expression) is { } jsonArray)
+        {
+            return jsonArray;
+        }
+
+        return innerVisitor.Visit(expression);
     }
 
     private Expression CoalesceIfLiftedComparison(Expression source, Expression resolved)
@@ -509,5 +530,19 @@ internal class AliasVisitor
     private static string CheckPrefix(string prefix, string path)
     {
         return prefix.Length > 0 ? $"{prefix}.{path}" : path;
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Projection types are rooted by the user query.")]
+    private static string ResolveConstructorMemberName(NewExpression expression, ParameterInfo parameter, int argumentIndex)
+    {
+        if (expression.Members != null)
+        {
+            return expression.Members[argumentIndex].Name;
+        }
+
+        PropertyInfo? property = expression.Type.GetProperty(
+            parameter.Name!,
+            BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+        return property?.Name ?? parameter.Name!;
     }
 }

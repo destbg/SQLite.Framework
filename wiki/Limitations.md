@@ -61,7 +61,7 @@ var rows = await db.Table<Sale>().OrderBy(s => s.Region).OrderBy(s => s.Total).T
 
 ## Query operators
 
-Some LINQ operators are not translated to SQL and throw `NotSupportedException` on a table query. These are `Last`, `LastOrDefault`, `Order`, `OrderDescending`, `MaxBy`, `MinBy`, `DistinctBy`, `SkipLast`, `TakeLast`, `Append`, `Prepend`, `Chunk`, `ExceptBy`, `UnionBy`, `IntersectBy`, `SkipWhile` and `TakeWhile`.
+Some LINQ operators are not translated to SQL and throw `NotSupportedException` on a table query. These are `Last`, `LastOrDefault`, `MaxBy`, `MinBy`, `DistinctBy`, `SkipLast`, `TakeLast`, `Append`, `Prepend`, `Chunk`, `ExceptBy`, `UnionBy`, `IntersectBy`, `SkipWhile` and `TakeWhile`.
 
 After a `Select` that runs in memory, only `Distinct`, `Take`, `Skip`, `Reverse`, `ElementAt`, `First`, `Single`, `Count` and `Any` without a predicate continue the query. Any other operator throws, because SQLite cannot compute the projected value inside the database.
 

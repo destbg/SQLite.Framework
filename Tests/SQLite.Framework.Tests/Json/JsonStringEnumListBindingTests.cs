@@ -15,6 +15,8 @@ public enum JselState
 
 public class JselPayload
 {
+    public int Code { get; set; }
+
     public JselState State { get; set; }
 
     public List<JselState> States { get; set; } = [];
@@ -26,6 +28,13 @@ public partial class JselContext : JsonSerializerContext;
 
 public class JselNumericPayload
 {
+    public JselState State { get; set; }
+}
+
+public class JselWanted
+{
+    public int Code { get; set; }
+
     public JselState State { get; set; }
 }
 
@@ -73,9 +82,9 @@ public class JsonStringEnumListBindingTests
         db.Table<JselDoc>().Schema.CreateTable();
         docs =
         [
-            new JselDoc { Id = 1, Data = new JselPayload { State = JselState.Active, States = [JselState.Draft, JselState.Active] } },
-            new JselDoc { Id = 2, Data = new JselPayload { State = JselState.Draft, States = [JselState.Closed] } },
-            new JselDoc { Id = 3, Data = new JselPayload { State = JselState.Closed, States = [] } },
+            new JselDoc { Id = 1, Data = new JselPayload { Code = 1, State = JselState.Active, States = [JselState.Draft, JselState.Active] } },
+            new JselDoc { Id = 2, Data = new JselPayload { Code = 2, State = JselState.Draft, States = [JselState.Closed] } },
+            new JselDoc { Id = 3, Data = new JselPayload { Code = 3, State = JselState.Closed, States = [] } },
         ];
         db.Table<JselDoc>().AddRange(docs);
         return db;
@@ -90,6 +99,63 @@ public class JsonStringEnumListBindingTests
         List<int> ids = db.Table<JselDoc>().Where(r => wanted.Contains(r.Data.State)).Select(r => r.Id).OrderBy(i => i).ToList();
 
         Assert.Equal(docs.Where(d => wanted.Contains(d.Data.State)).Select(d => d.Id).OrderBy(i => i).ToList(), ids);
+    }
+
+    [Fact]
+    public void CapturedObjectListMatchesJsonNumberMemberOnTheLeft()
+    {
+        using TestDatabase db = Create(out List<JselDoc> docs);
+        List<JselWanted> wanted =
+        [
+            new JselWanted { Code = 1 },
+            new JselWanted { Code = 3 },
+        ];
+
+        List<int> expected = docs.Where(d => wanted.Any(w => d.Data.Code == w.Code)).Select(d => d.Id).OrderBy(i => i).ToList();
+        List<int> actual = db.Table<JselDoc>().Where(d => wanted.Any(w => d.Data.Code == w.Code)).Select(d => d.Id).OrderBy(i => i).ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void CapturedObjectListMatchesStringEnumJsonMemberOnTheLeft()
+    {
+        using TestDatabase db = Create(out List<JselDoc> docs);
+        List<JselWanted> wanted =
+        [
+            new JselWanted { State = JselState.Active },
+            new JselWanted { State = JselState.Closed },
+        ];
+
+        List<int> expected = docs.Where(d => wanted.Any(w => d.Data.State == w.State)).Select(d => d.Id).OrderBy(i => i).ToList();
+        List<int> actual = db.Table<JselDoc>().Where(d => wanted.Any(w => d.Data.State == w.State)).Select(d => d.Id).OrderBy(i => i).ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void CapturedObjectListMatchesStringEnumJsonArrayIndex()
+    {
+        using TestDatabase db = Create(out List<JselDoc> docs);
+        List<JselWanted> wanted =
+        [
+            new JselWanted { State = JselState.Draft },
+            new JselWanted { State = JselState.Closed },
+        ];
+
+        List<int> expected = docs
+            .Where(d => d.Id < 3 && wanted.Any(w => w.State == d.Data.States[0]))
+            .Select(d => d.Id)
+            .OrderBy(i => i)
+            .ToList();
+        List<int> actual = db.Table<JselDoc>()
+            .Where(d => d.Id < 3 && wanted.Any(w => w.State == d.Data.States[0]))
+            .Select(d => d.Id)
+            .OrderBy(i => i)
+            .ToList();
+
+        Assert.Equal([1, 2], expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]

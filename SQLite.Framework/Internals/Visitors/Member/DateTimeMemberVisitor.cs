@@ -59,6 +59,25 @@ internal static class DateTimeMemberVisitor
             return expression;
         }
 
+        if (node.Method.Name == nameof(DateTime.IsLeapYear)
+            && arguments[0].SQLiteExpression is { } year)
+        {
+            if (visitor.IsInSelectProjection && visitor.Level == 0)
+            {
+                return Expression.Call(
+                    node.Method,
+                    visitor.ToClientOperand(node.Arguments[0], arguments[0]));
+            }
+
+            return SQLiteExpression.Wrap(
+                node.Type,
+                visitor.Counters.NextIdentifier(),
+                "(STRFTIME('%j', PRINTF('%04d-12-31', ",
+                year,
+                ")) = '366')",
+                year.Parameters);
+        }
+
         return visitor.NotTranslatable(node, $"DateTime.{node.Method.Name} is not translatable to SQL.");
     }
 
@@ -697,4 +716,5 @@ internal static class DateTimeMemberVisitor
             [.. obj.Parameters ?? [], tickToSecondParameter]
         );
     }
+
 }

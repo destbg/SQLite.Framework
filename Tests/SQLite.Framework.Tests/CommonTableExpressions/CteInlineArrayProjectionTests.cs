@@ -17,20 +17,6 @@ public class H20ArrCteRow
 
 public class CteInlineArrayProjectionTests
 {
-    private static List<H20ArrCteRow> Rows() =>
-    [
-        new H20ArrCteRow { Id = 1, A = 10, B = 100 },
-        new H20ArrCteRow { Id = 2, A = 20, B = 200 },
-    ];
-
-    private static TestDatabase Setup()
-    {
-        TestDatabase db = new();
-        db.Table<H20ArrCteRow>().Schema.CreateTable();
-        db.Table<H20ArrCteRow>().AddRange(Rows());
-        return db;
-    }
-
     [Fact]
     public void CteBodyArrayMemberPlainColumnReadMatchesLinq()
     {
@@ -48,39 +34,75 @@ public class CteInlineArrayProjectionTests
     }
 
     [Fact]
-    public void CteBodyArrayMemberArrayReadThrowsClean()
+    public void CteBodyArrayMemberArrayReadMatchesLinq()
     {
         using TestDatabase db = Setup();
 
-        NotSupportedException exception = Assert.Throws<NotSupportedException>(() => db.With(() => db.Table<H20ArrCteRow>()
-                .Select(r => new { r.Id, Arr = new[] { r.A, r.B } }))
-            .Select(x => x.Arr).ToList());
-
-        Assert.Equal("Cannot read a query result into the collection type 'System.Int32[]'.", exception.Message);
-    }
-
-    [Fact]
-    public void DirectProjectionArrayMemberArrayReadThrowsClean()
-    {
-        using TestDatabase db = Setup();
-
-        NotSupportedException exception = Assert.Throws<NotSupportedException>(() => db.Table<H20ArrCteRow>()
+        List<int[]> expected = Rows()
             .Select(r => new { r.Id, Arr = new[] { r.A, r.B } })
-            .Select(x => x.Arr).ToList());
+            .Select(x => x.Arr)
+            .ToList();
 
-        Assert.Equal("Cannot read a query result into the collection type 'System.Int32[]'.", exception.Message);
+        List<int[]> actual = db.With(() => db.Table<H20ArrCteRow>()
+                .Select(r => new { r.Id, Arr = new[] { r.A, r.B } }))
+            .Select(x => x.Arr)
+            .ToList();
+
+        AssertArraysEqual(expected, actual);
     }
 
     [Fact]
-    public void CteBodyTopLevelArrayThrowsClean()
+    public void DirectProjectionArrayMemberArrayReadMatchesLinq()
     {
         using TestDatabase db = Setup();
 
-        NotSupportedException exception = Assert.Throws<NotSupportedException>(() => db.With(() => db.Table<H20ArrCteRow>()
-                .Select(r => new[] { r.A, r.B }))
-            .ToList());
+        List<int[]> expected = Rows()
+            .Select(r => new { r.Id, Arr = new[] { r.A, r.B } })
+            .Select(x => x.Arr)
+            .ToList();
 
-        Assert.Equal("Cannot read a query result into the collection type 'System.Int32[]'.", exception.Message);
+        List<int[]> actual = db.Table<H20ArrCteRow>()
+            .Select(r => new { r.Id, Arr = new[] { r.A, r.B } })
+            .Select(x => x.Arr)
+            .ToList();
+
+        AssertArraysEqual(expected, actual);
+    }
+
+    [Fact]
+    public void CteBodyTopLevelArrayMatchesLinq()
+    {
+        using TestDatabase db = Setup();
+
+        List<int[]> expected = Rows()
+            .Select(r => new[] { r.A, r.B })
+            .ToList();
+
+        List<int[]> actual = db.With(() => db.Table<H20ArrCteRow>()
+                .Select(r => new[] { r.A, r.B }))
+            .ToList();
+
+        AssertArraysEqual(expected, actual);
+    }
+
+    [Fact]
+    public void DirectProjectionArrayMemberReadOverEmptySourceMatchesLinq()
+    {
+        using TestDatabase db = Setup();
+
+        List<int[]> expected = Rows()
+            .Where(r => r.Id > 100)
+            .Select(r => new { r.Id, Arr = new[] { r.A, r.B } })
+            .Select(x => x.Arr)
+            .ToList();
+
+        List<int[]> actual = db.Table<H20ArrCteRow>()
+            .Where(r => r.Id > 100)
+            .Select(r => new { r.Id, Arr = new[] { r.A, r.B } })
+            .Select(x => x.Arr)
+            .ToList();
+
+        AssertArraysEqual(expected, actual);
     }
 
     [Fact]
@@ -97,5 +119,33 @@ public class CteInlineArrayProjectionTests
             .Select(x => x.Id).ToList();
 
         Assert.Equal(expected, actual);
+    }
+
+    private static void AssertArraysEqual(List<int[]> expected, List<int[]> actual)
+    {
+        Assert.Equal(expected.Count, actual.Count);
+        for (int i = 0; i < expected.Count; i++)
+        {
+            Assert.Equal(expected[i], actual[i]);
+        }
+    }
+
+    private static List<H20ArrCteRow> Rows()
+    {
+        return
+        [
+            new H20ArrCteRow { Id = 1, A = 10, B = 100 },
+            new H20ArrCteRow { Id = 2, A = 20, B = 200 },
+            new H20ArrCteRow { Id = 3, A = 0, B = -5 },
+            new H20ArrCteRow { Id = 4, A = 10, B = 100 },
+        ];
+    }
+
+    private static TestDatabase Setup()
+    {
+        TestDatabase db = new();
+        db.Table<H20ArrCteRow>().Schema.CreateTable();
+        db.Table<H20ArrCteRow>().AddRange(Rows());
+        return db;
     }
 }

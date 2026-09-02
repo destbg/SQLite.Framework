@@ -75,6 +75,13 @@ internal partial class QueryableVisitor
 
     private Expression VisitOrder(MethodCallExpression node)
     {
+        ComparerArgumentGuard.ThrowIfOrderingComparer(node);
+
+        if (node.Method.Name is nameof(System.Linq.Queryable.Order) or nameof(System.Linq.Queryable.OrderDescending))
+        {
+            return VisitNaturalOrder(node);
+        }
+
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
         ThrowIfGroupJoinGroupPredicate(lambda.Body);
         bool previousFtsMatchAsSubquery = visitor.FtsMatchAsSubquery;
@@ -89,17 +96,6 @@ internal partial class QueryableVisitor
 
         sqlExpression = visitor.CoalesceLiftedOrderComparison(lambda.Body, sqlExpression);
         sqlExpression = visitor.CastTextDecimalForOrdering(sqlExpression);
-
-        if (node.Method.Name is nameof(System.Linq.Queryable.OrderBy) or nameof(System.Linq.Queryable.OrderByDescending))
-        {
-            OrderBys.Clear();
-            Reverse = false;
-            ReverseBeforeDistinct = false;
-        }
-
-        string baseDirection = node.Method.Name is nameof(System.Linq.Queryable.OrderBy) or nameof(System.Linq.Queryable.ThenBy)
-            ? " ASC"
-            : " DESC";
         string nullsClause = string.Empty;
 
         if (node.Arguments.Count == 3)
@@ -122,6 +118,22 @@ internal partial class QueryableVisitor
             }
         }
 
+        bool descending = node.Method.Name is nameof(System.Linq.Queryable.OrderByDescending) or nameof(System.Linq.Queryable.ThenByDescending);
+        AddOrderExpression(sqlExpression, node.Arguments[1].Type, descending, nullsClause, clearExisting: node.Method.Name is nameof(System.Linq.Queryable.OrderBy) or nameof(System.Linq.Queryable.OrderByDescending));
+        return orderBy;
+    }
+
+    private void AddOrderExpression(SQLiteExpression sqlExpression, Type expressionType, bool descending, string nullsClause, bool clearExisting)
+    {
+        if (clearExisting)
+        {
+            OrderBys.Clear();
+            Reverse = false;
+            ReverseBeforeDistinct = false;
+        }
+
+        string baseDirection = descending ? " DESC" : " ASC";
+
         Type orderKeyType = Nullable.GetUnderlyingType(sqlExpression.Type) ?? sqlExpression.Type;
         if (orderKeyType.IsEnum)
         {
@@ -131,12 +143,31 @@ internal partial class QueryableVisitor
         if (orderKeyType == typeof(ulong))
         {
             OrderBys.Add(SQLiteExpression.Wrap(typeof(bool), visitor.Counters.NextIdentifier(), "(", sqlExpression, ") < 0" + baseDirection + nullsClause, sqlExpression.Parameters));
-            OrderBys.Add(SQLiteExpression.Wrap(node.Arguments[1].Type, visitor.Counters.NextIdentifier(), "", sqlExpression, baseDirection, sqlExpression.Parameters));
-            return orderBy;
+            OrderBys.Add(SQLiteExpression.Wrap(expressionType, visitor.Counters.NextIdentifier(), "", sqlExpression, baseDirection, sqlExpression.Parameters));
+            return;
         }
 
-        OrderBys.Add(SQLiteExpression.Wrap(node.Arguments[1].Type, visitor.Counters.NextIdentifier(), "", sqlExpression, baseDirection + nullsClause, sqlExpression.Parameters));
-        return orderBy;
+        OrderBys.Add(SQLiteExpression.Wrap(expressionType, visitor.Counters.NextIdentifier(), "", sqlExpression, baseDirection + nullsClause, sqlExpression.Parameters));
+    }
+
+    private MethodCallExpression VisitNaturalOrder(MethodCallExpression node)
+    {
+        Type elementType = TypeHelpers.GetEnumerableElementType(node.Arguments[0].Type)!;
+        if (!TypeHelpers.IsSimple(elementType, database.Options) || LastSelectIsClient)
+        {
+            throw new NotSupportedException(
+                $"{node.Method.Name} is supported only for a scalar value that SQLite can order. " +
+                "Use OrderBy with an explicit key for object queries.");
+        }
+
+        SQLiteExpression selected = Selects.Count > 0
+            ? Selects[0]
+            : (SQLiteExpression)visitor.TableColumns.Values.Single();
+        SQLiteExpression key = SQLiteExpression.Alias(elementType, visitor.Counters.NextIdentifier(), selected, selected.Parameters);
+        key = visitor.CastTextDecimalForOrdering(key);
+        bool descending = node.Method.Name == nameof(System.Linq.Queryable.OrderDescending);
+        AddOrderExpression(key, elementType, descending, string.Empty, clearExisting: true);
+        return node;
     }
 
     private MethodCallExpression VisitDistinct(MethodCallExpression node)

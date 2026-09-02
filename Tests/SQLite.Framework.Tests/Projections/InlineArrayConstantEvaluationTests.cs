@@ -93,4 +93,27 @@ public class InlineArrayConstantEvaluationTests
     public void NewArrayBoundsInConstructor_AllDefault()
         => AssertIds(x => new IntArrayHolder(new int[3]).Items.Contains(x.Value),
                      x => new IntArrayHolder(new int[3]).Items.Contains(x.Value), [3]);
+
+    [Fact]
+    public void RowSizedArrayContainsInAProjectionMatchesLinq()
+    {
+        using TestDatabase db = CreateDb();
+
+        List<bool> expected = Data.OrderBy(x => x.Id).Select(x => new int[x.Id].Contains(x.Value)).ToList();
+        List<bool> actual = db.Table<IarRow>().OrderBy(x => x.Id).Select(x => new int[x.Id].Contains(x.Value)).ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void RowSizedArrayContainsInAFilterReportsItCannotTranslate()
+    {
+        using TestDatabase db = CreateDb();
+
+        NotSupportedException error = Assert.Throws<NotSupportedException>(() => db.Table<IarRow>()
+            .Where(x => new int[x.Id].Contains(x.Value))
+            .ToList());
+
+        Assert.Equal("Contains over an array created with a row-dependent length is not translatable to SQL.", error.Message);
+    }
 }

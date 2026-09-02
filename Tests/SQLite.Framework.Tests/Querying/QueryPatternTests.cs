@@ -188,28 +188,39 @@ public class QueryPatternTests
     }
 
     [Fact]
-    public void GroupJoin_AggregateOnGroup_IsNotSupported()
+    public void GroupJoin_LongCountOnGroup()
     {
         using TestDatabase db = new();
         db.Table<Author>().Schema.CreateTable();
         db.Table<Book>().Schema.CreateTable();
 
-        db.Table<Author>().Add(new Author
-        {
-            Id = 1,
-            Name = "A",
-            Email = "a@x",
-            BirthDate = new DateTime(2000, 1, 1),
-        });
+        Author[] authors =
+        [
+            new Author { Id = 1, Name = "A", Email = "a@x", BirthDate = new DateTime(2000, 1, 1) },
+            new Author { Id = 2, Name = "B", Email = "b@x", BirthDate = new DateTime(2000, 1, 1) }
+        ];
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 0 },
+            new Book { Id = 2, Title = "B", AuthorId = 1, Price = -1 }
+        ];
 
-        IQueryable<object> query =
-            from a in db.Table<Author>()
-            join b in db.Table<Book>() on a.Id equals b.AuthorId into bg
-            select (object)new { a.Id, BookCount = bg.Count() };
+        db.Table<Author>().AddRange(authors);
+        db.Table<Book>().AddRange(books);
 
-        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => query.ToList());
-        Assert.Contains("GroupJoin", ex.Message);
-        Assert.Contains("DefaultIfEmpty", ex.Message);
+        var expected = (
+            from author in authors
+            join book in books on author.Id equals book.AuthorId into authorBooks
+            select new { author.Id, BookCount = authorBooks.LongCount() }
+        ).OrderBy(row => row.Id).ToList();
+
+        var actual = (
+            from author in db.Table<Author>()
+            join book in db.Table<Book>() on author.Id equals book.AuthorId into authorBooks
+            select new { author.Id, BookCount = authorBooks.LongCount() }
+        ).OrderBy(row => row.Id).ToList();
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
@@ -1060,30 +1071,44 @@ public class QueryPatternTests
     }
 
     [Fact]
-    public void Distinct_ThenCount_MultiColumnProjection_IsNotSupported()
+    public void Distinct_ThenCount_MultiColumnProjection_CountsDistinctRows()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
-        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 });
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "A", AuthorId = 1, Price = 2 },
+            new Book { Id = 3, Title = "B", AuthorId = 1, Price = 3 }
+        ];
+        db.Table<Book>().AddRange(books);
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>()
-                .Select(b => new { b.AuthorId, b.Title })
-                .Distinct()
-                .Count());
+        int expected = books.Select(b => new { b.AuthorId, b.Title }).Distinct().Count();
+        int actual = db.Table<Book>().Select(b => new { b.AuthorId, b.Title }).Distinct().Count();
+
+        Assert.Equal(2, expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void Distinct_ThenCount_OnTable_IsNotSupported()
+    public void Distinct_ThenCount_OnTable_CountsDistinctRows()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
-        db.Table<Book>().Add(new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 });
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "A", AuthorId = 1, Price = 2 }
+        ];
+        db.Table<Book>().AddRange(books);
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Distinct().Count());
+        int expected = books.Distinct().Count();
+        int actual = db.Table<Book>().Distinct().Count();
+
+        Assert.Equal(2, expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
@@ -1714,7 +1739,42 @@ public class QueryPatternTests
     }
 
     [Fact]
-    public void GroupJoin_ResultSelectorWithUnrelatedMethodCall_StillThrows()
+    public void GroupJoin_ResultSelectorWithUnrelatedMethodCall_MatchesObjects()
+    {
+        using TestDatabase db = new();
+        db.Table<Author>().Schema.CreateTable();
+        db.Table<Book>().Schema.CreateTable();
+
+        Author[] authors =
+        [
+            new Author
+            {
+                Id = 1,
+                Name = "A",
+                Email = "a@x",
+                BirthDate = new DateTime(2000, 1, 1),
+            }
+        ];
+        Book[] books = [];
+
+        db.Table<Author>().AddRange(authors);
+
+        var expected = (
+            from a in authors
+            join b in books on a.Id equals b.AuthorId into bg
+            select new { Abs = Math.Abs(a.Id), BookCount = bg.Count() }
+        ).ToList();
+        var actual = (
+            from a in db.Table<Author>()
+            join b in db.Table<Book>() on a.Id equals b.AuthorId into bg
+            select new { Abs = Math.Abs(a.Id), BookCount = bg.Count() }
+        ).ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void GroupJoin_ResultSelectorWithUnsupportedGroupMethod_Throws()
     {
         using TestDatabase db = new();
         db.Table<Author>().Schema.CreateTable();
@@ -1728,10 +1788,10 @@ public class QueryPatternTests
             BirthDate = new DateTime(2000, 1, 1),
         });
 
-        IQueryable<object> query =
+        IQueryable<int> query =
             from a in db.Table<Author>()
             join b in db.Table<Book>() on a.Id equals b.AuthorId into bg
-            select (object)new { Abs = Math.Abs(a.Id), BookCount = bg.Count() };
+            select Count(bg);
 
         Assert.Throws<NotSupportedException>(() => query.ToList());
     }
@@ -3535,82 +3595,143 @@ public class QueryPatternTests
     }
 
     [Fact]
-    public void Concat_FollowedByCount_ThrowsNotSupported()
+    public void Concat_FollowedByCount_CountsBothSources()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
+
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 2, Price = 2 }
+        ];
+        db.Table<Book>().AddRange(books);
 
         IQueryable<int> a = db.Table<Book>().Select(b => b.Id);
         IQueryable<int> b2 = db.Table<Book>().Select(b => b.Id);
 
-        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => a.Concat(b2).Count());
-        Assert.Contains("Concat/Union/Intersect/Except", ex.Message);
+        int expected = books.Select(b => b.Id).Concat(books.Select(b => b.Id)).Count();
+        int actual = a.Concat(b2).Count();
+
+        Assert.Equal(4, expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void Union_FollowedBySum_ThrowsNotSupported()
+    public void Union_FollowedBySum_SumsTheCombinedValues()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
+
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = -2 },
+            new Book { Id = 2, Title = "B", AuthorId = 2, Price = 0 },
+            new Book { Id = 3, Title = "C", AuthorId = 2, Price = 4 }
+        ];
+        db.Table<Book>().AddRange(books);
 
         IQueryable<double> a = db.Table<Book>().Select(b => b.Price);
         IQueryable<double> b2 = db.Table<Book>().Select(b => b.Price);
 
-        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => a.Union(b2).Sum());
-        Assert.Contains("Concat/Union/Intersect/Except", ex.Message);
+        double expected = books.Select(b => b.Price).Union(books.Select(b => b.Price)).Sum();
+        double actual = a.Union(b2).Sum();
+
+        Assert.Equal(2, expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void Concat_FollowedByWhere_ThrowsNotSupported()
+    public void Concat_FollowedByWhere_FiltersTheCombinedValues()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
+
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 2, Price = 2 }
+        ];
+        db.Table<Book>().AddRange(books);
 
         IQueryable<int> a = db.Table<Book>().Select(b => b.Id);
         IQueryable<int> b2 = db.Table<Book>().Select(b => b.Id);
 
-        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => a.Concat(b2).Where(x => x > 0).ToList());
-        Assert.Contains("Concat/Union/Intersect/Except", ex.Message);
+        List<int> expected = books.Select(b => b.Id).Concat(books.Select(b => b.Id)).Where(x => x > 1).ToList();
+        List<int> actual = a.Concat(b2).Where(x => x > 1).ToList();
+
+        Assert.Equal([2, 2], expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void Concat_FollowedByNonIdentitySelect_ThrowsNotSupported()
+    public void Concat_FollowedByNonIdentitySelect_ProjectsTheCombinedValues()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
+
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 2, Price = 2 }
+        ];
+        db.Table<Book>().AddRange(books);
 
         IQueryable<int> a = db.Table<Book>().Select(b => b.Id);
         IQueryable<int> b2 = db.Table<Book>().Select(b => b.Id);
 
-        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => a.Concat(b2).Select(x => x + 100).ToList());
-        Assert.Contains("Concat/Union/Intersect/Except", ex.Message);
+        List<int> expected = books.Select(b => b.Id).Concat(books.Select(b => b.Id)).Select(x => x + 100).ToList();
+        List<int> actual = a.Concat(b2).Select(x => x + 100).ToList();
+
+        Assert.Equal([101, 102, 101, 102], expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void Concat_FollowedByDistinct_ThrowsNotSupported()
+    public void Concat_FollowedByDistinct_RemovesCombinedDuplicates()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
+
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 2, Price = 2 }
+        ];
+        db.Table<Book>().AddRange(books);
 
         IQueryable<int> a = db.Table<Book>().Select(b => b.Id);
         IQueryable<int> b2 = db.Table<Book>().Select(b => b.Id);
 
-        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => a.Concat(b2).Distinct().ToList());
-        Assert.Contains("Concat/Union/Intersect/Except", ex.Message);
+        List<int> expected = books.Select(b => b.Id).Concat(books.Select(b => b.Id)).Distinct().OrderBy(x => x).ToList();
+        List<int> actual = a.Concat(b2).Distinct().OrderBy(x => x).ToList();
+
+        Assert.Equal([1, 2], expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void Concat_FollowedByGroupBy_ThrowsNotSupported()
+    public void Concat_FollowedByGroupBy_GroupsTheCombinedRows()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
+
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 2, Price = 2 },
+            new Book { Id = 3, Title = "C", AuthorId = 2, Price = 3 }
+        ];
+        db.Table<Book>().AddRange(books);
 
         IQueryable<Book> a = db.Table<Book>();
         IQueryable<Book> b2 = db.Table<Book>();
 
-        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
-            a.Concat(b2).GroupBy(b => b.AuthorId).Select(g => g.Key).ToList());
-        Assert.Contains("Concat/Union/Intersect/Except", ex.Message);
+        List<int> expected = books.Concat(books).GroupBy(b => b.AuthorId).Select(g => g.Key).OrderBy(x => x).ToList();
+        List<int> actual = a.Concat(b2).GroupBy(b => b.AuthorId).Select(g => g.Key).OrderBy(x => x).ToList();
+
+        Assert.Equal([1, 2], expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
@@ -3627,29 +3748,49 @@ public class QueryPatternTests
     }
 
     [Fact]
-    public void Concat_FollowedByContains_ThrowsNotSupported()
+    public void Concat_FollowedByContains_SearchesTheCombinedValues()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 2, Price = 2 }
+        ];
+        db.Table<Book>().AddRange(books);
+
         IQueryable<int> a = db.Table<Book>().Select(b => b.Id);
         IQueryable<int> b2 = db.Table<Book>().Select(b => b.Id);
 
-        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => a.Concat(b2).Contains(1));
-        Assert.Contains("Concat/Union/Intersect/Except", ex.Message);
+        bool expectedPresent = books.Select(b => b.Id).Concat(books.Select(b => b.Id)).Contains(2);
+        bool expectedMissing = books.Select(b => b.Id).Concat(books.Select(b => b.Id)).Contains(0);
+
+        Assert.Equal(expectedPresent, a.Concat(b2).Contains(2));
+        Assert.Equal(expectedMissing, a.Concat(b2).Contains(0));
     }
 
     [Fact]
-    public void Concat_FollowedByFirstWithPredicate_ThrowsNotSupported()
+    public void Concat_FollowedByFirstWithPredicate_SearchesTheCombinedValues()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
 
+        Book[] books =
+        [
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+            new Book { Id = 2, Title = "B", AuthorId = 2, Price = 2 }
+        ];
+        db.Table<Book>().AddRange(books);
+
         IQueryable<int> a = db.Table<Book>().Select(b => b.Id);
         IQueryable<int> b2 = db.Table<Book>().Select(b => b.Id);
 
-        NotSupportedException ex = Assert.Throws<NotSupportedException>(() => a.Concat(b2).First(x => x == 1));
-        Assert.Contains("Concat/Union/Intersect/Except", ex.Message);
+        int expected = books.Select(b => b.Id).Concat(books.Select(b => b.Id)).First(x => x == 2);
+        int actual = a.Concat(b2).First(x => x == 2);
+
+        Assert.Equal(2, expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
@@ -5157,7 +5298,7 @@ public class QueryPatternTests
     }
 
     [Fact]
-    public void Where_FilteredEnumerableContains_ThrowsNotSupported()
+    public void Where_FilteredEnumerableContains_MatchesLinq()
     {
         using TestDatabase db = new();
         db.Table<Book>().Schema.CreateTable();
@@ -5168,8 +5309,14 @@ public class QueryPatternTests
 
         int[] inMemory = [1, 2, 3];
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Where(b => inMemory.Where(x => x > 0).Contains(b.Id)).Count());
+        int expected = new[]
+        {
+            new Book { Id = 1, Title = "A", AuthorId = 1, Price = 1 },
+        }.Count(b => inMemory.Where(x => x > 0).Contains(b.Id));
+        int actual = db.Table<Book>().Where(b => inMemory.Where(x => x > 0).Contains(b.Id)).Count();
+
+        Assert.Equal(1, expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
@@ -6422,5 +6569,10 @@ public class QueryPatternTests
 
         Assert.Equal(1.0, row.Min);
         Assert.Equal(5.0, row.Max);
+    }
+
+    private static int Count<T>(IEnumerable<T> values)
+    {
+        return values.Count();
     }
 }

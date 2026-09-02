@@ -941,9 +941,8 @@ public class InternalHelpersDirectTests
             BindingFlags.Instance | BindingFlags.NonPublic)!;
 
         TargetInvocationException tie = Assert.Throws<TargetInvocationException>(() => visitContains.Invoke(qmv, [contains]));
-        Assert.NotNull(tie.InnerException);
-        Assert.Contains("Unsupported expression type", tie.InnerException!.Message);
-        Assert.Contains("in Contains", tie.InnerException.Message);
+        NotSupportedException exception = Assert.IsType<NotSupportedException>(tie.InnerException);
+        Assert.Contains("Contains needs a value that SQLite can translate", exception.Message);
     }
 
     [Fact]

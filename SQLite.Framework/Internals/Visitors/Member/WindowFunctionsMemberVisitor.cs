@@ -144,12 +144,12 @@ internal static class WindowFunctionsMemberVisitor
             nameof(SQLiteWindow<>.AsValue) => SQLiteExpression.Alias(t, id, arguments[0].SQLiteExpression!, parameters),
             nameof(SQLiteWindow<>.Over) => SQLiteExpression.Alias(t, id, arguments[0].SQLiteExpression!, parameters),
             nameof(SQLiteWindow<>.Filter) => Filter(visitor, t, id, arguments[0], arguments[1], parameters),
-            nameof(SQLiteWindow<>.PartitionBy) => BuildOverChain(visitor, t, id, node, arguments[0], " PARTITION BY ", arguments[1], parameters),
-            nameof(SQLiteWindow<>.ThenPartitionBy) => BuildOverChain(visitor, t, id, node, arguments[0], ", ", arguments[1], parameters),
-            nameof(SQLiteWindow<>.OrderBy) => BuildOverChainOrderBy(visitor, t, id, node, arguments[0], " ORDER BY ", arguments[1], " ASC", allowUlongSplit, parameters),
-            nameof(SQLiteWindow<>.OrderByDescending) => BuildOverChainOrderBy(visitor, t, id, node, arguments[0], " ORDER BY ", arguments[1], " DESC", allowUlongSplit, parameters),
-            nameof(SQLiteWindow<>.ThenOrderBy) => BuildOverChainOrderBy(visitor, t, id, node, arguments[0], ", ", arguments[1], " ASC", allowUlongSplit, parameters),
-            nameof(SQLiteWindow<>.ThenOrderByDescending) => BuildOverChainOrderBy(visitor, t, id, node, arguments[0], ", ", arguments[1], " DESC", allowUlongSplit, parameters),
+            nameof(SQLiteWindow<>.PartitionBy) => BuildOverChain(visitor, t, id, node, arguments[0], " PARTITION BY ", arguments[1]),
+            nameof(SQLiteWindow<>.ThenPartitionBy) => BuildOverChain(visitor, t, id, node, arguments[0], ", ", arguments[1]),
+            nameof(SQLiteWindow<>.OrderBy) => BuildOverChainOrderBy(visitor, t, id, node, arguments[0], " ORDER BY ", arguments[1], " ASC", allowUlongSplit),
+            nameof(SQLiteWindow<>.OrderByDescending) => BuildOverChainOrderBy(visitor, t, id, node, arguments[0], " ORDER BY ", arguments[1], " DESC", allowUlongSplit),
+            nameof(SQLiteWindow<>.ThenOrderBy) => BuildOverChainOrderBy(visitor, t, id, node, arguments[0], ", ", arguments[1], " ASC", allowUlongSplit),
+            nameof(SQLiteWindow<>.ThenOrderByDescending) => BuildOverChainOrderBy(visitor, t, id, node, arguments[0], ", ", arguments[1], " DESC", allowUlongSplit),
             nameof(SQLiteWindow<>.Rows) => Frame(visitor, t, id, arguments, " ROWS BETWEEN ", node, parameters),
             nameof(SQLiteWindow<>.Range) => Frame(visitor, t, id, arguments, " RANGE BETWEEN ", node, parameters),
             nameof(SQLiteWindow<>.Groups) => Frame(visitor, t, id, arguments, " GROUPS BETWEEN ", node, parameters),
@@ -209,18 +209,20 @@ internal static class WindowFunctionsMemberVisitor
         return SQLiteExpression.Trinary(t, id, $"{fn}(", value, ", ", offset, ", ", fallback, ") OVER ()", ParameterHelpers.CombineParameters(value, offset, fallback));
     }
 
-    private static SQLiteExpression BuildOverChain(SQLVisitor visitor, Type t, int id, MethodCallExpression node, ResolvedModel prev, string sep, ResolvedModel arg, SQLiteParameter[]? parameters)
+    private static SQLiteExpression BuildOverChain(SQLVisitor visitor, Type t, int id, MethodCallExpression node, ResolvedModel prev, string sep, ResolvedModel arg)
     {
         EnsureClauseBeforeFrame(prev, node.Method.Name);
-        SQLiteExpression key = visitor.CastTextDecimalForOrdering(visitor.CoalesceLiftedOrderComparison(node.Arguments[0], RequireKeyExpression(arg)));
-        return SQLiteExpression.Lambda(t, id, sb => WriteOverChain(sb, prev, sep, key), parameters);
+        List<SQLiteExpression> keys = ResolveKeyExpressions(visitor, node.Arguments[0], arg);
+        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters([prev.SQLiteExpression!, .. keys]);
+        return SQLiteExpression.Lambda(t, id, sb => WriteOverChain(sb, prev, sep, keys), parameters);
     }
 
-    private static SQLiteExpression BuildOverChainOrderBy(SQLVisitor visitor, Type t, int id, MethodCallExpression node, ResolvedModel prev, string sep, ResolvedModel arg, string direction, bool allowUlongSplit, SQLiteParameter[]? parameters)
+    private static SQLiteExpression BuildOverChainOrderBy(SQLVisitor visitor, Type t, int id, MethodCallExpression node, ResolvedModel prev, string sep, ResolvedModel arg, string direction, bool allowUlongSplit)
     {
         EnsureClauseBeforeFrame(prev, node.Method.Name);
-        SQLiteExpression key = visitor.CastTextDecimalForOrdering(visitor.CoalesceLiftedOrderComparison(node.Arguments[0], RequireKeyExpression(arg)));
-        return SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, prev, sep, key, direction, allowUlongSplit), parameters);
+        List<SQLiteExpression> keys = ResolveKeyExpressions(visitor, node.Arguments[0], arg);
+        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters([prev.SQLiteExpression!, .. keys]);
+        return SQLiteExpression.Lambda(t, id, sb => WriteOverChainOrderBy(sb, prev, sep, keys, direction, allowUlongSplit), parameters);
     }
 
     private static SQLiteExpression Filter(SQLVisitor visitor, Type t, int id, ResolvedModel prev, ResolvedModel predicate, SQLiteParameter[]? parameters)
@@ -345,9 +347,12 @@ internal static class WindowFunctionsMemberVisitor
 
     private static void RequireValueArguments(MethodCallExpression node, List<ResolvedModel> arguments)
     {
-        foreach (ResolvedModel argument in arguments)
+        for (int i = 0; i < arguments.Count; i++)
         {
-            if (argument.SQLiteExpression == null)
+            if (arguments[i].SQLiteExpression == null
+                && !(i == 1 && node.Method.Name is nameof(SQLiteWindow<>.PartitionBy) or nameof(SQLiteWindow<>.ThenPartitionBy)
+                    or nameof(SQLiteWindow<>.OrderBy) or nameof(SQLiteWindow<>.OrderByDescending)
+                    or nameof(SQLiteWindow<>.ThenOrderBy) or nameof(SQLiteWindow<>.ThenOrderByDescending)))
             {
                 throw new NotSupportedException($"The value argument of {node.Method.Name} cannot be translated to SQL.");
             }
@@ -390,41 +395,90 @@ internal static class WindowFunctionsMemberVisitor
         return StringBuilderPool.ToStringAndReturn(builder);
     }
 
-    private static SQLiteExpression RequireKeyExpression(ResolvedModel arg)
+    private static List<SQLiteExpression> ResolveKeyExpressions(SQLVisitor visitor, Expression original, ResolvedModel resolved)
     {
-        return arg.SQLiteExpression
-            ?? throw new NotSupportedException(
-                "A window PARTITION BY or ORDER BY key must be a single column or expression. " +
-                "To partition or order by several keys, chain ThenPartitionBy or ThenOrderBy.");
-    }
-
-    private static void WriteOverChain(StringBuilder sb, ResolvedModel prev, string sep, SQLiteExpression key)
-    {
-        prev.SQLiteExpression!.WriteSqlTo(sb);
-        sb.Length--;
-        sb.Append(sep);
-        key.WriteSqlTo(sb);
-        sb.Append(')');
-    }
-
-    private static void WriteOverChainOrderBy(StringBuilder sb, ResolvedModel prev, string sep, SQLiteExpression key, string direction, bool allowUlongSplit)
-    {
-        prev.SQLiteExpression!.WriteSqlTo(sb);
-        sb.Length--;
-        sb.Append(sep);
-
-        if (allowUlongSplit && TypeHelpers.UnsignedIntegerKey(key.Type) == typeof(ulong))
+        if (original is NewExpression originalNew
+            && resolved.Expression is NewExpression resolvedNew)
         {
-            sb.Append('(');
-            key.WriteSqlTo(sb);
-            sb.Append(") < 0");
-            sb.Append(direction);
-            sb.Append(", ");
+            List<SQLiteExpression> keys = new(originalNew.Arguments.Count);
+            for (int i = 0; i < originalNew.Arguments.Count; i++)
+            {
+                SQLiteExpression? key = resolvedNew.Arguments[i] as SQLiteExpression
+                    ?? visitor.ResolveExpression(originalNew.Arguments[i]).SQLiteExpression;
+                if (key == null)
+                {
+                    throw UnsupportedCompositeKey();
+                }
+
+                keys.Add(PrepareKeyExpression(visitor, originalNew.Arguments[i], key));
+            }
+
+            return keys;
         }
 
-        key.WriteSqlTo(sb);
-        sb.Append(direction);
+        if (resolved.SQLiteExpression is { } single)
+        {
+            return [PrepareKeyExpression(visitor, original, single)];
+        }
+
+        throw UnsupportedCompositeKey();
+    }
+
+    private static void WriteOverChain(StringBuilder sb, ResolvedModel prev, string sep, IReadOnlyList<SQLiteExpression> keys)
+    {
+        prev.SQLiteExpression!.WriteSqlTo(sb);
+        sb.Length--;
+        sb.Append(sep);
+        for (int i = 0; i < keys.Count; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(", ");
+            }
+
+            keys[i].WriteSqlTo(sb);
+        }
         sb.Append(')');
+    }
+
+    private static void WriteOverChainOrderBy(StringBuilder sb, ResolvedModel prev, string sep, IReadOnlyList<SQLiteExpression> keys, string direction, bool allowUlongSplit)
+    {
+        prev.SQLiteExpression!.WriteSqlTo(sb);
+        sb.Length--;
+        sb.Append(sep);
+
+        for (int i = 0; i < keys.Count; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(", ");
+            }
+
+            SQLiteExpression key = keys[i];
+            if (allowUlongSplit && TypeHelpers.UnsignedIntegerKey(key.Type) == typeof(ulong))
+            {
+                sb.Append('(');
+                key.WriteSqlTo(sb);
+                sb.Append(") < 0");
+                sb.Append(direction);
+                sb.Append(", ");
+            }
+
+            key.WriteSqlTo(sb);
+            sb.Append(direction);
+        }
+        sb.Append(')');
+    }
+
+    private static SQLiteExpression PrepareKeyExpression(SQLVisitor visitor, Expression original, SQLiteExpression key)
+    {
+        return visitor.CastTextDecimalForOrdering(visitor.CoalesceLiftedOrderComparison(original, key));
+    }
+
+    private static NotSupportedException UnsupportedCompositeKey()
+    {
+        return new NotSupportedException(
+            "A window PARTITION BY or ORDER BY key must be a SQL expression or an object made only from SQL expressions.");
     }
 
     private static void WriteFrame(StringBuilder sb, ResolvedModel prev, string keyword, ResolvedModel start, ResolvedModel end, string exclude)

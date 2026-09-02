@@ -36,10 +36,6 @@ internal partial class QueryableVisitor
         {
             LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
             ThrowIfGroupJoinGroupPredicate(lambda.Body);
-            if (function == "COUNT")
-            {
-                ThrowIfWindowPredicate(lambda.Body);
-            }
 
             Expression expression = visitor.Visit(lambda.Body);
 
@@ -52,7 +48,6 @@ internal partial class QueryableVisitor
             {
                 if (applyDistinct)
                 {
-                    ThrowOnMultiColumnDistinct(node);
                     select = NullAwareDistinctCount(node.Arguments[0].Type, Selects[0]);
                     Wheres.Add(sqlExpression);
                 }
@@ -64,15 +59,6 @@ internal partial class QueryableVisitor
             }
             else
             {
-                if (applyDistinct)
-                {
-                    ThrowOnMultiColumnDistinct(node);
-
-                    throw new NotSupportedException(
-                        $"{node.Method.Name} with a selector after Distinct() is not supported, because the DISTINCT " +
-                        "would apply to the selector result instead of to the source rows.");
-                }
-
                 SQLiteExpression aggregateTarget = visitor.CoalesceLiftedOrderComparison(lambda.Body, sqlExpression);
                 if (function is "MIN" or "MAX")
                 {
@@ -86,7 +72,6 @@ internal partial class QueryableVisitor
         {
             if (applyDistinct)
             {
-                ThrowOnMultiColumnDistinct(node);
                 select = NullAwareDistinctCount(node.Arguments[0].Type, Selects[0]);
             }
             else
@@ -133,15 +118,6 @@ internal partial class QueryableVisitor
                 "Materialize the values with ToList and call string.Join in memory.");
         }
 
-        if (Take != null || Skip != null)
-        {
-            throw new NotSupportedException(
-                "string.Join over an IQueryable does not support Take or Skip on the source. " +
-                "Materialize the limited rows first with ToList and call string.Join in memory.");
-        }
-
-        ThrowIfSetOperations(node.Method.Name);
-
         if (Reverse)
         {
             throw new NotSupportedException(
@@ -149,20 +125,16 @@ internal partial class QueryableVisitor
                 "Use OrderByDescending instead of OrderBy().Reverse() so SQLite can order the values.");
         }
 
+        if (Selects.Count == 0 && visitor.TableColumns.Count == 1)
+        {
+            Selects.Add((SQLiteExpression)visitor.TableColumns.Values.Single());
+        }
+
         if (Selects.Count != 1)
         {
             throw new NotSupportedException(
                 "string.Join over an IQueryable requires a single-column projection. " +
                 "Project to one column first (for example 'string.Join(\", \", q.Select(x => x.Name))').");
-        }
-
-        if (IsDistinct)
-        {
-            throw new NotSupportedException(
-                "string.Join over a Distinct() queryable is not supported. " +
-                "SQLite's group_concat aggregate rejects a custom separator when DISTINCT is used. " +
-                "Materialize with ToList() and call string.Join in memory, " +
-                "or drop the Distinct() and let group_concat keep duplicates.");
         }
 
         SQLiteExpression separatorExpression = (SQLiteExpression)visitor.Visit(node.Arguments[1]);
@@ -227,24 +199,6 @@ internal partial class QueryableVisitor
 
     private SQLiteExpression VisitTotal(MethodCallExpression node)
     {
-        if (Take != null || Skip != null)
-        {
-            throw new NotSupportedException(
-                "Total over an IQueryable does not support Take or Skip on the source. " +
-                "Materialize the limited rows first with ToList and call SQLiteFunctions.Total over them, " +
-                "or move the limit inside a CTE.");
-        }
-
-        ThrowIfSetOperations(node.Method.Name);
-
-        if (IsDistinct)
-        {
-            throw new NotSupportedException(
-                "Total over a Distinct() queryable is not supported. " +
-                "Materialize with ToList() and total in memory, " +
-                "or drop the Distinct() and let total() keep duplicates.");
-        }
-
         LambdaExpression lambda = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[1]);
         Expression expression = visitor.Visit(lambda.Body);
 
@@ -300,18 +254,6 @@ internal partial class QueryableVisitor
             column.Parameters);
     }
 
-    private void ThrowOnMultiColumnDistinct(MethodCallExpression node)
-    {
-        if (Selects.Count != 1)
-        {
-            string methodName = node.Method.Name;
-            throw new NotSupportedException(
-                $"{methodName} after Distinct requires a single-column projection. " +
-                $"Project first (e.g., '.Select(x => x.Column).Distinct().{methodName}()') " +
-                $"or materialize with '.ToList()' and call '.Distinct().{methodName}()' in memory.");
-        }
-    }
-
     private MethodCallExpression VisitGroupBy(MethodCallExpression node)
     {
         ThrowIfSetOperations(node.Method.Name);
@@ -330,7 +272,7 @@ internal partial class QueryableVisitor
         SelectVisitor groupByVisitor = new(GroupBys);
         Expression keyBody = RewriteTupleCreateKey(lambda.Body);
 
-        if (WindowCallDetector.Contains(keyBody))
+        if (CommonHelpers.ContainsWindowCall(keyBody))
         {
             throw new NotSupportedException(
                 "A window function cannot be used in a GroupBy key, because SQL groups rows before window functions run.");

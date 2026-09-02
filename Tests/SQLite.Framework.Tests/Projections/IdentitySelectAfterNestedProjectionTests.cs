@@ -36,6 +36,27 @@ public class IdentitySelectAfterNestedProjectionTests
         Assert.Equal(expected, actual);
     }
 
+    [Fact]
+    public void IdentitySelectAfterAnArrayProjectionKeepsEveryElement()
+    {
+        using TestDatabase db = Setup(nameof(IdentitySelectAfterAnArrayProjectionKeepsEveryElement));
+
+        List<int[]> expected = Rows().OrderBy(r => r.Id)
+            .Select(r => new[] { r.A, r.Id })
+            .Select(values => values)
+            .ToList();
+        List<int[]> actual = db.Table<H24bIdentityRow>().OrderBy(r => r.Id)
+            .Select(r => new[] { r.A, r.Id })
+            .Select(values => values)
+            .ToList();
+
+        Assert.Equal(expected.Count, actual.Count);
+        for (int i = 0; i < expected.Count; i++)
+        {
+            Assert.Equal(expected[i], actual[i]);
+        }
+    }
+
     private static List<H24bIdentityRow> Rows()
     {
         return

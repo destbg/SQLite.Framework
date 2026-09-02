@@ -454,34 +454,50 @@ public class LinqMethodTests
     }
 
     [Fact]
-    public void GroupJoinCountNotSupported()
+    public void GroupJoinCount()
     {
         using TestDatabase db = new();
 
         db.Table<Book>().Schema.CreateTable();
         db.Table<Author>().Schema.CreateTable();
 
-        db.Table<Author>().AddRange(new[]
-        {
-            new Author { Id = 1, Name = "Author 1", Email = "author1@test.com", BirthDate = DateTime.Now },
-            new Author { Id = 2, Name = "Author 2", Email = "author2@test.com", BirthDate = DateTime.Now }
-        });
-
-        db.Table<Book>().AddRange(new[]
-        {
+        Author[] authors =
+        [
+            new Author { Id = 1, Name = "Author 1", Email = "author1@test.com", BirthDate = new DateTime(1980, 1, 1) },
+            new Author { Id = 2, Name = "Author 2", Email = "author2@test.com", BirthDate = new DateTime(1990, 1, 1) },
+            new Author { Id = 3, Name = "Author 3", Email = "author3@test.com", BirthDate = new DateTime(2000, 1, 1) }
+        ];
+        Book[] books =
+        [
             new Book { Id = 1, Title = "Book 1", AuthorId = 1, Price = 10 },
-            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 20 }
-        });
+            new Book { Id = 2, Title = "Book 2", AuthorId = 1, Price = 20 },
+            new Book { Id = 3, Title = "Book 3", AuthorId = 2, Price = 30 }
+        ];
 
-        Assert.Throws<NotSupportedException>(() => (
-            from author in db.Table<Author>()
-            join book in db.Table<Book>() on author.Id equals book.AuthorId into books
+        db.Table<Author>().AddRange(authors);
+        db.Table<Book>().AddRange(books);
+
+        var expected = (
+            from author in authors
+            join book in books on author.Id equals book.AuthorId into authorBooks
             select new
             {
                 Author = author.Name,
-                BookCount = books.Count()
+                BookCount = authorBooks.Count()
             }
-        ).ToList());
+        ).OrderBy(row => row.Author).ToList();
+
+        var actual = (
+            from author in db.Table<Author>()
+            join book in db.Table<Book>() on author.Id equals book.AuthorId into authorBooks
+            select new
+            {
+                Author = author.Name,
+                BookCount = authorBooks.Count()
+            }
+        ).OrderBy(row => row.Author).ToList();
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]

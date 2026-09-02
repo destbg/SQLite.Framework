@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Linq.Expressions;
+using SQLite.Framework.Extensions;
 using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
@@ -29,6 +30,8 @@ internal sealed class TupleKey
 
 public class AnyLocalTuplePredicateTests
 {
+    private static int sourceCalls;
+
     private static readonly AnyTupleRow[] Data =
     [
         new AnyTupleRow { Id = 1, Code = 10, Name = "a", Tag = "x" },
@@ -143,6 +146,17 @@ public class AnyLocalTuplePredicateTests
     }
 
     [Fact]
+    public void NullLocalElementShortCircuitsTheMemberComparison()
+    {
+        List<TupleKey?> list = [null, new TupleKey { Code = 99 }];
+
+        AssertSameIds(
+            a => list.Any(f => f == null || f.Code == a.Code),
+            a => list.Any(f => f == null || f.Code == a.Code),
+            [1, 2, 3, 4]);
+    }
+
+    [Fact]
     public void EmptyListMultiColumn()
     {
         List<TupleKey> list = [];
@@ -248,75 +262,228 @@ public class AnyLocalTuplePredicateTests
     }
 
     [Fact]
-    public void RangePredicateIsNotTranslated()
+    public void RangePredicateUsesEveryLocalValue()
     {
-        using TestDatabase db = CreateDb();
-        List<TupleKey> list = [new TupleKey { Code = 10 }];
+        List<TupleKey> list = [new TupleKey { Code = 25 }];
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<AnyTupleRow>().Where(a => list.Any(f => f.Code > a.Code)).ToList());
+        AssertSameIds(
+            a => list.Any(f => f.Code > a.Code),
+            a => list.Any(f => f.Code > a.Code),
+            [1, 2, 3]);
     }
 
     [Fact]
-    public void BothSidesReferenceElementIsNotTranslated()
+    public void PredicateThatOnlyReadsTheLocalElementMatchesEveryRow()
     {
-        using TestDatabase db = CreateDb();
         List<TupleKey> list = [new TupleKey { Code = 10, Id = 10 }];
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<AnyTupleRow>().Where(a => list.Any(f => f.Code == f.Id)).ToList());
+        AssertSameIds(
+            a => list.Any(f => f.Code == f.Id),
+            a => list.Any(f => f.Code == f.Id),
+            [1, 2, 3, 4]);
     }
 
     [Fact]
-    public void ValueSideReadingColumnIsNotTranslated()
+    public void PredicateCanMixTheLocalValueAndRowColumns()
     {
-        using TestDatabase db = CreateDb();
-        List<TupleKey> list = [new TupleKey { Code = 10, Id = 1 }];
+        List<TupleKey> list =
+        [
+            new TupleKey { Code = 9 },
+            new TupleKey { Code = 18 },
+        ];
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<AnyTupleRow>().Where(a => list.Any(f => f.Code + a.Id == a.Code)).ToList());
+        AssertSameIds(
+            a => list.Any(f => f.Code + a.Id == a.Code),
+            a => list.Any(f => f.Code + a.Id == a.Code),
+            [1, 2]);
     }
 
     [Fact]
-    public void ValueSideArithmeticIsNotTranslated()
+    public void ClientPredicateInAProjectionMatchesLinq()
     {
         using TestDatabase db = CreateDb();
+        List<TupleKey> list = [new TupleKey { Code = 10 }, new TupleKey { Code = 30 }];
+
+        List<bool> expected = Data
+            .OrderBy(a => a.Id)
+            .Select(a => list.Any(f => ClientCode(f.Code) == a.Code))
+            .ToList();
+        List<bool> actual = db.Table<AnyTupleRow>()
+            .OrderBy(a => a.Id)
+            .Select(a => list.Any(f => ClientCode(f.Code) == a.Code))
+            .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void LocalValueArithmeticIsTranslated()
+    {
         List<TupleKey> list = [new TupleKey { Code = 5 }];
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<AnyTupleRow>().Where(a => list.Any(f => f.Code * 2 == a.Code)).ToList());
+        AssertSameIds(
+            a => list.Any(f => f.Code * 2 == a.Code),
+            a => list.Any(f => f.Code * 2 == a.Code),
+            [1, 3]);
     }
 
     [Fact]
-    public void NonColumnKeySideIsNotTranslated()
+    public void CheckedLocalValueConversionIsTranslated()
     {
-        using TestDatabase db = CreateDb();
+        List<TupleKey> list = [new TupleKey { Code = 10 }];
+
+        AssertSameIds(
+            a => list.Any(f => checked((short)f.Code) == checked((short)a.Code)),
+            a => list.Any(f => checked((short)f.Code) == checked((short)a.Code)),
+            [1, 3]);
+    }
+
+    [Fact]
+    public void ComputedRowKeyIsTranslated()
+    {
         List<TupleKey> list = [new TupleKey { Code = 11, Id = 1 }];
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<AnyTupleRow>().Where(a => list.Any(f => f.Code == a.Code + 1 && f.Id == a.Id)).ToList());
+        AssertSameIds(
+            a => list.Any(f => f.Code == a.Code + 1 && f.Id == a.Id),
+            a => list.Any(f => f.Code == a.Code + 1 && f.Id == a.Id),
+            [1]);
     }
 
     [Fact]
-    public void MethodCallSourceIsNotTranslated()
+    public void MethodCallSourceIsEvaluatedOnce()
     {
         using TestDatabase db = CreateDb();
+        List<TupleKey> expectedSource = MakeList();
+        List<int> expected = Data
+            .Where(a => expectedSource.Any(f => f.Code == a.Code && f.Id == a.Id))
+            .Select(a => a.Id)
+            .ToList();
+        sourceCalls = 0;
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<AnyTupleRow>().Where(a => MakeList().Any(f => f.Code == a.Code && f.Id == a.Id)).ToList());
+        List<int> actual = db.Table<AnyTupleRow>()
+            .Where(a => MakeList().Any(f => f.Code == a.Code && f.Id == a.Id))
+            .Select(a => a.Id)
+            .ToList();
+
+        Assert.Equal(expected, actual);
+        Assert.Equal(1, sourceCalls);
     }
 
     [Fact]
-    public void NullSourceIsNotTranslated()
+    public void NullSourceThrowsTheLinqException()
     {
         using TestDatabase db = CreateDb();
         List<TupleKey>? list = null;
 
-        Assert.Throws<NotSupportedException>(() =>
+        Assert.Throws<ArgumentNullException>(() => Data
+            .Where(a => list!.Any(f => f.Code == a.Code && f.Id == a.Id))
+            .ToList());
+        Assert.Throws<ArgumentNullException>(() =>
             db.Table<AnyTupleRow>().Where(a => list!.Any(f => f.Code == a.Code && f.Id == a.Id)).ToList());
     }
 
-    private static List<TupleKey> MakeList() => [new TupleKey { Code = 10, Id = 1 }];
+    [Fact]
+    public void NullableScalarValuesKeepNullSemantics()
+    {
+        List<int?> values = [null, 20, 20];
+
+        AssertSameIds(
+            a => values.Any(v => v == a.Code),
+            a => values.Any(v => v == a.Code),
+            [2]);
+    }
+
+    [Fact]
+    public void DuplicateValuesAreCounted()
+    {
+        using TestDatabase db = CreateDb();
+        List<int> values = [10, 10, 30];
+
+        List<int> oracle = Data.Where(a => values.Count(v => v == a.Code) == 2).Select(a => a.Id).OrderBy(i => i).ToList();
+        List<int> actual = db.Table<AnyTupleRow>()
+            .Where(a => values.Count(v => v == a.Code) == 2)
+            .Select(a => a.Id)
+            .OrderBy(i => i)
+            .ToList();
+
+        Assert.Equal([1, 3], oracle);
+        Assert.Equal(oracle, actual);
+    }
+
+    [Fact]
+    public void AnyPredicateUsesAValuesSourceInSql()
+    {
+        using TestDatabase db = new();
+        List<TupleKey> list = [new TupleKey { Code = 10 }, new TupleKey { Code = 30 }];
+
+        SQLiteCommand command = db.Table<AnyTupleRow>()
+            .Where(a => list.Any(f => f.Code * 2 > a.Code))
+            .ToSqlCommand();
+
+        Assert.Equal(
+            "SELECT a0.\"Id\" AS \"Id\",\n       a0.\"Code\" AS \"Code\",\n       a0.\"Name\" AS \"Name\",\n       a0.\"Tag\" AS \"Tag\"\nFROM \"AnyTupleRow\" AS a0\nWHERE EXISTS (SELECT 1 FROM (VALUES (@p1), (@p2)) AS l1 WHERE (l1.\"column1\" * @p0) > a0.\"Code\")",
+            command.CommandText.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public void LargeLocalCollectionKeepsTheParameterCountBounded()
+    {
+        using TestDatabase db = CreateDb();
+        List<int> values = Enumerable.Range(0, 1100).ToList();
+
+        List<int> expected = Data.Where(a => values.Any(v => v == a.Code)).Select(a => a.Id).OrderBy(i => i).ToList();
+        IQueryable<AnyTupleRow> query = db.Table<AnyTupleRow>().Where(a => values.Any(v => v == a.Code));
+        SQLiteCommand command = query.ToSqlCommand();
+        List<int> actual = query.Select(a => a.Id).OrderBy(i => i).ToList();
+
+        Assert.Equal([1, 2, 3, 4], expected);
+        Assert.Equal(expected, actual);
+        Assert.Equal(500, command.Parameters.Count);
+    }
+
+    [Fact]
+    public void PredicateThatOnlyReadsTheRowKeepsAnyAndCountSemantics()
+    {
+        using TestDatabase db = CreateDb();
+        List<int> values = [1, 2, 3];
+
+        List<int> expected = Data
+            .Where(a => values.Any(_ => a.Code == 10) && values.Count(_ => a.Id <= 3) == 3)
+            .Select(a => a.Id)
+            .OrderBy(i => i)
+            .ToList();
+        List<int> actual = db.Table<AnyTupleRow>()
+            .Where(a => values.Any(_ => a.Code == 10) && values.Count(_ => a.Id <= 3) == 3)
+            .Select(a => a.Id)
+            .OrderBy(i => i)
+            .ToList();
+
+        Assert.Equal([1, 3], expected);
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void WholeObjectReferenceComparisonRemainsUnsupported()
+    {
+        using TestDatabase db = CreateDb();
+        TupleKey target = new() { Code = 10 };
+        List<TupleKey> values = [target];
+
+        Assert.Throws<NotSupportedException>(() => db.Table<AnyTupleRow>()
+            .Where(_ => values.Any(value => value == target))
+            .ToList());
+    }
+
+    private static int ClientCode(int value)
+    {
+        return value;
+    }
+
+    private static List<TupleKey> MakeList()
+    {
+        sourceCalls++;
+        return [new TupleKey { Code = 10, Id = 1 }];
+    }
 
     private static TestDatabase CreateDb()
     {

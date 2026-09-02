@@ -160,20 +160,38 @@ public class CapturedCollectionEnumerableFormsTests
     }
 
     [Fact]
-    public void RepeatSourceWithPredicateThrows()
+    public void RepeatSourceWithPredicateMatchesLinq()
     {
-        using TestDatabase db = Seed(nameof(RepeatSourceWithPredicateThrows));
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<CapturedFormsRow>().Where(r => Enumerable.Repeat(2, 3).Count(v => v > r.Num) == 1).ToList());
+        using TestDatabase db = Seed(nameof(RepeatSourceWithPredicateMatchesLinq));
+
+        List<int> expected = Rows()
+            .Where(r => Enumerable.Repeat(2, 3).Count(v => v > r.Num) == 0)
+            .Select(r => r.Id)
+            .OrderBy(i => i)
+            .ToList();
+        List<int> actual = db.Table<CapturedFormsRow>()
+            .Where(r => Enumerable.Repeat(2, 3).Count(v => v > r.Num) == 0)
+            .Select(r => r.Id)
+            .OrderBy(i => i)
+            .ToList();
+
+        Assert.Equal([1, 2, 3], expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void CountWithPredicateInWhereThrowsCleanly()
+    public void CountWithPredicateInWhereMatchesLinq()
     {
-        using TestDatabase db = Seed(nameof(CountWithPredicateInWhereThrowsCleanly));
+        using TestDatabase db = Seed(nameof(CountWithPredicateInWhereMatchesLinq));
         List<int> values = [1, 2, 5, 11];
-        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
-            db.Table<CapturedFormsRow>().Where(r => values.Count(v => v > r.Num) == 2).ToList());
-        Assert.Contains("not translatable in a Where", ex.Message);
+
+        List<int> expected = Rows().Where(r => values.Count(v => v > r.Num) == 2).Select(r => r.Id).ToList();
+        List<int> actual = db.Table<CapturedFormsRow>()
+            .Where(r => values.Count(v => v > r.Num) == 2)
+            .Select(r => r.Id)
+            .ToList();
+
+        Assert.Equal([1, 2], expected);
+        Assert.Equal(expected, actual);
     }
 }

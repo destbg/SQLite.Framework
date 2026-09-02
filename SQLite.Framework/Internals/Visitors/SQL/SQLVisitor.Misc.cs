@@ -159,8 +159,9 @@ internal partial class SQLVisitor
     protected override Expression VisitTypeBinary(TypeBinaryExpression node)
     {
         if (!IsInSelectProjection
-            && node.NodeType == ExpressionType.TypeIs
-            && JsonTypeCheckTranslator.TryTranslateTypeIs(this, node.Expression, node.TypeOperand) is { } typeCheck)
+            && (node.NodeType == ExpressionType.TypeIs
+                ? JsonTypeCheckTranslator.TryTranslateTypeIs(this, node.Expression, node.TypeOperand)
+                : JsonTypeCheckTranslator.TryTranslateTypeEqual(this, node.Expression, node.TypeOperand)) is { } typeCheck)
         {
             return typeCheck;
         }
@@ -436,24 +437,12 @@ internal partial class SQLVisitor
             string finalName = $"cte{CteRegistry.Ctes.Count}";
             string fixedSql = recursive.Query.Sql.Replace(placeholder, finalName);
 
-            Dictionary<string, Expression>? recursiveNodes = CteColumnMapper.BodyConstructedNodes(recursive.Translator.Visitor);
-            cteName = CteRegistry.Register(
+            cteName = CteColumnMapper.RegisterRecursiveCte(
+                CteRegistry,
                 fixedSql,
                 recursive.Query.Parameters.Count == 0 ? null : [.. recursive.Query.Parameters],
-                isRecursive: true,
-                key: cte,
-                columnNames: recursive.ColumnNames,
-                dayOfWeekColumns: recursive.DayOfWeekColumns,
-                jsonSourceColumns: recursive.JsonSourceColumns,
-                constructedPaths: CteColumnMapper.BodyConstructedPaths(recursive.Translator.Visitor),
-                constructedNodes: recursiveNodes,
-                bodyColumns: recursive.HasClientMember ? recursive.Translator.Visitor.TableColumns : null,
-                bodySelects: recursive.HasClientMember || recursiveNodes != null ? recursive.Translator.Selects : null,
-                emittedColumns: CteColumnMapper.EmittedColumnNames(recursive.ColumnNames, recursive.Translator.Selects),
-                optionalRow: recursive.Translator.Visitor.OptionalRowColumns.Contains(recursive.Translator.Visitor.TableColumns),
-                optionalRowPaths: recursive.Translator.Visitor.OptionalRowPaths.TryGetValue(recursive.Translator.Visitor.TableColumns, out HashSet<string>? recursiveOptionalPaths)
-                    ? recursiveOptionalPaths
-                    : null);
+                cte,
+                recursive);
 
             CteParameters.Remove(selfParam);
             MethodArguments.Remove(selfParam);

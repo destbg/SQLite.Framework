@@ -26,6 +26,27 @@ internal static class ComparerArgumentGuard
         }
     }
 
+    public static void ThrowIfOrderingComparer(MethodCallExpression node)
+    {
+        foreach (Expression argument in node.Arguments)
+        {
+            if (!IsOrderingComparerType(argument.Type))
+            {
+                continue;
+            }
+
+            if (ExpressionHelpers.IsConstant(argument) && ExpressionHelpers.GetConstantValue(argument) == null)
+            {
+                continue;
+            }
+
+            throw new NotSupportedException(
+                $"{node.Method.Name} with an IComparer is not translatable to SQL. " +
+                "SQLite uses its own collation and cannot call a .NET comparer. " +
+                "Remove the comparer or materialize the sequence with ToList first and apply the comparer client-side.");
+        }
+    }
+
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Comparer type is only inspected to throw NotSupportedException.")]
     private static bool IsEqualityComparerType(Type type)
     {
@@ -35,5 +56,16 @@ internal static class ComparerArgumentGuard
         }
 
         return type.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEqualityComparer<>));
+    }
+
+    [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Comparer type is only inspected to throw NotSupportedException.")]
+    private static bool IsOrderingComparerType(Type type)
+    {
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IComparer<>))
+        {
+            return true;
+        }
+
+        return type.GetInterfaces().Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IComparer<>));
     }
 }

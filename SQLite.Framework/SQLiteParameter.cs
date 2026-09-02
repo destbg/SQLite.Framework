@@ -22,6 +22,8 @@ public class SQLiteParameter
     /// </summary>
     internal Type? DeclaredType { get; init; }
 
+    internal bool InlineIfParameterLimitExceeded { get; init; }
+
     /// <inheritdoc/>
     public override string ToString()
     {

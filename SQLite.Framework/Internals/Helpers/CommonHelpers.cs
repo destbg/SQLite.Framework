@@ -7,6 +7,17 @@ namespace SQLite.Framework.Internals.Helpers;
 internal static class CommonHelpers
 {
     /// <summary>
+    /// Reports whether an expression has a window-function call at its current query level.
+    /// Nested query lambdas are checked when their own query is translated.
+    /// </summary>
+    public static bool ContainsWindowCall(Expression body)
+    {
+        WindowCallDetectorVisitor detector = new();
+        detector.Visit(body);
+        return detector.Found;
+    }
+
+    /// <summary>
     /// Inlines captured <see cref="Queryable{T}" /> wrappers into the LINQ expression tree before translation.
     /// </summary>
     public static Expression Inline(Expression node)

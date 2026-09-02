@@ -73,4 +73,15 @@ public class JsonArrayTemporalContainsTests
 
         Assert.Equal(expected, actual);
     }
+
+    [Fact]
+    public void EnumerableContainsOverJsonArrayMatches()
+    {
+        using TestDatabase db = Seed(out DateTime[] local);
+
+        bool expected = Enumerable.Contains(local, Sought);
+        bool actual = db.Table<TemporalArrayRow>().Select(r => Enumerable.Contains(r.Dates, Sought)).First();
+
+        Assert.Equal(expected, actual);
+    }
 }

@@ -62,6 +62,24 @@ public class DecimalTextSetOperationOrderingTests
         Assert.Equal(expected, actual);
     }
 
+    [Fact]
+    public void OrderDecimalScalarAfterUnionMatchesObjects()
+    {
+        using TestDatabase db = Seed();
+        List<H21mInvoiceRow> local = Rows();
+
+        List<decimal> expected = local.Where(r => r.Id == 1).Select(r => r.Amount)
+            .Union(local.Where(r => r.Id == 2).Select(r => r.Amount))
+            .Order()
+            .ToList();
+        List<decimal> actual = db.Table<H21mInvoiceRow>().Where(r => r.Id == 1).Select(r => r.Amount)
+            .Union(db.Table<H21mInvoiceRow>().Where(r => r.Id == 2).Select(r => r.Amount))
+            .Order()
+            .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
     private static List<H21mInvoiceRow> Rows()
     {
         return

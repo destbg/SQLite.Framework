@@ -18,6 +18,7 @@ public static class EntityMaterializerEmitter
     public static string Emit(string rootNamespace, IEnumerable<INamedTypeSymbol> entities, IEnumerable<SelectInvocation> selects, IEnumerable<(GroupByKeyInvocation Invocation, SemanticModel Model)> groupKeys, HashSet<(INamedTypeSymbol, string)> nestedInitSet)
     {
         HashSet<INamedTypeSymbol> entitySet = new(SymbolEqualityComparer.Default);
+        List<SelectInvocation> selectList = selects.ToList();
         foreach (INamedTypeSymbol entity in entities)
         {
             entitySet.Add(entity.NullableAnnotation == NullableAnnotation.Annotated && entity.IsReferenceType
@@ -101,9 +102,33 @@ public static class EntityMaterializerEmitter
             }
         }
 
+        StringBuilder jsonCollectionBodies = new();
+        HashSet<ITypeSymbol> emittedJsonCollectionTypes = new(SymbolEqualityComparer.Default);
+        int jsonCollectionIndex = 0;
+        foreach (SelectInvocation select in selectList)
+        {
+            if (!TryGetJsonCollectionElement(select.ProjectionType, out ITypeSymbol? elementType, out bool isArray, out bool isHashSet)
+                || !SelectMaterializerEmitter.IsTypeAccessibleFromGenerator(select.ProjectionType, select.Model.Compilation.Assembly)
+                || !emittedJsonCollectionTypes.Add(select.ProjectionType))
+            {
+                continue;
+            }
+
+            string methodName = $"JsonCollection_{jsonCollectionIndex++}";
+            sb.Append("            builder.JsonCollectionMaterializers[typeof(")
+                .Append(SelectMaterializerEmitter.FormatType(select.ProjectionType))
+                .Append(")] = ").Append(methodName).AppendLine(";");
+            EmitJsonCollectionMaterializer(
+                jsonCollectionBodies,
+                methodName,
+                elementType!,
+                isArray,
+                isHashSet);
+        }
+
         StringBuilder selectBodies = new();
         int selectIndex = 0;
-        foreach (SelectInvocation sel in selects)
+        foreach (SelectInvocation sel in selectList)
         {
             string methodName = $"Select_{SanitizeIdentifier(sel.ProjectionType.Name)}_{selectIndex}";
             StringBuilder trial = new();
@@ -200,6 +225,7 @@ public static class EntityMaterializerEmitter
 
         sb.Append(selectBodies);
         sb.Append(groupKeyBodies);
+        sb.Append(jsonCollectionBodies);
 
         sb.AppendLine("    }");
         sb.AppendLine("}");
@@ -274,6 +300,146 @@ public static class EntityMaterializerEmitter
         }
         sb.Append('"');
         return sb.ToString();
+    }
+
+    private static void EmitJsonCollectionMaterializer(StringBuilder sb, string methodName, ITypeSymbol elementType, bool isArray, bool isHashSet)
+    {
+        string elementDisplay = SelectMaterializerEmitter.FormatType(elementType);
+        string collectionDisplay = isHashSet
+            ? $"global::System.Collections.Generic.HashSet<{elementDisplay}>"
+            : $"global::System.Collections.Generic.List<{elementDisplay}>";
+
+        sb.Append("        private static object? ").Append(methodName)
+            .AppendLine("(string json, SQLiteOptions options)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            using global::System.Text.Json.JsonDocument document = global::System.Text.Json.JsonDocument.Parse(json);");
+        sb.Append("            ").Append(collectionDisplay).AppendLine(" result = new();");
+        sb.AppendLine("            foreach (global::System.Text.Json.JsonElement item in document.RootElement.EnumerateArray())");
+        sb.AppendLine("            {");
+        sb.Append("                result.Add(").Append(BuildJsonElementRead(elementType)).AppendLine(");");
+        sb.AppendLine("            }");
+        sb.AppendLine();
+        sb.Append("            return ").Append(isArray ? "result.ToArray()" : "result").AppendLine(";");
+        sb.AppendLine("        }");
+        sb.AppendLine();
+    }
+
+    private static string BuildJsonElementRead(ITypeSymbol elementType)
+    {
+        ITypeSymbol valueType = elementType;
+        if (valueType is INamedTypeSymbol nullable
+            && nullable.IsGenericType
+            && nullable.ConstructedFrom.SpecialType == SpecialType.System_Nullable_T)
+        {
+            valueType = nullable.TypeArguments[0];
+        }
+
+        string elementDisplay = SelectMaterializerEmitter.FormatType(elementType);
+        string? fallback = BuildJsonElementFallback(valueType);
+        if (fallback == null)
+        {
+            return $"options.ReadJsonElement<{elementDisplay}>(item)";
+        }
+
+        return $"options.ReadJsonElement<{elementDisplay}>(item, static value => {fallback})";
+    }
+
+    private static string? BuildJsonElementFallback(ITypeSymbol type)
+    {
+        string? accessor = type.SpecialType switch
+        {
+            SpecialType.System_Boolean => "value.GetBoolean()",
+            SpecialType.System_Byte => "value.GetByte()",
+            SpecialType.System_SByte => "value.GetSByte()",
+            SpecialType.System_Int16 => "value.GetInt16()",
+            SpecialType.System_UInt16 => "value.GetUInt16()",
+            SpecialType.System_Int32 => "value.GetInt32()",
+            SpecialType.System_UInt32 => "value.GetUInt32()",
+            SpecialType.System_Int64 => "value.GetInt64()",
+            SpecialType.System_UInt64 => "value.GetUInt64()",
+            SpecialType.System_Single => "value.GetSingle()",
+            SpecialType.System_Double => "value.GetDouble()",
+            SpecialType.System_Decimal => "value.GetDecimal()",
+            SpecialType.System_Char => "value.GetString()![0]",
+            SpecialType.System_String => "value.GetString()!",
+            SpecialType.System_DateTime => "value.GetDateTime()",
+            _ => null
+        };
+        if (accessor != null)
+        {
+            return accessor;
+        }
+
+        if (type.TypeKind == TypeKind.Enum && type is INamedTypeSymbol enumType)
+        {
+            string enumDisplay = SelectMaterializerEmitter.FormatType(enumType);
+            string numericAccessor = enumType.EnumUnderlyingType!.SpecialType switch
+            {
+                SpecialType.System_Byte => "value.GetByte()",
+                SpecialType.System_SByte => "value.GetSByte()",
+                SpecialType.System_Int16 => "value.GetInt16()",
+                SpecialType.System_UInt16 => "value.GetUInt16()",
+                SpecialType.System_Int32 => "value.GetInt32()",
+                SpecialType.System_UInt32 => "value.GetUInt32()",
+                SpecialType.System_Int64 => "value.GetInt64()",
+                SpecialType.System_UInt64 => "value.GetUInt64()",
+                _ => "value.GetInt64()"
+            };
+            return $"value.ValueKind == global::System.Text.Json.JsonValueKind.String " +
+                $"? global::System.Enum.Parse<{enumDisplay}>(value.GetString()!) : ({enumDisplay}){numericAccessor}";
+        }
+
+        string fullName = type.ToDisplayString();
+        return fullName switch
+        {
+            "System.DateTimeOffset" => "value.GetDateTimeOffset()",
+            "System.TimeSpan" => "global::System.TimeSpan.Parse(value.GetString()!, global::System.Globalization.CultureInfo.InvariantCulture)",
+            "System.DateOnly" => "global::System.DateOnly.Parse(value.GetString()!, global::System.Globalization.CultureInfo.InvariantCulture)",
+            "System.TimeOnly" => "global::System.TimeOnly.Parse(value.GetString()!, global::System.Globalization.CultureInfo.InvariantCulture)",
+            "System.Guid" => "value.GetGuid()",
+            "byte[]" => "global::System.Convert.FromBase64String(value.GetString()!)",
+            _ => null
+        };
+    }
+
+    private static bool TryGetJsonCollectionElement(ITypeSymbol collectionType, out ITypeSymbol? elementType, out bool isArray, out bool isHashSet)
+    {
+        elementType = null;
+        isArray = false;
+        isHashSet = false;
+
+        if (collectionType is IArrayTypeSymbol array)
+        {
+            if (array.Rank != 1 || array.ElementType.SpecialType == SpecialType.System_Byte)
+            {
+                return false;
+            }
+
+            elementType = array.ElementType;
+            isArray = true;
+            return true;
+        }
+
+        if (collectionType is not INamedTypeSymbol { IsGenericType: true, TypeArguments.Length: 1 } named)
+        {
+            return false;
+        }
+
+        string definition = named.ConstructedFrom.ToDisplayString();
+        if (definition == "System.Collections.Generic.List<T>")
+        {
+            elementType = named.TypeArguments[0];
+            return true;
+        }
+
+        if (definition == "System.Collections.Generic.HashSet<T>")
+        {
+            elementType = named.TypeArguments[0];
+            isHashSet = true;
+            return true;
+        }
+
+        return false;
     }
 
     private static bool TryGetEmitStrategy(INamedTypeSymbol entity, out EmitStrategy strategy)

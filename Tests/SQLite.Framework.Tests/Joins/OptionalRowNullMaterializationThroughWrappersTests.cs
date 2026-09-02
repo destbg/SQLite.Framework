@@ -78,6 +78,56 @@ public class OptionalRowNullMaterializationThroughWrappersTests
         Assert.Equal(expected, actual);
     }
 
+    [Fact]
+    public void NestedOptionalRowOnTheFirstSideOfConcatMatchesObjects()
+    {
+        using TestDatabase db = Setup(nameof(NestedOptionalRowOnTheFirstSideOfConcatMatchesObjects));
+
+        List<int> expected = Owners()
+            .GroupJoin(Notes(), o => o.Id, n => n.OwnerId, (o, g) => new { o, g })
+            .SelectMany(t => t.g.DefaultIfEmpty(), (t, n) => new { SourceId = t.o.Id, Note = n })
+            .Concat(Notes().Select(n => new { SourceId = n.OwnerId, Note = (H24qWrapNote?)n }))
+            .Select(x => x.Note == null ? -x.SourceId : x.Note.Id)
+            .OrderBy(value => value)
+            .ToList();
+
+        List<int> actual = db.Table<H24qWrapOwner>()
+            .GroupJoin(db.Table<H24qWrapNote>(), o => o.Id, n => n.OwnerId, (o, g) => new { o, g })
+            .SelectMany(t => t.g.DefaultIfEmpty(), (t, n) => new { SourceId = t.o.Id, Note = n })
+            .Concat(db.Table<H24qWrapNote>().Select(n => new { SourceId = n.OwnerId, Note = (H24qWrapNote?)n }))
+            .Select(x => x.Note == null ? -x.SourceId : x.Note.Id)
+            .OrderBy(value => value)
+            .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void NestedOptionalRowOnTheSecondSideOfConcatMatchesObjects()
+    {
+        using TestDatabase db = Setup(nameof(NestedOptionalRowOnTheSecondSideOfConcatMatchesObjects));
+
+        List<int> expected = Notes()
+            .Select(n => new { SourceId = n.OwnerId, Note = (H24qWrapNote?)n })
+            .Concat(Owners()
+                .GroupJoin(Notes(), o => o.Id, n => n.OwnerId, (o, g) => new { o, g })
+                .SelectMany(t => t.g.DefaultIfEmpty(), (t, n) => new { SourceId = t.o.Id, Note = n }))
+            .Select(x => x.Note == null ? -x.SourceId : x.Note.Id)
+            .OrderBy(value => value)
+            .ToList();
+
+        List<int> actual = db.Table<H24qWrapNote>()
+            .Select(n => new { SourceId = n.OwnerId, Note = (H24qWrapNote?)n })
+            .Concat(db.Table<H24qWrapOwner>()
+                .GroupJoin(db.Table<H24qWrapNote>(), o => o.Id, n => n.OwnerId, (o, g) => new { o, g })
+                .SelectMany(t => t.g.DefaultIfEmpty(), (t, n) => new { SourceId = t.o.Id, Note = n }))
+            .Select(x => x.Note == null ? -x.SourceId : x.Note.Id)
+            .OrderBy(value => value)
+            .ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
     private static List<H24qWrapOwner> Owners()
     {
         return

@@ -13,11 +13,17 @@ internal static class CteColumnMapper
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Entity element types have public properties.")]
     public static Dictionary<string, Expression> BuildColumns(Type elementType, string prefix, SQLiteOptions options, SQLiteCounters counters)
     {
-        if (TypeHelpers.IsSimple(elementType, options))
+        if (TypeHelpers.IsSimple(elementType, options) || TypeHelpers.IsCollectionResult(elementType))
         {
+            SQLiteExpression value = SQLiteExpression.Leaf(elementType, counters.NextIdentifier(), $"{prefix}.{IdentifierGuard.Quote(Constants.CteScalarColumn)}");
+            if (TypeHelpers.IsCollectionResult(elementType))
+            {
+                value.WithJsonSource();
+            }
+
             return new Dictionary<string, Expression>
             {
-                [string.Empty] = SQLiteExpression.Leaf(elementType, counters.NextIdentifier(), $"{prefix}.{IdentifierGuard.Quote(Constants.CteScalarColumn)}")
+                [string.Empty] = value
             };
         }
 
@@ -68,7 +74,33 @@ internal static class CteColumnMapper
 
     public static string[]? ScalarColumnNames(Type elementType, SQLiteOptions options)
     {
-        return TypeHelpers.IsSimple(elementType, options) ? [Constants.CteScalarColumn] : null;
+        return TypeHelpers.IsSimple(elementType, options) || TypeHelpers.IsCollectionResult(elementType)
+            ? [Constants.CteScalarColumn]
+            : null;
+    }
+
+    public static string RegisterRecursiveCte(CteRegistry registry, string sql, SQLiteParameter[]? parameters, SQLiteCte cte, RecursiveCteBody recursive)
+    {
+        Dictionary<string, Expression>? recursiveNodes = BodyConstructedNodes(recursive.Translator.Visitor);
+        return registry.Register(
+            sql,
+            parameters,
+            isRecursive: true,
+            key: cte,
+            columnNames: recursive.ColumnNames,
+            dayOfWeekColumns: recursive.DayOfWeekColumns,
+            jsonSourceColumns: recursive.JsonSourceColumns,
+            constructedPaths: BodyConstructedPaths(recursive.Translator.Visitor),
+            constructedNodes: recursiveNodes,
+            bodyColumns: recursive.HasClientMember ? recursive.Translator.Visitor.TableColumns : null,
+            bodySelects: recursive.HasClientMember || recursiveNodes != null ? recursive.Translator.Selects : null,
+            emittedColumns: EmittedColumnNames(recursive.ColumnNames, recursive.Translator.Selects),
+            optionalRow: recursive.Translator.Visitor.OptionalRowColumns.Contains(recursive.Translator.Visitor.TableColumns),
+            optionalRowPaths: recursive.Translator.Visitor.OptionalRowPaths.TryGetValue(
+                recursive.Translator.Visitor.TableColumns,
+                out HashSet<string>? recursiveOptionalPaths)
+                ? recursiveOptionalPaths
+                : null);
     }
 
     public static string[]? EmittedColumnNames(string[]? columnNames, IReadOnlyList<SQLiteExpression> selects)
@@ -426,6 +458,12 @@ internal static class CteColumnMapper
             if (TypeHelpers.IsSimple(property.PropertyType, options))
             {
                 columns[path] = SQLiteExpression.Leaf(property.PropertyType, counters.NextIdentifier(), $"{tableAlias}.{IdentifierGuard.Quote(path)}");
+            }
+            else if (TypeHelpers.IsCollectionResult(property.PropertyType))
+            {
+                columns[path] = SQLiteExpression
+                    .Leaf(property.PropertyType, counters.NextIdentifier(), $"{tableAlias}.{IdentifierGuard.Quote(path)}")
+                    .WithJsonSource();
             }
             else
             {

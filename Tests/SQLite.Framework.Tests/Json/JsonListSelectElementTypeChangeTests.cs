@@ -14,7 +14,7 @@ internal sealed class JsonSelectCastRow
 public class JsonListSelectElementTypeChangeTests
 {
     [Fact]
-    public void SelectChangesElementTypeBeforeToListThrows()
+    public void SelectChangesElementTypeBeforeToListMaterializes()
     {
         using TestDatabase db = new(b =>
             b.TypeConverters[typeof(List<int>)] = new SQLiteJsonConverter<List<int>>(TestJsonContext.Default.ListInt32));
@@ -23,8 +23,10 @@ public class JsonListSelectElementTypeChangeTests
         List<int> seed = [1, 2, 3];
         db.Table<JsonSelectCastRow>().Add(new JsonSelectCastRow { Id = 1, Numbers = seed });
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<JsonSelectCastRow>().Select(r => r.Numbers.Select(x => (long)x).ToList()).First());
+        List<long> expected = seed.Select(x => (long)x).ToList();
+        List<long> actual = db.Table<JsonSelectCastRow>().Select(r => r.Numbers.Select(x => (long)x).ToList()).First();
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]

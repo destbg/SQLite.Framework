@@ -408,14 +408,38 @@ public class DateTimeTests
     }
 
     [Fact]
-    public void DateTimeStaticMethod_NotConstant_Throws()
+    public void DateTimeIsLeapYearMatchesObjects()
     {
         using TestDatabase db = SetupDatabase();
-        Assert.Throws<NotSupportedException>(() => (
+        List<int> expected = new[]
+        {
+            new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6, 7, 8) }
+        }.Where(a => DateTime.IsLeapYear(a.Date.Year)).Select(a => a.Id).ToList();
+        List<int> actual = (
             from a in db.Table<TestEntity>()
             where DateTime.IsLeapYear(a.Date.Year)
             select a.Id
-        ).ToList());
+        ).ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void DateTimeIsLeapYearOverIntegerColumnMatchesObjects()
+    {
+        using TestDatabase db = SetupDatabase();
+        TestEntity[] rows =
+        [
+            new TestEntity { Id = 1, Date = new DateTime(2000, 2, 3, 4, 5, 6, 7, 8) }
+        ];
+        List<int> expected = rows.Where(a => DateTime.IsLeapYear(a.Id)).Select(a => a.Id).ToList();
+        List<int> actual = (
+            from a in db.Table<TestEntity>()
+            where DateTime.IsLeapYear(a.Id)
+            select a.Id
+        ).ToList();
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]

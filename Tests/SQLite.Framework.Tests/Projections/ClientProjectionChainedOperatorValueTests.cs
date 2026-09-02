@@ -143,6 +143,39 @@ public class ClientProjectionChainedOperatorValueTests
     }
 
     [Fact]
+    public void FirstOrDefaultWithADefaultAfterATakenClientProjectionMatchesObjects()
+    {
+        using TestDatabase db = Setup(nameof(FirstOrDefaultWithADefaultAfterATakenClientProjectionMatchesObjects));
+
+        string? expected = Rows()
+            .OrderBy(r => r.Id)
+            .Select(r => H23zChainedOperatorText.Tail(r.Name))
+            .Take(0)
+            .FirstOrDefault("fallback");
+        string? actual = db.Table<H23zChainedOperatorRow>()
+            .OrderBy(r => r.Id)
+            .Select(r => H23zChainedOperatorText.Tail(r.Name))
+            .Take(0)
+            .FirstOrDefault("fallback");
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void FirstOrDefaultWithAPredicateAndDefaultAfterATakenClientProjectionReportsItCannotRun()
+    {
+        using TestDatabase db = Setup(nameof(FirstOrDefaultWithAPredicateAndDefaultAfterATakenClientProjectionReportsItCannotRun));
+
+        NotSupportedException error = Assert.Throws<NotSupportedException>(() => db.Table<H23zChainedOperatorRow>()
+            .OrderBy(r => r.Id)
+            .Select(r => H23zChainedOperatorText.Tail(r.Name))
+            .Take(3)
+            .FirstOrDefault(value => value == "a", "fallback"));
+
+        Assert.Contains("projection that runs in memory", error.Message);
+    }
+
+    [Fact]
     public void SingleOrDefaultOverAFilteredClientProjectionReadsTheValue()
     {
         using TestDatabase db = Setup(nameof(SingleOrDefaultOverAFilteredClientProjectionReadsTheValue));
@@ -154,6 +187,39 @@ public class ClientProjectionChainedOperatorValueTests
             .SingleOrDefault();
 
         Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void SingleOrDefaultWithADefaultAfterATakenClientProjectionMatchesObjects()
+    {
+        using TestDatabase db = Setup(nameof(SingleOrDefaultWithADefaultAfterATakenClientProjectionMatchesObjects));
+
+        string? expected = Rows()
+            .OrderBy(r => r.Id)
+            .Select(r => H23zChainedOperatorText.Tail(r.Name))
+            .Take(1)
+            .SingleOrDefault("fallback");
+        string? actual = db.Table<H23zChainedOperatorRow>()
+            .OrderBy(r => r.Id)
+            .Select(r => H23zChainedOperatorText.Tail(r.Name))
+            .Take(1)
+            .SingleOrDefault("fallback");
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void SingleOrDefaultWithAPredicateAndDefaultAfterATakenClientProjectionReportsItCannotRun()
+    {
+        using TestDatabase db = Setup(nameof(SingleOrDefaultWithAPredicateAndDefaultAfterATakenClientProjectionReportsItCannotRun));
+
+        NotSupportedException error = Assert.Throws<NotSupportedException>(() => db.Table<H23zChainedOperatorRow>()
+            .OrderBy(r => r.Id)
+            .Select(r => H23zChainedOperatorText.Tail(r.Name))
+            .Take(3)
+            .SingleOrDefault(value => value == "a", "fallback"));
+
+        Assert.Contains("projection that runs in memory", error.Message);
     }
 
     [Fact]

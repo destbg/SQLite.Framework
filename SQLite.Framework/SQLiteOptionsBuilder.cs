@@ -76,6 +76,11 @@ public sealed class SQLiteOptionsBuilder
             SelectMaterializers[entry.Key] = entry.Value;
         }
 
+        foreach (KeyValuePair<Type, Func<string, SQLiteOptions, object?>> entry in options.JsonCollectionMaterializers)
+        {
+            JsonCollectionMaterializers[entry.Key] = entry.Value;
+        }
+
         foreach (KeyValuePair<string, Func<SQLiteQueryContext, object?>> entry in options.GroupByKeyMaterializers)
         {
             GroupByKeyMaterializers[entry.Key] = entry.Value;
@@ -253,6 +258,13 @@ public sealed class SQLiteOptionsBuilder
     /// <c>SQLite.Framework.SourceGenerator</c>.
     /// </summary>
     public Dictionary<string, Func<SQLiteQueryContext, object?>> SelectMaterializers { get; } = [];
+
+    /// <summary>
+    /// Generated JSON collection materializers, keyed by the declared collection result type.
+    /// Populated by the <c>UseGeneratedMaterializers</c> extension emitted by
+    /// <c>SQLite.Framework.SourceGenerator</c>.
+    /// </summary>
+    public Dictionary<Type, Func<string, SQLiteOptions, object?>> JsonCollectionMaterializers { get; } = [];
 
     /// <summary>
     /// Generated GroupBy key-selector extractors, keyed by a canonical signature derived from the
@@ -908,6 +920,7 @@ public sealed class SQLiteOptionsBuilder
             PropertyTranslators = [.. PropertyTranslators],
             EntityMaterializers = new Dictionary<Type, Func<SQLiteQueryContext, Func<SQLiteQueryContext, object?>>>(EntityMaterializers),
             SelectMaterializers = new Dictionary<string, Func<SQLiteQueryContext, object?>>(SelectMaterializers),
+            JsonCollectionMaterializers = new Dictionary<Type, Func<string, SQLiteOptions, object?>>(JsonCollectionMaterializers),
             GroupByKeyMaterializers = new Dictionary<string, Func<SQLiteQueryContext, object?>>(GroupByKeyMaterializers),
             GroupingQueryMaterializers = new Dictionary<Type, Func<SQLiteDatabase, Expression, object>>(GroupingQueryMaterializers),
             EntityWriters = new Dictionary<Type, IReadOnlyDictionary<string, SQLiteEntityColumnWriter>>(EntityWriters),

@@ -114,7 +114,6 @@ internal static class BuildQueryObject
         {
             (string Name, int Index)[] capturedColumns = columns
                 .Select(c => (c.Key, c.Value))
-                .OrderBy(c => c.Value)
                 .ToArray();
             return ctx =>
             {
@@ -158,7 +157,18 @@ internal static class BuildQueryObject
 #endif
         }
 
-        if (IsCollectionResult(elementType))
+        if (TypeHelpers.IsCollectionResult(elementType)
+            && JsonCollectionMaterializer.TryBuild(elementType, options) is { } collectionMaterializer)
+        {
+            return ctx =>
+            {
+                SQLiteDataReader r = ctx.Reader!;
+                object? value = r.GetValue(0, r.GetColumnType(0), typeof(string));
+                return value is string json ? collectionMaterializer(json) : null;
+            };
+        }
+
+        if (TypeHelpers.IsCollectionResult(elementType))
         {
             throw new NotSupportedException(
                 $"Cannot read a query result into the collection type '{elementType.FullName}'.");
@@ -185,12 +195,6 @@ internal static class BuildQueryObject
         }
 
         return BuildReflective(elementType, prefix: string.Empty, reader, columns, options, query?.ConstructedPaths, query?.SelectValueTypes);
-    }
-
-    private static bool IsCollectionResult(Type type)
-    {
-        return type.IsArray
-            || (type.IsGenericType && typeof(IEnumerable).IsAssignableFrom(type));
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2070", Justification = "Type comes from the entity surface.")]

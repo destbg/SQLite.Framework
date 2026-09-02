@@ -95,6 +95,12 @@ internal partial class SQLVisitor
             return QueryableMemberVisitor.HandleGroupingMethod(this, node);
         }
 
+        if (node.Arguments.Count > 0
+            && QueryableMemberVisitor.TryHandleLocalCollectionOperator(this, node) is { } localCollectionHandled)
+        {
+            return localCollectionHandled;
+        }
+
         if (JsonMethodTranslator.TryHandle(node, this) is { } jsonHandled)
         {
             return jsonHandled;
@@ -117,6 +123,11 @@ internal partial class SQLVisitor
             {
                 return Visit(Expression.Equal(seqLeft, seqRight));
             }
+        }
+
+        if (TryTranslateByteArrayContains(node) is { } byteArrayContains)
+        {
+            return byteArrayContains;
         }
 
         if (declaringType != null && Database.Options.MemberTranslators.TryGetValue(declaringType, out SQLiteMemberTranslator? typeTranslator))
@@ -189,7 +200,7 @@ internal partial class SQLVisitor
             }
 
             List<ResolvedModel> arguments = node.Arguments
-                .Select(ResolveExpression)
+                .Select(ResolveMethodArgument)
                 .ToList();
 
             if (obj is { IsConstant: true, Constant: IEnumerable enumerable })
@@ -213,11 +224,6 @@ internal partial class SQLVisitor
                 return QueryableMemberVisitor.HandleGroupingMethod(this, node);
             }
 
-            if (QueryableMemberVisitor.TryHandleConstantAnyPredicate(this, node) is { } anyHandled)
-            {
-                return anyHandled;
-            }
-
             if (node.Arguments.Any(a => a is not SQLiteExpression && ExpressionHelpers.StripQuotes(a) is LambdaExpression)
                 && IsCapturedCollectionRooted(node.Arguments[0]))
             {
@@ -233,7 +239,7 @@ internal partial class SQLVisitor
             }
 
             List<ResolvedModel> arguments = node.Arguments
-                .Select(ResolveExpression)
+                .Select(ResolveMethodArgument)
                 .ToList();
 
             IEnumerable? sourceEnumerable = null;
@@ -266,6 +272,22 @@ internal partial class SQLVisitor
     {
         object? value = ExpressionHelpers.GetConstantValue(node);
         return SQLiteExpression.Leaf(node.Type, Counters.NextIdentifier(), Counters.NextParamName(), value);
+    }
+
+    private ResolvedModel ResolveMethodArgument(Expression argument)
+    {
+        if (!argument.Type.IsByRefLike)
+        {
+            return ResolveExpression(argument);
+        }
+
+        return new ResolvedModel
+        {
+            IsConstant = false,
+            Constant = null,
+            SQLiteExpression = null,
+            Expression = argument
+        };
     }
 
     private bool RequiresClientEvalFallback(MethodCallExpression node, List<ResolvedModel> resolvedArguments, ResolvedModel? resolvedInstance)
@@ -387,6 +409,94 @@ internal partial class SQLVisitor
         return columnSql;
     }
 
+    private SQLiteExpression? TryTranslateByteArrayContains(MethodCallExpression node)
+    {
+        Expression sourceExpression = node.Arguments.Count > 0
+            ? StripSpanConversion(node.Arguments[0])
+            : node;
+        if (!IsByteArrayContainsMethod(node.Method)
+            || node.Arguments.Count != 2
+            || sourceExpression.Type != typeof(byte[])
+            || node.Arguments[1].Type != typeof(byte))
+        {
+            return null;
+        }
+
+        ResolvedModel source = ResolveExpression(sourceExpression);
+        if (source.SQLiteExpression == null)
+        {
+            return null;
+        }
+
+        if (ExpressionHelpers.IsConstant(node.Arguments[1]))
+        {
+            byte value = (byte)ExpressionHelpers.GetConstantValue(node.Arguments[1])!;
+            SQLiteExpression needle = SQLiteExpression.Leaf(typeof(byte[]), Counters.NextIdentifier(), Counters.NextParamName(), new[] { value });
+            return SQLiteExpression.Binary(
+                typeof(bool),
+                Counters.NextIdentifier(),
+                "INSTR(",
+                source.SQLiteExpression,
+                ", ",
+                needle,
+                ") > 0",
+                ParameterHelpers.CombineParameters(source.SQLiteExpression, needle));
+        }
+
+        ResolvedModel valueExpression = ResolveExpression(node.Arguments[1]);
+        if (valueExpression.SQLiteExpression == null)
+        {
+            return null;
+        }
+
+        SQLiteExpression byteValues = SQLiteExpression.Leaf(
+            typeof(byte[]), Counters.NextIdentifier(), Counters.NextParamName(), AllByteValues);
+        SQLiteExpression needleExpression = SQLiteExpression.Binary(
+            typeof(byte[]),
+            Counters.NextIdentifier(),
+            "SUBSTR(",
+            byteValues,
+            ", ",
+            valueExpression.SQLiteExpression,
+            " + 1, 1)",
+            ParameterHelpers.CombineParameters(byteValues, valueExpression.SQLiteExpression));
+        return SQLiteExpression.Binary(
+            typeof(bool),
+            Counters.NextIdentifier(),
+            "INSTR(",
+            source.SQLiteExpression,
+            ", ",
+            needleExpression,
+            ") > 0",
+            ParameterHelpers.CombineParameters(source.SQLiteExpression, needleExpression));
+    }
+
+    private static bool IsByteArrayContainsMethod(MethodInfo method)
+    {
+        if (!method.IsGenericMethod || method.Name != nameof(Enumerable.Contains))
+        {
+            return false;
+        }
+
+        MethodInfo definition = method.IsGenericMethodDefinition ? method : method.GetGenericMethodDefinition();
+        ParameterInfo[] parameters = definition.GetParameters();
+        if (parameters.Length != 2 || !parameters[1].ParameterType.IsGenericParameter)
+        {
+            return false;
+        }
+
+        Type sourceType = parameters[0].ParameterType;
+        if (!sourceType.IsGenericType)
+        {
+            return false;
+        }
+
+        Type sourceGenericType = sourceType.GetGenericTypeDefinition();
+        return (method.DeclaringType == typeof(Enumerable) && sourceGenericType == typeof(IEnumerable<>))
+            || (method.DeclaringType == typeof(MemoryExtensions)
+                && (sourceGenericType == typeof(ReadOnlySpan<>) || sourceGenericType == typeof(Span<>)));
+    }
+
     private static UnaryExpression BoxIfNeeded(Expression expr)
     {
         return Expression.Convert(expr, typeof(object));
@@ -394,12 +504,22 @@ internal partial class SQLVisitor
 
     private static Expression StripSpanConversion(Expression expr)
     {
-        while (expr is MethodCallExpression { Method.Name: "op_Implicit", Arguments.Count: 1 } implicitCall)
+        while (true)
         {
-            expr = implicitCall.Arguments[0];
-        }
+            if (expr is MethodCallExpression { Method.Name: "op_Implicit", Arguments.Count: 1 } implicitCall)
+            {
+                expr = implicitCall.Arguments[0];
+                continue;
+            }
 
-        return expr;
+            if (expr is UnaryExpression { Method.Name: "op_Implicit" } implicitUnary)
+            {
+                expr = implicitUnary.Operand;
+                continue;
+            }
+
+            return expr;
+        }
     }
 
     private static bool IsCapturedCollectionRooted(Expression source)
@@ -418,13 +538,10 @@ internal partial class SQLVisitor
 
     private static IEnumerable? TryGetImplicitlyConvertedConstantCollection(Expression expr)
     {
-        if (expr is MethodCallExpression mce
-            && mce.Method.IsSpecialName
-            && mce.Method.Name == "op_Implicit"
-            && mce.Object == null
-            && mce.Arguments.Count == 1
-            && ExpressionHelpers.IsConstant(mce.Arguments[0])
-            && ExpressionHelpers.GetConstantValue(mce.Arguments[0]) is IEnumerable enumerable)
+        Expression source = StripSpanConversion(expr);
+        if (!ReferenceEquals(source, expr)
+            && QueryableMemberVisitor.IsEvaluableLocalCollectionSource(source)
+            && ExpressionHelpers.GetConstantValue(source) is IEnumerable enumerable)
         {
             return enumerable;
         }

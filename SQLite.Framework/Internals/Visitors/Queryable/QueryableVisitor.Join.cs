@@ -2,6 +2,7 @@ namespace SQLite.Framework.Internals.Visitors.Queryable;
 
 internal partial class QueryableVisitor
 {
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Builds an expression tree only.")]
     private SQLiteExpression VisitJoin(MethodCallExpression node, string joinType)
     {
         ThrowIfSetOperations(node.Method.Name);
@@ -20,9 +21,30 @@ internal partial class QueryableVisitor
         LambdaExpression innerKey = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[3]);
         LambdaExpression resultSelector = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[4]);
 
+        visitor.MethodArguments[outerKey.Parameters[0]] = visitor.TableColumns;
+        visitor.MethodArguments[innerKey.Parameters[0]] = newTableColumns;
+        SQLiteExpression onClause = BuildJoinOnClause(outerKey, innerKey);
+
+        bool translatedGroupCount = false;
+
         if (node.Method.Name == nameof(System.Linq.Queryable.GroupJoin))
         {
-            EnsureGroupJoinResultSelectorIsPassthrough(resultSelector);
+            GroupJoinCountRewriterVisitor countRewriter = new(
+                resultSelector.Parameters[1],
+                sql,
+                onClause,
+                visitor.Counters);
+            Expression rewrittenBody = countRewriter.Visit(resultSelector.Body);
+            if (countRewriter.Found && !countRewriter.UnsupportedUsage)
+            {
+                resultSelector = Expression.Lambda(rewrittenBody, resultSelector.Parameters);
+                translatedGroupCount = true;
+            }
+
+            if (!translatedGroupCount)
+            {
+                EnsureGroupJoinResultSelectorIsPassthrough(resultSelector);
+            }
         }
 
         visitor.MethodArguments[resultSelector.Parameters[0]] = visitor.TableColumns;
@@ -93,75 +115,14 @@ internal partial class QueryableVisitor
             }
         }
 
-        visitor.MethodArguments[innerKey.Parameters[0]] = newTableColumns;
-
-        if (outerKey.Body is NewExpression outerNewExpression)
+        if (!translatedGroupCount)
         {
-            NewExpression innerNewExpression = (NewExpression)innerKey.Body;
-
-            List<SQLiteExpression> sqlExpressions = [];
-
-            for (int i = 0; i < innerNewExpression.Arguments.Count; i++)
-            {
-                Expression innerArgument = innerNewExpression.Arguments[i];
-                Expression outerArgument = outerNewExpression.Arguments[i];
-
-                if (DayOfWeekHelpers.IsComputedDayOfWeek(innerArgument) || DayOfWeekHelpers.IsComputedDayOfWeek(outerArgument))
-                {
-                    innerArgument = DayOfWeekHelpers.ConvertOperandToInt(visitor.Database.Options, innerArgument);
-                    outerArgument = DayOfWeekHelpers.ConvertOperandToInt(visitor.Database.Options, outerArgument);
-                }
-
-                SQLiteExpression outerAlias = visitor.PrepareKeyOperand(innerArgument, RequireJoinKey(visitor.Visit(innerArgument), innerArgument));
-                SQLiteExpression innerAlias = visitor.PrepareKeyOperand(outerArgument, RequireJoinKey(visitor.Visit(outerArgument), outerArgument));
-                outerAlias = visitor.CoerceDayOfWeekOperand(innerArgument, outerAlias, innerAlias);
-                innerAlias = visitor.CoerceDayOfWeekOperand(outerArgument, innerAlias, outerAlias);
-
-                SQLiteParameter[]? combinedParameters = ParameterHelpers.CombineParameters(outerAlias, innerAlias);
-
-                string keyOp = CompositeJoinKeyOperator(outerArgument.Type, innerArgument.Type);
-                sqlExpressions.Add(SQLiteExpression.Binary(typeof(bool), -1, "", outerAlias, keyOp, innerAlias, "", combinedParameters));
-            }
-
-            SQLiteParameter[]? sqlParameters = ParameterHelpers.CombineParameters(sqlExpressions);
-            SQLiteExpression[] onParts = sqlExpressions.ToArray();
-
             Joins.Add(new JoinInfo
             {
                 EntityType = entityType,
                 JoinType = joinType,
                 Sql = sql,
-                OnClause = SQLiteExpression.Variadic(typeof(bool), -1, "", onParts, " AND ", "", sqlParameters),
-                IsGroupJoin = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin),
-                GroupMemberPath = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin)
-                    ? GetGroupMemberPath(resultSelector)
-                    : null
-            });
-        }
-        else
-        {
-            Expression outerBody = outerKey.Body;
-            Expression innerBody = innerKey.Body;
-
-            if (DayOfWeekHelpers.IsComputedDayOfWeek(outerBody) || DayOfWeekHelpers.IsComputedDayOfWeek(innerBody))
-            {
-                outerBody = DayOfWeekHelpers.ConvertOperandToInt(visitor.Database.Options, outerBody);
-                innerBody = DayOfWeekHelpers.ConvertOperandToInt(visitor.Database.Options, innerBody);
-            }
-
-            SQLiteExpression outerAlias = visitor.PrepareKeyOperand(outerBody, RequireJoinKey(visitor.Visit(outerBody), outerBody));
-            SQLiteExpression innerAlias = visitor.PrepareKeyOperand(innerBody, RequireJoinKey(visitor.Visit(innerBody), innerBody));
-            outerAlias = visitor.CoerceDayOfWeekOperand(outerBody, outerAlias, innerAlias);
-            innerAlias = visitor.CoerceDayOfWeekOperand(innerBody, innerAlias, outerAlias);
-
-            SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(outerAlias, innerAlias);
-
-            Joins.Add(new JoinInfo
-            {
-                EntityType = entityType,
-                JoinType = joinType,
-                Sql = sql,
-                OnClause = SQLiteExpression.Binary(typeof(bool), -1, "", outerAlias, " = ", innerAlias, "", parameters),
+                OnClause = onClause,
                 IsGroupJoin = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin),
                 GroupMemberPath = node.Method.Name == nameof(System.Linq.Queryable.GroupJoin)
                     ? GetGroupMemberPath(resultSelector)
@@ -170,6 +131,71 @@ internal partial class QueryableVisitor
         }
 
         return sql;
+    }
+
+    private SQLiteExpression BuildJoinOnClause(LambdaExpression outerKey, LambdaExpression innerKey)
+    {
+        if (outerKey.Body is NewExpression outerNewExpression)
+        {
+            NewExpression innerNewExpression = (NewExpression)innerKey.Body;
+            List<SQLiteExpression> sqlExpressions = [];
+
+            for (int i = 0; i < innerNewExpression.Arguments.Count; i++)
+            {
+                Expression outerArgument = outerNewExpression.Arguments[i];
+                Expression innerArgument = innerNewExpression.Arguments[i];
+
+                if (DayOfWeekHelpers.IsComputedDayOfWeek(innerArgument) || DayOfWeekHelpers.IsComputedDayOfWeek(outerArgument))
+                {
+                    innerArgument = DayOfWeekHelpers.ConvertOperandToInt(visitor.Database.Options, innerArgument);
+                    outerArgument = DayOfWeekHelpers.ConvertOperandToInt(visitor.Database.Options, outerArgument);
+                }
+
+                SQLiteExpression compositeOuterAlias = visitor.PrepareKeyOperand(innerArgument, RequireJoinKey(visitor.Visit(innerArgument), innerArgument));
+                SQLiteExpression compositeInnerAlias = visitor.PrepareKeyOperand(outerArgument, RequireJoinKey(visitor.Visit(outerArgument), outerArgument));
+                compositeOuterAlias = visitor.CoerceDayOfWeekOperand(innerArgument, compositeOuterAlias, compositeInnerAlias);
+                compositeInnerAlias = visitor.CoerceDayOfWeekOperand(outerArgument, compositeInnerAlias, compositeOuterAlias);
+
+                SQLiteParameter[]? combinedParameters = ParameterHelpers.CombineParameters(compositeOuterAlias, compositeInnerAlias);
+                string keyOp = CompositeJoinKeyOperator(outerArgument.Type, innerArgument.Type);
+                sqlExpressions.Add(SQLiteExpression.Binary(
+                    typeof(bool),
+                    -1,
+                    "",
+                    compositeOuterAlias,
+                    keyOp,
+                    compositeInnerAlias,
+                    "",
+                    combinedParameters));
+            }
+
+            SQLiteParameter[]? sqlParameters = ParameterHelpers.CombineParameters(sqlExpressions);
+            return SQLiteExpression.Variadic(
+                typeof(bool),
+                -1,
+                "",
+                sqlExpressions.ToArray(),
+                " AND ",
+                "",
+                sqlParameters);
+        }
+
+        Expression outerBody = outerKey.Body;
+        Expression innerBody = innerKey.Body;
+
+        if (DayOfWeekHelpers.IsComputedDayOfWeek(outerBody) || DayOfWeekHelpers.IsComputedDayOfWeek(innerBody))
+        {
+            outerBody = DayOfWeekHelpers.ConvertOperandToInt(visitor.Database.Options, outerBody);
+            innerBody = DayOfWeekHelpers.ConvertOperandToInt(visitor.Database.Options, innerBody);
+        }
+
+        SQLiteExpression outerAlias = visitor.PrepareKeyOperand(outerBody, RequireJoinKey(visitor.Visit(outerBody), outerBody));
+        SQLiteExpression innerAlias = visitor.PrepareKeyOperand(innerBody, RequireJoinKey(visitor.Visit(innerBody), innerBody));
+        outerAlias = visitor.CoerceDayOfWeekOperand(outerBody, outerAlias, innerAlias);
+        innerAlias = visitor.CoerceDayOfWeekOperand(innerBody, innerAlias, outerAlias);
+
+        SQLiteParameter[]? parameters = ParameterHelpers.CombineParameters(outerAlias, innerAlias);
+        return SQLiteExpression.Binary(typeof(bool), -1, "", outerAlias, " = ", innerAlias, "", parameters);
     }
 
     private void RemapGroupMemberPaths(LambdaExpression resultSelector)

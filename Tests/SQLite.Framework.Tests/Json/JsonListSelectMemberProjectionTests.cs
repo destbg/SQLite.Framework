@@ -25,7 +25,7 @@ internal partial class JsonMemberContext : JsonSerializerContext;
 public class JsonListSelectMemberProjectionTests
 {
     [Fact]
-    public void SelectScalarMemberFromObjectListToListThrows()
+    public void SelectScalarMemberFromObjectListToListMaterializes()
     {
         using TestDatabase db = new(b =>
             b.TypeConverters[typeof(List<JsonMemberItem>)] =
@@ -35,7 +35,12 @@ public class JsonListSelectMemberProjectionTests
         List<JsonMemberItem> seed = [new() { Price = 10, Name = "a" }, new() { Price = 20, Name = "b" }];
         db.Table<JsonMemberRow>().Add(new JsonMemberRow { Id = 1, Items = seed });
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<JsonMemberRow>().Select(r => r.Items.Select(x => x.Price).ToList()).First());
+        List<int> expected = seed.Select(x => x.Price).ToList();
+        List<int> actual = db.Table<JsonMemberRow>().Select(r => r.Items.Select(x => x.Price).ToList()).First();
+        List<string> expectedNames = seed.Select(x => x.Name).ToList();
+        List<string> actualNames = db.Table<JsonMemberRow>().Select(r => r.Items.Select(x => x.Name).ToList()).First();
+
+        Assert.Equal(expected, actual);
+        Assert.Equal(expectedNames, actualNames);
     }
 }

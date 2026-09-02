@@ -12,6 +12,8 @@ namespace SQLite.Framework.Internals.Visitors.SQL;
 /// </remarks>
 internal partial class SQLVisitor : ExpressionVisitor
 {
+    private static readonly byte[] AllByteValues = Enumerable.Range(0, 256).Select(i => (byte)i).ToArray();
+
     public SQLVisitor(SQLiteDatabase database, SQLiteCounters counters, int level)
     {
         Database = database;

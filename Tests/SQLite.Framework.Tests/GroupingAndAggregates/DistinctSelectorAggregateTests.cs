@@ -19,38 +19,41 @@ public class DistinctSelectorAggregateTests
     }
 
     [Fact]
-    public void DistinctThenSumWithNonInjectiveSelectorThrows()
+    public void DistinctThenSumWithNonInjectiveSelectorMatchesObjects()
     {
         using TestDatabase db = Seed(3, 13, 23, 5);
 
         int oracle = new[] { 3, 13, 23, 5 }.Distinct().Sum(a => a % 10);
         Assert.Equal(14, oracle);
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<NumericType>().Select(x => x.IntValue).Distinct().Sum(a => a % 10));
+        int actual = db.Table<NumericType>().Select(x => x.IntValue).Distinct().Sum(a => a % 10);
+
+        Assert.Equal(oracle, actual);
     }
 
     [Fact]
-    public void DistinctThenSumOfConstantThrows()
+    public void DistinctThenSumOfConstantMatchesObjects()
     {
         using TestDatabase db = Seed(3, 13, 23, 5);
 
         int oracle = new[] { 3, 13, 23, 5 }.Distinct().Sum(a => 1);
         Assert.Equal(4, oracle);
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<NumericType>().Select(x => x.IntValue).Distinct().Sum(a => 1));
+        int actual = db.Table<NumericType>().Select(x => x.IntValue).Distinct().Sum(a => 1);
+
+        Assert.Equal(oracle, actual);
     }
 
     [Fact]
-    public void DistinctThenAverageWithNonInjectiveSelectorThrows()
+    public void DistinctThenAverageWithNonInjectiveSelectorMatchesObjects()
     {
         using TestDatabase db = Seed(3, 13, 23, 5);
 
         double oracle = new[] { 3, 13, 23, 5 }.Distinct().Average(a => a % 10);
         Assert.Equal(3.5, oracle);
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<NumericType>().Select(x => x.IntValue).Distinct().Average(a => a % 10));
+        double actual = db.Table<NumericType>().Select(x => x.IntValue).Distinct().Average(a => a % 10);
+
+        Assert.Equal(oracle, actual);
     }
 }

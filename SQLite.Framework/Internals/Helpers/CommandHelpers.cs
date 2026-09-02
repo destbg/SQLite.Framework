@@ -38,6 +38,12 @@ internal static class CommandHelpers
         {
             return typeConverter.FromDatabase(ReadRawValue(statement, index, columnType));
         }
+        else if (options.JsonCollectionMaterializers.TryGetValue(
+            type,
+            out Func<string, SQLiteOptions, object?>? collectionMaterializer))
+        {
+            return collectionMaterializer((string)ReadRawValue(statement, index, columnType), options);
+        }
         else if (type == typeof(DateTime))
         {
             return ReadDateTime(statement, index, columnType, options);

@@ -19,6 +19,19 @@ public class ChainedProjectionNestedMemberParityTests
         public int Amount { get; set; }
     }
 
+    public class ChainConstructorDto
+    {
+        public ChainConstructorDto(int amount, string label)
+        {
+            Amount = amount;
+            Label = label;
+        }
+
+        public int Amount { get; }
+        public string Label { get; }
+        public string Extra { get; set; } = "";
+    }
+
     public record ChainRecord(int Amount, string Label)
     {
         public string Extra { get; set; } = "";
@@ -31,22 +44,13 @@ public class ChainedProjectionNestedMemberParityTests
 
     private static readonly ChainSource[] Seed =
     [
-        new ChainSource { Id = 1, V = 10, Name = "n1" },
-        new ChainSource { Id = 2, V = 20, Name = "n2" },
-        new ChainSource { Id = 3, V = 30, Name = "n3" },
-        new ChainSource { Id = 4, V = 40, Name = "n4" },
+        new ChainSource { Id = 1, V = -1, Name = "" },
+        new ChainSource { Id = 2, V = 0, Name = "same" },
+        new ChainSource { Id = 3, V = 10, Name = "same" },
+        new ChainSource { Id = 4, V = 20, Name = "n2" },
+        new ChainSource { Id = 5, V = 30, Name = "n3" },
+        new ChainSource { Id = 6, V = 40, Name = "n4" },
     ];
-
-    private static TestDatabase Create()
-    {
-        TestDatabase db = new();
-        db.Table<ChainSource>().Schema.CreateTable();
-        foreach (ChainSource r in Seed)
-        {
-            db.Table<ChainSource>().Add(r);
-        }
-        return db;
-    }
 
     [Fact]
     public void NestedAnonymousMemberInSecondSelect_MatchesLinqToObjects()
@@ -170,14 +174,35 @@ public class ChainedProjectionNestedMemberParityTests
     }
 
     [Fact]
-    public void ChainedSelectReadingConstructorBoundMember_IsNotSupported()
+    public void ChainedSelectReadingConstructorBoundMember_MatchesLinqToObjects()
     {
         using TestDatabase db = Create();
 
         List<string> oracle = Seed.OrderBy(x => x.Id).Select(x => new ChainRecord(x.V, x.Name) { Extra = "e" }).Select(r => r.Label).ToList();
-        Assert.Equal(["n1", "n2", "n3", "n4"], oracle);
+        List<string> actual = db.Table<ChainSource>().OrderBy(x => x.Id).Select(x => new ChainRecord(x.V, x.Name) { Extra = "e" }).Select(r => r.Label).ToList();
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<ChainSource>().OrderBy(x => x.Id).Select(x => new ChainRecord(x.V, x.Name) { Extra = "e" }).Select(r => r.Label).ToList());
+        Assert.Equal(oracle, actual);
+    }
+
+    [Fact]
+    public void ChainedSelectReadingClassConstructorBoundMember_MatchesLinqToObjects()
+    {
+        using TestDatabase db = Create();
+
+        List<int> oracle = Seed.OrderBy(x => x.Id).Select(x => new ChainConstructorDto(x.V, x.Name) { Extra = "e" }).Select(r => r.Amount).ToList();
+        List<int> actual = db.Table<ChainSource>().OrderBy(x => x.Id).Select(x => new ChainConstructorDto(x.V, x.Name) { Extra = "e" }).Select(r => r.Amount).ToList();
+
+        Assert.Equal(oracle, actual);
+    }
+
+    private static TestDatabase Create()
+    {
+        TestDatabase db = new();
+        db.Table<ChainSource>().Schema.CreateTable();
+        foreach (ChainSource r in Seed)
+        {
+            db.Table<ChainSource>().Add(r);
+        }
+        return db;
     }
 }

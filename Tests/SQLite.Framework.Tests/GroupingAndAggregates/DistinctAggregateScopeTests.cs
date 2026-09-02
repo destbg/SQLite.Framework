@@ -16,23 +16,29 @@ public class DistinctAggregateScopeTests
     }
 
     [Fact]
-    public void MultiColumnDistinctThenSumSelector_ThrowsClearError()
+    public void MultiColumnDistinctThenSumSelector_MatchesObjects()
     {
         using TestDatabase db = CreateDb();
 
-        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Select(b => new { b.AuthorId, b.Price }).Distinct().Sum(x => x.AuthorId));
+        (int AuthorId, double Price)[] seed = [(1, 10.0), (1, 20.0), (2, 30.0)];
+        int expected = seed.Distinct().Sum(x => x.AuthorId);
+        int actual = db.Table<Book>().Select(b => new { b.AuthorId, b.Price }).Distinct().Sum(x => x.AuthorId);
 
-        Assert.Contains("single-column projection", ex.Message);
+        Assert.Equal(4, expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void MultiColumnDistinctThenAverageSelector_ThrowsClearError()
+    public void MultiColumnDistinctThenAverageSelector_MatchesObjects()
     {
         using TestDatabase db = CreateDb();
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Select(b => new { b.AuthorId, b.Price }).Distinct().Average(x => (double)x.AuthorId));
+        (int AuthorId, double Price)[] seed = [(1, 10.0), (1, 20.0), (2, 30.0)];
+        double expected = seed.Distinct().Average(x => (double)x.AuthorId);
+        double actual = db.Table<Book>().Select(b => new { b.AuthorId, b.Price }).Distinct().Average(x => (double)x.AuthorId);
+
+        Assert.Equal(4.0 / 3.0, expected);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
@@ -88,11 +94,15 @@ public class DistinctAggregateScopeTests
     }
 
     [Fact]
-    public void MultiColumnDistinctThenCountSelector_ThrowsClearError()
+    public void MultiColumnDistinctThenCountSelector_MatchesObjects()
     {
         using TestDatabase db = CreateDb();
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<Book>().Select(b => new { b.AuthorId, b.Price }).Distinct().Count(x => x.AuthorId == 1));
+        (int AuthorId, double Price)[] seed = [(1, 10.0), (1, 20.0), (2, 30.0)];
+        int expected = seed.Distinct().Count(x => x.AuthorId == 1);
+        int actual = db.Table<Book>().Select(b => new { b.AuthorId, b.Price }).Distinct().Count(x => x.AuthorId == 1);
+
+        Assert.Equal(2, expected);
+        Assert.Equal(expected, actual);
     }
 }

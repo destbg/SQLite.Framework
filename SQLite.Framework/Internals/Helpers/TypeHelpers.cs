@@ -4,6 +4,12 @@ namespace SQLite.Framework.Internals.Helpers;
 
 internal static class TypeHelpers
 {
+    public static bool IsCollectionResult(Type type)
+    {
+        return type != typeof(byte[])
+            && (type.IsArray || (type.IsGenericType && typeof(IEnumerable).IsAssignableFrom(type)));
+    }
+
     public static bool IsSimple(Type type, SQLiteOptions options)
     {
         type = Nullable.GetUnderlyingType(type) ?? type;

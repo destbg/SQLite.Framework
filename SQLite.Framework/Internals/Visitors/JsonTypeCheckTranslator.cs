@@ -5,9 +5,16 @@ namespace SQLite.Framework.Internals.Visitors;
 /// </summary>
 internal static class JsonTypeCheckTranslator
 {
+    private static readonly MethodInfo ObjectGetType = typeof(object).GetMethod(nameof(object.GetType), Type.EmptyTypes)!;
+
     public static SQLiteExpression? TryTranslateTypeIs(SQLVisitor visitor, Expression operand, Type testedType)
     {
-        return TryTranslate(visitor, operand, testedType, positive: true);
+        return TryTranslate(visitor, operand, testedType, positive: true, exact: false);
+    }
+
+    public static SQLiteExpression? TryTranslateTypeEqual(SQLVisitor visitor, Expression operand, Type testedType)
+    {
+        return TryTranslate(visitor, operand, testedType, positive: true, exact: true);
     }
 
     public static SQLiteExpression? TryTranslateAsNullCheck(SQLVisitor visitor, BinaryExpression node)
@@ -25,10 +32,38 @@ internal static class JsonTypeCheckTranslator
             return null;
         }
 
-        return TryTranslate(visitor, typeAs.Operand, typeAs.Type, positive: node.NodeType == ExpressionType.NotEqual);
+        return TryTranslate(visitor, typeAs.Operand, typeAs.Type, positive: node.NodeType == ExpressionType.NotEqual, exact: false);
     }
 
-    private static SQLiteExpression? TryTranslate(SQLVisitor visitor, Expression operand, Type testedType, bool positive)
+    public static SQLiteExpression? TryTranslateGetTypeComparison(SQLVisitor visitor, BinaryExpression node)
+    {
+        MethodCallExpression? getType = GetTypeCall(node.Left);
+        Expression typeSide = node.Right;
+        if (getType == null)
+        {
+            getType = GetTypeCall(node.Right);
+            typeSide = node.Left;
+        }
+
+        if (getType == null || !ExpressionHelpers.IsConstant(typeSide))
+        {
+            return null;
+        }
+
+        if (ExpressionHelpers.GetConstantValue(typeSide) is not Type testedType)
+        {
+            return null;
+        }
+
+        return TryTranslate(visitor, getType.Object!, testedType, positive: node.NodeType == ExpressionType.Equal, exact: true);
+    }
+
+    private static MethodCallExpression? GetTypeCall(Expression expression)
+    {
+        return expression is MethodCallExpression call && call.Method.Equals(ObjectGetType) ? call : null;
+    }
+
+    private static SQLiteExpression? TryTranslate(SQLVisitor visitor, Expression operand, Type testedType, bool positive, bool exact)
     {
         Type operandType = operand.Type;
         SQLiteOptions options = visitor.Database.Options;
@@ -58,7 +93,15 @@ internal static class JsonTypeCheckTranslator
         List<object> values = [];
         foreach (JsonDerivedType derived in polymorphism.DerivedTypes)
         {
-            if (!isContractBase && !testedType.IsAssignableFrom(derived.DerivedType))
+            if (exact && isContractBase)
+            {
+                continue;
+            }
+
+            bool matches = exact
+                ? testedType == derived.DerivedType
+                : testedType.IsAssignableFrom(derived.DerivedType);
+            if (!isContractBase && !matches)
             {
                 continue;
             }

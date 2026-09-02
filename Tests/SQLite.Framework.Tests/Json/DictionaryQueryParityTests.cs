@@ -103,13 +103,52 @@ public class DictionaryQueryParityTests
     }
 
     [Fact]
-    public void ContainsValuePairFilters()
+    public void ContainsPairFilters()
     {
         using TestDatabase db = MapDb();
         SeedMaps(db);
-        var pair = new KeyValuePair<string, int>("a", 1);
-        Assert.Throws<System.NotSupportedException>(() =>
-            db.Table<JdEdgeMapRow>().Where(m => m.Map.Contains(pair)).OrderBy(m => m.Id).Select(m => m.Id).ToList());
+        KeyValuePair<string, int> pair = new("a", 1);
+
+        List<int> expected = MapSeed().Select((m, i) => (Id: i + 1, m)).Where(x => x.m.Contains(pair)).Select(x => x.Id).ToList();
+        List<int> actual = db.Table<JdEdgeMapRow>().Where(m => m.Map.Contains(pair)).OrderBy(m => m.Id).Select(m => m.Id).ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void ContainsPairWithNullKeyThrowsLikeDictionary()
+    {
+        using TestDatabase db = MapDb();
+        SeedMaps(db);
+        KeyValuePair<string, int> pair = new(null!, 0);
+
+        Assert.Throws<ArgumentNullException>(() => MapSeed().Where(m => m.Contains(pair)).ToList());
+        Assert.Throws<ArgumentNullException>(() => db.Table<JdEdgeMapRow>().Where(m => m.Map.Contains(pair)).ToList());
+    }
+
+    [Fact]
+    public void NullDictionaryKeysThrowLikeDictionary()
+    {
+        using TestDatabase db = MapDb();
+        SeedMaps(db);
+        string? key = null;
+
+        Assert.Throws<ArgumentNullException>(() => MapSeed().Select(m => m.ContainsKey(key!)).ToList());
+        Assert.Throws<ArgumentNullException>(() => db.Table<JdEdgeMapRow>().Select(m => m.Map.ContainsKey(key!)).ToList());
+        Assert.Throws<ArgumentNullException>(() => MapSeed().Select(m => m[key!]).ToList());
+        Assert.Throws<ArgumentNullException>(() => db.Table<JdEdgeMapRow>().Select(m => m.Map[key!]).ToList());
+    }
+
+    [Fact]
+    public void MissingKeyRemovalClientEvaluates()
+    {
+        using TestDatabase db = MapDb();
+        SeedMaps(db);
+
+        List<bool> expected = MapSeed().Select(m => m.Remove("missing")).ToList();
+        List<bool> actual = db.Table<JdEdgeMapRow>().OrderBy(m => m.Id).Select(m => m.Map.Remove("missing")).ToList();
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
@@ -143,21 +182,50 @@ public class DictionaryQueryParityTests
     }
 
     [Fact]
-    public void ContainsValueNotSupported()
+    public void ContainsValueFilters()
     {
         using TestDatabase db = MapDb();
         SeedMaps(db);
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<JdEdgeMapRow>().Where(m => m.Map.ContainsValue(5)).Select(m => m.Id).ToList());
+
+        List<int> expected = MapSeed().Select((m, i) => (Id: i + 1, m)).Where(x => x.m.ContainsValue(5)).Select(x => x.Id).ToList();
+        List<int> actual = db.Table<JdEdgeMapRow>().Where(m => m.Map.ContainsValue(5)).OrderBy(m => m.Id).Select(m => m.Id).ToList();
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void ContainsKeyWithColumnDerivedKeyNotSupported()
+    public void ContainsKeyWithColumnDerivedKeyFilters()
     {
         using TestDatabase db = MapDb();
-        SeedMaps(db);
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<JdEdgeMapRow>().Where(m => m.Map.ContainsKey(m.Id.ToString())).Select(m => m.Id).ToList());
+        List<JdEdgeMapRow> seed =
+        [
+            new JdEdgeMapRow { Id = 1, Map = new Dictionary<string, int> { ["1"] = 10 } },
+            new JdEdgeMapRow { Id = 2, Map = new Dictionary<string, int> { ["x"] = 20 } },
+            new JdEdgeMapRow { Id = 3, Map = [] },
+        ];
+        db.Table<JdEdgeMapRow>().AddRange(seed);
+
+        List<int> expected = seed.Where(m => m.Map.ContainsKey(m.Id.ToString())).Select(m => m.Id).ToList();
+        List<int> actual = db.Table<JdEdgeMapRow>().Where(m => m.Map.ContainsKey(m.Id.ToString())).OrderBy(m => m.Id).Select(m => m.Id).ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void ContainsValueMissingAndDuplicateValuesMatch()
+    {
+        using TestDatabase db = MapDb();
+        List<JdEdgeMapRow> memory =
+        [
+            new JdEdgeMapRow { Id = 1, Map = new Dictionary<string, int> { ["a"] = 2, ["b"] = 2 } },
+            new JdEdgeMapRow { Id = 2, Map = [] },
+        ];
+        db.Table<JdEdgeMapRow>().AddRange(memory);
+
+        List<int> expected = memory.Where(r => r.Map.ContainsValue(2)).Select(r => r.Id).ToList();
+        List<int> actual = db.Table<JdEdgeMapRow>().Where(r => r.Map.ContainsValue(2)).OrderBy(r => r.Id).Select(r => r.Id).ToList();
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
@@ -173,6 +241,49 @@ public class DictionaryQueryParityTests
         Assert.Equal([1], expected);
 
         List<int> actual = db.Table<JdEdgeIntMapRow>().Where(m => m.Map.ContainsKey(1)).Select(m => m.Id).ToList();
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void IntKeyDictionaryContainsColumnKeyAndPairFilters()
+    {
+        using TestDatabase db = new(b => b.TypeConverters[typeof(Dictionary<int, int>)] =
+            new SQLiteJsonConverter<Dictionary<int, int>>(JdEdgeIntJsonContext.Default.DictionaryInt32Int32));
+        db.Table<JdEdgeIntMapRow>().Schema.CreateTable();
+        List<JdEdgeIntMapRow> memory =
+        [
+            new JdEdgeIntMapRow { Id = 1, Map = new Dictionary<int, int> { [1] = 10 } },
+            new JdEdgeIntMapRow { Id = 2, Map = new Dictionary<int, int> { [1] = 10 } },
+            new JdEdgeIntMapRow { Id = 3, Map = new Dictionary<int, int> { [3] = 30 } },
+        ];
+        db.Table<JdEdgeIntMapRow>().AddRange(memory);
+        KeyValuePair<int, int> pair = new(3, 30);
+
+        List<int> expectedKey = memory.Where(r => r.Map.ContainsKey(r.Id)).Select(r => r.Id).ToList();
+        List<int> actualKey = db.Table<JdEdgeIntMapRow>().Where(r => r.Map.ContainsKey(r.Id)).Select(r => r.Id).ToList();
+        List<int> expectedPair = memory.Where(r => r.Map.Contains(pair)).Select(r => r.Id).ToList();
+        List<int> actualPair = db.Table<JdEdgeIntMapRow>().Where(r => r.Map.Contains(pair)).Select(r => r.Id).ToList();
+
+        Assert.Equal(expectedKey, actualKey);
+        Assert.Equal(expectedPair, actualPair);
+    }
+
+    [Fact]
+    public void IntKeyDictionaryDynamicIndexerProjects()
+    {
+        using TestDatabase db = new(b => b.TypeConverters[typeof(Dictionary<int, int>)] =
+            new SQLiteJsonConverter<Dictionary<int, int>>(JdEdgeIntJsonContext.Default.DictionaryInt32Int32));
+        db.Table<JdEdgeIntMapRow>().Schema.CreateTable();
+        List<JdEdgeIntMapRow> memory =
+        [
+            new JdEdgeIntMapRow { Id = 1, Map = new Dictionary<int, int> { [1] = 10 } },
+            new JdEdgeIntMapRow { Id = 2, Map = new Dictionary<int, int> { [2] = 20 } },
+        ];
+        db.Table<JdEdgeIntMapRow>().AddRange(memory);
+
+        List<int> expected = memory.Select(r => r.Map[r.Id]).ToList();
+        List<int> actual = db.Table<JdEdgeIntMapRow>().OrderBy(r => r.Id).Select(r => r.Map[r.Id]).ToList();
+
         Assert.Equal(expected, actual);
     }
 

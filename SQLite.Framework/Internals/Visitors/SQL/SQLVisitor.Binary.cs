@@ -115,6 +115,13 @@ internal partial class SQLVisitor
             return asNullCheck;
         }
 
+        if (node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual
+            && !IsInSelectProjection
+            && JsonTypeCheckTranslator.TryTranslateGetTypeComparison(this, node) is { } getTypeCheck)
+        {
+            return getTypeCheck;
+        }
+
         Expression leftNode = node.Left;
         Expression rightNode = node.Right;
 

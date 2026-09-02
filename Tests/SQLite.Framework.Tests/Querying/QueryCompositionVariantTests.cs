@@ -75,23 +75,28 @@ public class QueryCompositionVariantTests
     }
 
     [Fact]
-    public void SelectManyOverJsonChainAtQueryLevelThrows()
+    public void SelectManyOverJsonChainAtQueryLevelMatchesObjects()
     {
         using TestDatabase db = Setup();
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<QcvRow>().SelectMany(r => r.Numbers.Where(n => n > 0)).ToList());
+        List<int> expected = Rows().SelectMany(r => r.Numbers.Where(n => n > 0)).OrderBy(n => n).ToList();
+        List<int> actual = db.Table<QcvRow>()
+            .SelectMany(r => r.Numbers.Where(n => n > 0))
+            .OrderBy(n => n)
+            .ToList();
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void SelectManyOverJsonArrayColumnAtQueryLevelThrows()
+    public void SelectManyOverJsonArrayColumnAtQueryLevelMatchesObjects()
     {
         using TestDatabase db = Setup();
 
-        NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
-            db.Table<QcvRow>().SelectMany(r => r.Codes).OrderBy(x => x).ToList());
+        List<int> expected = Rows().SelectMany(r => r.Codes).OrderBy(code => code).ToList();
+        List<int> actual = db.Table<QcvRow>().SelectMany(r => r.Codes).OrderBy(code => code).ToList();
 
-        Assert.Equal("SelectMany over the JSON collection column 'Codes' is not supported at the query level.", ex.Message);
+        Assert.Equal(expected, actual);
     }
 
     [Fact]

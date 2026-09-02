@@ -108,6 +108,29 @@ public class JsonCollectionUntranslatableSourceTests
             .ToList());
     }
 
+    [Fact]
+    public void SpanContainsOverACapturedArrayWithAClientValueThrows()
+    {
+        using TestDatabase db = Setup(nameof(SpanContainsOverACapturedArrayWithAClientValueThrows));
+        int[] values = [10, 30];
+
+        Assert.Throws<NotSupportedException>(() => db.Table<UntranslatableSourceRow>()
+            .Where(r => MemoryExtensions.Contains<int>(values, Identity(r.Num)))
+            .Select(r => r.Id)
+            .ToList());
+    }
+
+    [Fact]
+    public void SpanContainsOverAClientBuiltArrayThrows()
+    {
+        using TestDatabase db = Setup(nameof(SpanContainsOverAClientBuiltArrayThrows));
+
+        Assert.Throws<NotSupportedException>(() => db.Table<UntranslatableSourceRow>()
+            .Where(r => MemoryExtensions.Contains<int>(BuildArray(r.Num), 20))
+            .Select(r => r.Id)
+            .ToList());
+    }
+
     private static List<int> Build(int seed)
     {
         return [seed];
@@ -116,6 +139,11 @@ public class JsonCollectionUntranslatableSourceTests
     private static int[] BuildArray(int seed)
     {
         return [seed];
+    }
+
+    private static int Identity(int value)
+    {
+        return value;
     }
 
     private static List<UntranslatableSourceRow> Rows()

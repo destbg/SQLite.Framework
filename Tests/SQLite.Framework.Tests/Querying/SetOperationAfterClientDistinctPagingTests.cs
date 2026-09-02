@@ -27,7 +27,7 @@ public class SetOperationAfterClientDistinctPagingTests
             .Union(db.Table<H26pPagedRow>().Select(r => new { r.Id, Tags = new[] { r.A } }))
             .ToList());
 
-        Assert.Contains("after OrderBy, Take or Skip", ex.Message);
+        Assert.Contains("operand whose projection runs in memory", ex.Message);
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public class SetOperationAfterClientDistinctPagingTests
             .Union(db.Table<H26pPagedRow>().Select(r => new { r.Id, Tags = new[] { r.A } }))
             .ToList());
 
-        Assert.Contains("after OrderBy, Take or Skip", ex.Message);
+        Assert.Contains("operand whose projection runs in memory", ex.Message);
     }
 
     private static List<H26pPagedRow> Rows()

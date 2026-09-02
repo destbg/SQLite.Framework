@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.ComponentModel.DataAnnotations;
 using SQLite.Framework;
+using SQLite.Framework.Internals.Helpers;
 using SQLite.Framework.Tests.Helpers;
 
 namespace SQLite.Framework.Tests;
@@ -47,6 +48,16 @@ internal sealed class JsonDictRow
 
 public class JsonCollectionBranchTests
 {
+    [Fact]
+    public void NullArrayQueryResultStaysNull()
+    {
+        using TestDatabase db = new();
+
+        int[]? actual = db.Query<int[]?>("SELECT NULL").Single();
+
+        Assert.Null(actual);
+    }
+
     [Fact]
     public void PrependProjectsToFront()
     {
@@ -105,33 +116,70 @@ public class JsonCollectionBranchTests
     }
 
     [Fact]
-    public void DerivedToHashSetThrowsClearError()
+    public void DerivedToHashSetMaterializesDistinctValues()
     {
         using TestDatabase db = new(b =>
             b.TypeConverters[typeof(List<int>)] = new SQLiteJsonConverter<List<int>>(TestJsonContext.Default.ListInt32));
         db.Table<JsonIntListRow>().Schema.CreateTable();
-        db.Table<JsonIntListRow>().Add(new JsonIntListRow { Id = 1, Numbers = [3, 1, 2, 5] });
+        List<int> seed = [3, 1, 2, 5, 2];
+        db.Table<JsonIntListRow>().Add(new JsonIntListRow { Id = 1, Numbers = seed });
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<JsonIntListRow>()
-                .Where(r => r.Id == 1)
-                .Select(r => r.Numbers.ToHashSet())
-                .First());
+        HashSet<int> expected = seed.ToHashSet();
+        HashSet<int> actual = db.Table<JsonIntListRow>()
+            .Where(r => r.Id == 1)
+            .Select(r => r.Numbers.ToHashSet())
+            .First();
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]
-    public void DerivedToArrayMaterializeThrowsClearError()
+    public void DerivedToArrayMaterializesFilteredValues()
     {
         using TestDatabase db = new(b =>
             b.TypeConverters[typeof(List<int>)] = new SQLiteJsonConverter<List<int>>(TestJsonContext.Default.ListInt32));
         db.Table<JsonIntListRow>().Schema.CreateTable();
         db.Table<JsonIntListRow>().Add(new JsonIntListRow { Id = 1, Numbers = [3, 1, 2, 5] });
 
-        Assert.Throws<NotSupportedException>(() =>
-            db.Table<JsonIntListRow>()
-                .Where(r => r.Id == 1)
-                .Select(r => r.Numbers.Where(x => x > 1).ToArray())
-                .First());
+        int[] expected = new List<int> { 3, 1, 2, 5 }.Where(x => x > 1).ToArray();
+        int[] actual = db.Table<JsonIntListRow>()
+            .Where(r => r.Id == 1)
+            .Select(r => r.Numbers.Where(x => x > 1).ToArray())
+            .First();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void DerivedToArrayPreservesNullAndEmptyCollections()
+    {
+        using TestDatabase db = new(b =>
+            b.TypeConverters[typeof(List<bool?>)] = new SQLiteJsonConverter<List<bool?>>(TestJsonContext.Default.ListNullableBoolean));
+        db.Table<JsonNullableBoolListRow>().Schema.CreateTable();
+        List<JsonNullableBoolListRow> seed =
+        [
+            new JsonNullableBoolListRow { Id = 1, Flags = [true, null, false] },
+            new JsonNullableBoolListRow { Id = 2, Flags = [] },
+        ];
+        db.Table<JsonNullableBoolListRow>().AddRange(seed);
+
+        List<bool?[]> expected = seed.OrderBy(r => r.Id).Select(r => r.Flags.ToArray()).ToList();
+        List<bool?[]> actual = db.Table<JsonNullableBoolListRow>().OrderBy(r => r.Id).Select(r => r.Flags.ToArray()).ToList();
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void CollectionMaterializerRejectsScalarsAndConvertsNullableNumbers()
+    {
+        using TestDatabase db = new();
+
+        Assert.Null(JsonCollectionMaterializer.TryBuild(typeof(int), db.Options));
+
+        Func<string, object?> materialize = JsonCollectionMaterializer.TryBuild(typeof(int?[]), db.Options)!;
+        int?[] actual = Assert.IsType<int?[]>(materialize("[1,2]"));
+
+        Assert.Equal(new int?[] { 1, 2 }, actual);
     }
 
     [Fact]

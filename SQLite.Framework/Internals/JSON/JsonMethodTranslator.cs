@@ -42,6 +42,11 @@ internal static class JsonMethodTranslator
             return null;
         }
 
+        if (TryDictionaryEntryContains(node, sourceExpr, visitor) is { } dictionaryContains)
+        {
+            return dictionaryContains;
+        }
+
         if (declaring == typeof(Enumerable))
         {
             return TryHandleChain(node, visitor) ?? TryEnumerable(node, visitor);
@@ -188,27 +193,42 @@ internal static class JsonMethodTranslator
 
     private static SQLiteExpression? TryDictionary(MethodCallExpression node, SQLVisitor visitor)
     {
-        if (node.Method.Name is not ("ContainsKey" or "get_Item")
-            || !ExpressionHelpers.IsConstant(node.Arguments[0]))
+        if (node.Method.Name == nameof(Dictionary<int, int>.ContainsValue))
+        {
+            SQLiteExpression source = visitor.ResolveExpression(node.Object!).SQLiteExpression!;
+            ResolvedModel argument = visitor.ResolveExpression(node.Arguments[0]);
+            (string valueSql, SQLiteParameter[]? valueParameters) = ResolveElementMatchArgument(visitor, argument);
+            string alias = $"j{visitor.Counters.NextTableIndex('j')}";
+            return SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(),
+                $"EXISTS (SELECT 1 FROM json_each({source}) AS {alias} WHERE {alias}.\"value\" IS {valueSql})",
+                CombineAll(source, SQLiteExpression.Leaf(typeof(object), -1, "", valueParameters)))
+                .WithJsonSource();
+        }
+
+        bool isContainsKey = node.Method.Name == nameof(Dictionary<int, int>.ContainsKey);
+        if (!isContainsKey && node.Method.Name != "get_Item")
         {
             return null;
         }
 
-        object? keyValue = ExpressionHelpers.GetConstantValue(node.Arguments[0]);
-        string? key = keyValue switch
+        if (!ExpressionHelpers.IsConstant(node.Arguments[0]))
         {
-            string text => text,
-            Enum enumKey => enumKey.ToString(),
-            _ => JsonTemporalText.TryFormat(keyValue, out string? temporalKey)
-                ? temporalKey
-                : keyValue is IFormattable formattable ? formattable.ToString(null, CultureInfo.InvariantCulture) : null
-        };
-
-        if (key == null)
-        {
-            return null;
+            SQLiteExpression source = visitor.ResolveExpression(node.Object!).SQLiteExpression!;
+            ResolvedModel argument = visitor.ResolveExpression(node.Arguments[0]);
+            (string keySql, SQLiteParameter[]? keyParameters) = ResolveDictionaryKeyArgument(visitor, argument);
+            string alias = $"j{visitor.Counters.NextTableIndex('j')}";
+            string sql = isContainsKey
+                ? $"EXISTS (SELECT 1 FROM json_each({source}) AS {alias} WHERE {alias}.\"key\" IS {keySql})"
+                : $"(SELECT {alias}.\"value\" FROM json_each({source}) AS {alias} WHERE {alias}.\"key\" IS {keySql})";
+            return SQLiteExpression.Leaf(node.Method.ReturnType, visitor.Counters.NextIdentifier(), sql,
+                CombineAll(source, SQLiteExpression.Leaf(typeof(object), -1, "", keyParameters)))
+                .WithJsonSource();
         }
 
+        object? keyValue = ExpressionHelpers.GetConstantValue(node.Arguments[0])
+            ?? throw new ArgumentNullException("key", "A JSON dictionary key cannot be null.");
+
+        string key = FormatDictionaryKey(keyValue);
         SQLiteExpression src = visitor.ResolveExpression(node.Object!).SQLiteExpression!;
         string path = "$.\"" + key.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
         SQLiteParameter pathParameter = new()
@@ -218,7 +238,7 @@ internal static class JsonMethodTranslator
         };
         SQLiteParameter[] parameters = [.. src.Parameters ?? [], pathParameter];
 
-        if (node.Method.Name == "ContainsKey")
+        if (isContainsKey)
         {
             return SQLiteExpression.Wrap(typeof(bool), visitor.Counters.NextIdentifier(),
                 "json_type(", src, $", {pathParameter.Name}) IS NOT NULL", parameters);
@@ -226,6 +246,80 @@ internal static class JsonMethodTranslator
 
         return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(),
             "json_extract(", src, $", {pathParameter.Name})", parameters).WithJsonSource();
+    }
+
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "The pair members are rooted by the query expression.")]
+    private static SQLiteExpression? TryDictionaryEntryContains(MethodCallExpression node, Expression? sourceExpression, SQLVisitor visitor)
+    {
+        if (node.Method.DeclaringType != typeof(Enumerable)
+            || node.Method.Name != nameof(Enumerable.Contains)
+            || node.Arguments.Count != 2
+            || !sourceExpression!.Type.IsGenericType
+            || sourceExpression!.Type.GetGenericTypeDefinition() != typeof(Dictionary<,>))
+        {
+            return null;
+        }
+
+        SQLiteExpression source = visitor.ResolveExpression(sourceExpression).SQLiteExpression!;
+        Expression keyExpression = Expression.Property(node.Arguments[1], nameof(KeyValuePair<int, int>.Key));
+        Expression valueExpression = Expression.Property(node.Arguments[1], nameof(KeyValuePair<int, int>.Value));
+        ResolvedModel key = visitor.ResolveExpression(keyExpression);
+        ResolvedModel value = visitor.ResolveExpression(valueExpression);
+        if (key is { IsConstant: true, Constant: null })
+        {
+            throw new ArgumentNullException(nameof(key), "A JSON dictionary key cannot be null.");
+        }
+
+        (string keySql, SQLiteParameter[]? keyParameters) = ResolveDictionaryKeyArgument(visitor, key);
+        (string valueSql, SQLiteParameter[]? valueParameters) = ResolveElementMatchArgument(visitor, value);
+        string alias = $"j{visitor.Counters.NextTableIndex('j')}";
+        return SQLiteExpression.Leaf(typeof(bool), visitor.Counters.NextIdentifier(),
+            $"EXISTS (SELECT 1 FROM json_each({source}) AS {alias} WHERE {alias}.\"key\" IS {keySql} AND {alias}.\"value\" IS {valueSql})",
+            CombineAll(
+                source,
+                SQLiteExpression.Leaf(typeof(object), -1, "", keyParameters),
+                SQLiteExpression.Leaf(typeof(object), -1, "", valueParameters)))
+            .WithJsonSource();
+    }
+
+    private static (string Sql, SQLiteParameter[]? Parameters) ResolveDictionaryKeyArgument(SQLVisitor visitor, ResolvedModel argument)
+    {
+        if (TryGetComparableConstant(argument, out object? value) && value != null)
+        {
+            string key = FormatDictionaryKey(value);
+            SQLiteExpression keyLeaf = SQLiteExpression.Leaf(typeof(string), visitor.Counters.NextIdentifier(), visitor.Counters.NextParamName(), key);
+            return (keyLeaf.ToString(), keyLeaf.Parameters);
+        }
+
+        SQLiteExpression expression = argument.SQLiteExpression!;
+        Type argumentType = expression.Type;
+        if (argumentType == typeof(string))
+        {
+            return (expression.ToString(), expression.Parameters);
+        }
+
+        if (argumentType == typeof(bool))
+        {
+            return ($"CASE WHEN {expression} THEN 'True' ELSE 'False' END", expression.Parameters);
+        }
+
+        if (argumentType.IsEnum)
+        {
+            SQLiteExpression enumName = EnumMemberVisitor.BuildEnumToNameText(visitor, argumentType, expression);
+            return (enumName.ToString(), enumName.Parameters);
+        }
+
+        return ($"CAST({expression} AS TEXT)", expression.Parameters);
+    }
+
+    private static string FormatDictionaryKey(object value)
+    {
+        if (JsonTemporalText.TryFormat(value, out string? temporalKey))
+        {
+            return temporalKey!;
+        }
+
+        return Convert.ToString(value, CultureInfo.InvariantCulture)!;
     }
 
     private static bool IsNonStringDictionaryKeys(Expression? expression)

@@ -96,16 +96,6 @@ internal static class QueryableMemberVisitor
             $"EXISTS ({Environment.NewLine}SELECT 1 FROM ({Environment.NewLine}{querySql}{Environment.NewLine}) WHERE \"{containsColumn}\" IS ", firstArg, ")", parameters);
     }
 
-    private static bool ContainsSourceIsDayOfWeekInteger(SQLTranslator translator)
-    {
-        if (translator.Selects.Count > 0)
-        {
-            return translator.Selects[0].IsDayOfWeekInteger;
-        }
-
-        return ((SQLiteExpression)translator.Visitor.TableColumns.Values.First()).IsDayOfWeekInteger;
-    }
-
     public static bool IsSystemMethod(MethodInfo method)
     {
         return method.DeclaringType?.Namespace is { } ns
@@ -136,13 +126,7 @@ internal static class QueryableMemberVisitor
             object? result;
             if (methodParameters.Length > 0 && methodParameters[0].ParameterType.IsByRefLike)
             {
-                result = node.Method.Name switch
-                {
-                    nameof(Enumerable.Contains) => enumerable.Cast<object?>().Contains(ExpressionHelpers.GetConstantValue(node.Arguments[1])),
-                    _ => throw new NotSupportedException(
-                        $"{node.Method.Name} over a constant collection is not translatable to SQL. " +
-                        "Materialize the collection into a List<T> first.")
-                };
+                result = ExpressionHelpers.GetConstantValue(node);
             }
             else
             {
@@ -167,18 +151,8 @@ internal static class QueryableMemberVisitor
         switch (node.Method.Name)
         {
             case nameof(Enumerable.Contains):
-            {
                 int itemIndex = node.Object == null ? 1 : 0;
-                SQLiteExpression itemExpr = visitor.PrepareKeyOperand(node.Arguments[itemIndex], arguments[itemIndex].SQLiteExpression!);
-                Type itemType = node.Arguments[itemIndex].Type;
-                List<object?> values = enumerable.Cast<object?>().ToList();
-                if (DayOfWeekHelpers.IsComputedDayOfWeek(node.Arguments[itemIndex]) || itemExpr.IsDayOfWeekInteger)
-                {
-                    itemType = typeof(int);
-                    values = values.Select(v => v is DayOfWeek dayOfWeek ? (object?)(int)dayOfWeek : v).ToList();
-                }
-                return BuildScalarInExpression(visitor, node.Method.ReturnType, itemExpr, itemType, values);
-            }
+                return BuildEnumerableContains(visitor, node, enumerable, itemIndex, arguments[itemIndex]);
         }
 
         return Expression.Call(node.Object, node.Method, node.Arguments.Select((argument, i) => visitor.ToClientOperand(argument, arguments[i])));
@@ -567,90 +541,118 @@ internal static class QueryableMemberVisitor
         return false;
     }
 
-    public static Expression? TryHandleConstantAnyPredicate(SQLVisitor visitor, MethodCallExpression node)
+    public static Expression? TryHandleLocalCollectionOperator(SQLVisitor visitor, MethodCallExpression node)
     {
-        if (node.Method.Name != nameof(Enumerable.Any)
-            || node.Arguments.Count != 2)
+        bool isSpanContains = node.Method.DeclaringType == typeof(MemoryExtensions)
+            && node.Method.Name == nameof(Enumerable.Contains)
+            && node.Arguments.Count == 2;
+        if (node.Method.DeclaringType != typeof(Enumerable) && !isSpanContains)
         {
             return null;
         }
 
-        if (!ExpressionHelpers.IsConstant(node.Arguments[0])
-            || ExpressionHelpers.GetConstantValue(node.Arguments[0]) is not IEnumerable enumerable)
+        bool isAny = node.Method.Name == nameof(Enumerable.Any) && node.Arguments.Count == 2;
+        bool isCount = (node.Method.Name is nameof(Enumerable.Count) or nameof(Enumerable.LongCount))
+            && node.Arguments.Count == 2;
+        bool isContains = node.Method.Name == nameof(Enumerable.Contains) && node.Arguments.Count == 2;
+        if (!isAny && !isCount && !isContains)
         {
             return null;
         }
 
-        if (ExpressionHelpers.StripQuotes(node.Arguments[1]) is not LambdaExpression lambda)
+        LambdaExpression? terminalLambda = null;
+        if (!isContains)
         {
-            return null;
-        }
-
-        ParameterExpression element = lambda.Parameters[0];
-        List<Expression> conjuncts = [];
-        FlattenAndAlso(lambda.Body, conjuncts);
-
-        List<Expression> keySides = new(conjuncts.Count);
-        List<Expression> valueSides = new(conjuncts.Count);
-        foreach (Expression conjunct in conjuncts)
-        {
-            if (conjunct is not BinaryExpression { NodeType: ExpressionType.Equal } equality)
+            terminalLambda = ExpressionHelpers.StripQuotes(node.Arguments[1]) as LambdaExpression;
+            if (terminalLambda == null)
             {
                 return null;
             }
-
-            ParameterReferenceVisitor leftRefs = new(element);
-            leftRefs.Visit(equality.Left);
-            ParameterReferenceVisitor rightRefs = new(element);
-            rightRefs.Visit(equality.Right);
-
-            if (leftRefs.ReferencesTarget == rightRefs.ReferencesTarget)
-            {
-                return null;
-            }
-
-            bool leftIsValue = leftRefs.ReferencesTarget;
-            ParameterReferenceVisitor valueRefs = leftIsValue ? leftRefs : rightRefs;
-            if (valueRefs.ReferencesOther)
-            {
-                return null;
-            }
-
-            valueSides.Add(StripConversions(leftIsValue ? equality.Left : equality.Right));
-            keySides.Add(StripConversions(leftIsValue ? equality.Right : equality.Left));
         }
 
-        List<object?[]>? rows = MaterializeRows(enumerable, valueSides, element);
-        if (rows == null)
+        Expression source = isSpanContains
+            ? StripSpanConversion(node.Arguments[0])
+            : node.Arguments[0];
+        List<LambdaExpression> sourceFilters = [];
+        while (source is MethodCallExpression whereCall
+            && whereCall.Method.DeclaringType == typeof(Enumerable)
+            && whereCall.Method.Name == nameof(Enumerable.Where)
+            && whereCall.Arguments.Count == 2
+            && ExpressionHelpers.StripQuotes(whereCall.Arguments[1]) is LambdaExpression { Parameters.Count: 1 } whereLambda)
         {
-            return null;
+            sourceFilters.Add(whereLambda);
+            source = whereCall.Arguments[0];
         }
 
-        List<SQLiteExpression> keyColumns = new(keySides.Count);
-        foreach (Expression keySide in keySides)
+        if (!IsEvaluableLocalCollectionSource(source))
         {
-            SQLiteExpression? keyColumn = visitor.TryResolveColumnLeaf(keySide);
-            if (keyColumn == null)
+            if (isContains && source is NewArrayExpression { NodeType: ExpressionType.NewArrayBounds })
             {
-                return null;
+                return visitor.NotTranslatable(node, "Contains over an array created with a row-dependent length is not translatable to SQL.");
             }
 
-            keyColumns.Add(keyColumn);
+            return isContains && sourceFilters.Count == 0 && source is NewArrayExpression { NodeType: ExpressionType.NewArrayInit } inlineArray
+                ? BuildInlineArrayContains(visitor, node, inlineArray)
+                : null;
         }
 
-        Type returnType = node.Method.ReturnType;
-        if (keyColumns.Count == 1)
+        object? sourceValue = ExpressionHelpers.GetConstantValue(source);
+        if (sourceValue == null && !isSpanContains)
         {
-            List<object?> values = new(rows.Count);
-            foreach (object?[] row in rows)
-            {
-                values.Add(row[0]);
-            }
-
-            return BuildScalarInExpression(visitor, returnType, keyColumns[0], valueSides[0].Type, values);
+            throw new ArgumentNullException(nameof(source), "The local collection used by Contains cannot be null.");
         }
 
-        return BuildRowValueInExpression(visitor, returnType, keyColumns, rows);
+        IEnumerable enumerable = sourceValue == null
+            ? Array.Empty<object?>()
+            : (IEnumerable)sourceValue;
+
+        if (isContains && sourceFilters.Count == 0)
+        {
+            ResolvedModel item = visitor.ResolveExpression(node.Arguments[1]);
+            return item.SQLiteExpression == null
+                ? null
+                : BuildEnumerableContains(visitor, node, enumerable, 1, item);
+        }
+
+        Type elementType = node.Method.GetGenericArguments()[0];
+        ParameterExpression element = isContains
+            ? Expression.Parameter(elementType, "local")
+            : terminalLambda!.Parameters[0];
+        Expression predicate = isContains
+            ? Expression.Equal(element, node.Arguments[1])
+            : terminalLambda!.Body;
+
+        for (int i = sourceFilters.Count - 1; i >= 0; i--)
+        {
+            LambdaExpression filter = sourceFilters[i];
+            Expression filterBody = new ParameterSubstitutor(filter.Parameters[0], element).Visit(filter.Body);
+            predicate = Expression.AndAlso(filterBody, predicate);
+        }
+
+        List<object?> items = enumerable.Cast<object?>().ToList();
+        return BuildLocalCollectionExpression(visitor, node.Method.ReturnType, element, predicate, items, isAny || isContains);
+    }
+
+    public static bool IsEvaluableLocalCollectionSource(Expression source)
+    {
+        if (ExpressionHelpers.IsConstant(source)
+            || source is MethodCallExpression methodCall && ExpressionHelpers.IsConstantMethodCall(methodCall))
+        {
+            return true;
+        }
+
+        return source is NewArrayExpression { NodeType: ExpressionType.NewArrayInit } array
+            && array.Expressions.All(IsSafeLocalCollectionValue);
+    }
+
+    private static bool ContainsSourceIsDayOfWeekInteger(SQLTranslator translator)
+    {
+        if (translator.Selects.Count > 0)
+        {
+            return translator.Selects[0].IsDayOfWeekInteger;
+        }
+
+        return ((SQLiteExpression)translator.Visitor.TableColumns.Values.First()).IsDayOfWeekInteger;
     }
 
     private static bool TryPeelDistinct(ref Expression receiver)
@@ -744,6 +746,18 @@ internal static class QueryableMemberVisitor
             filterExpression.Parameters);
     }
 
+    private static Expression BuildInlineArrayContains(SQLVisitor visitor, MethodCallExpression node, NewArrayExpression source)
+    {
+        Expression item = node.Arguments[1];
+        Expression predicate = Expression.Equal(source.Expressions[0], item);
+        for (int i = 1; i < source.Expressions.Count; i++)
+        {
+            predicate = Expression.OrElse(predicate, Expression.Equal(source.Expressions[i], item));
+        }
+
+        return visitor.Visit(predicate);
+    }
+
     private static SQLiteExpression AggregateExpression(SQLVisitor visitor, MethodCallExpression node, string aggregateFunction, SQLiteExpression? sqlExpression, SQLiteExpression? filterExpression)
     {
         SQLiteExpression target;
@@ -815,50 +829,229 @@ internal static class QueryableMemberVisitor
         return filtered;
     }
 
-    private static Expression StripConversions(Expression expression)
+    private static SQLiteExpression? BuildLocalCollectionExpression(SQLVisitor visitor, Type returnType, ParameterExpression element, Expression predicate, List<object?> items, bool isAny)
     {
-        while (expression is UnaryExpression { NodeType: ExpressionType.Convert } convert)
+        if (items.Count == 0)
         {
-            expression = convert.Operand;
+            return SQLiteExpression.Leaf(returnType, visitor.Counters.NextIdentifier(), "0");
+        }
+
+        LocalCollectionPathCollector collector = new(element);
+        collector.Visit(predicate);
+        if (collector.ReadsWholeParameter && !TypeHelpers.IsSimple(element.Type, visitor.Database.Options))
+        {
+            return null;
+        }
+
+        List<KeyValuePair<string, Expression>> paths = collector.Paths.ToList();
+        if (collector.ReadsWholeParameter || collector.HasNullCheck)
+        {
+            paths.Insert(0, new KeyValuePair<string, Expression>(string.Empty, element));
+        }
+
+        if (paths.Count == 0)
+        {
+            if (visitor.Visit(predicate) is not SQLiteExpression sqlPredicate)
+            {
+                return null;
+            }
+
+            return isAny
+                ? sqlPredicate
+                : SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), $"(CASE WHEN ", sqlPredicate, $" THEN {items.Count} ELSE 0 END)", sqlPredicate.Parameters);
+        }
+
+        HashSet<string> jsonComparedPaths = [];
+        CollectJsonComparedPaths(visitor, predicate, element, jsonComparedPaths);
+
+        string alias = $"l{visitor.Counters.NextTableIndex('l')}";
+        Dictionary<string, Expression> localColumns = new(StringComparer.Ordinal);
+        for (int i = 0; i < paths.Count; i++)
+        {
+            localColumns[paths[i].Key] = SQLiteExpression.Leaf(
+                paths[i].Value.Type,
+                visitor.Counters.NextIdentifier(),
+                $"{alias}.\"column{i + 1}\"");
+        }
+
+        visitor.MethodArguments[element] = localColumns;
+        visitor.OptionalRowColumns.Add(localColumns);
+        SQLiteExpression sqlFilter;
+        try
+        {
+            if (visitor.Visit(predicate) is not SQLiteExpression resolvedFilter)
+            {
+                return null;
+            }
+
+            sqlFilter = resolvedFilter;
+        }
+        finally
+        {
+            visitor.MethodArguments.Remove(element);
+            visitor.OptionalRowColumns.Remove(localColumns);
+        }
+
+        List<SQLiteParameter> valueParameters = new(items.Count * paths.Count);
+        StringBuilder valuesSql = StringBuilderPool.Rent();
+        valuesSql.Append(isAny ? "EXISTS (SELECT 1 FROM (VALUES " : "(SELECT COUNT(*) FROM (VALUES ");
+        for (int rowIndex = 0; rowIndex < items.Count; rowIndex++)
+        {
+            if (rowIndex > 0)
+            {
+                valuesSql.Append(", ");
+            }
+
+            valuesSql.Append('(');
+            Expression replacement = Expression.Constant(items[rowIndex], element.Type);
+            ParameterSubstitutor substitutor = new(element, replacement);
+            for (int columnIndex = 0; columnIndex < paths.Count; columnIndex++)
+            {
+                if (columnIndex > 0)
+                {
+                    valuesSql.Append(", ");
+                }
+
+                Expression valueExpression = substitutor.Visit(paths[columnIndex].Value);
+                bool complexElement = !TypeHelpers.IsSimple(element.Type, visitor.Database.Options);
+                object? value = complexElement && items[rowIndex] == null
+                    ? null
+                    : paths[columnIndex].Key.Length == 0 && complexElement
+                        ? 1
+                        : ExpressionHelpers.GetConstantValue(valueExpression);
+                Type declaredType = paths[columnIndex].Value.Type;
+                if (paths[columnIndex].Key.Length == 0 && complexElement)
+                {
+                    declaredType = typeof(int);
+                }
+                if (jsonComparedPaths.Contains(paths[columnIndex].Key))
+                {
+                    value = JsonValueText.NormalizeInValue(visitor.Database.Options, isJsonSource: true, value);
+                }
+
+                string parameterName = visitor.Counters.NextParamName();
+                valuesSql.Append(parameterName);
+                valueParameters.Add(new SQLiteParameter
+                {
+                    Name = parameterName,
+                    Value = value,
+                    DeclaredType = declaredType,
+                    InlineIfParameterLimitExceeded = true
+                });
+            }
+
+            valuesSql.Append(')');
+        }
+
+        valuesSql.Append(") AS ");
+        valuesSql.Append(alias);
+        valuesSql.Append(" WHERE ");
+        sqlFilter.WriteSqlTo(valuesSql);
+        valuesSql.Append(')');
+
+        SQLiteParameter[] parameters = [.. valueParameters, .. sqlFilter.Parameters ?? []];
+        return SQLiteExpression.Leaf(
+            returnType,
+            visitor.Counters.NextIdentifier(),
+            StringBuilderPool.ToStringAndReturn(valuesSql),
+            parameters);
+    }
+
+    private static bool IsSafeLocalCollectionValue(Expression expression)
+    {
+        if (ExpressionHelpers.IsConstant(expression))
+        {
+            return true;
+        }
+
+        if (expression is not MethodCallExpression methodCall)
+        {
+            return false;
+        }
+
+        if (!IsSystemMethod(methodCall.Method))
+        {
+            return false;
+        }
+
+        return ExpressionHelpers.IsConstantMethodCall(methodCall);
+    }
+
+    private static Expression StripSpanConversion(Expression expression)
+    {
+        while (expression is MethodCallExpression { Method.Name: "op_Implicit", Arguments.Count: 1 } conversion)
+        {
+            expression = conversion.Arguments[0];
         }
 
         return expression;
     }
 
-    private static void FlattenAndAlso(Expression expression, List<Expression> conjuncts)
+    private static void CollectJsonComparedPaths(SQLVisitor visitor, Expression expression, ParameterExpression element, HashSet<string> paths)
     {
-        if (expression is BinaryExpression { NodeType: ExpressionType.AndAlso } andAlso)
+        if (expression is not BinaryExpression binary)
         {
-            FlattenAndAlso(andAlso.Left, conjuncts);
-            FlattenAndAlso(andAlso.Right, conjuncts);
             return;
         }
 
-        conjuncts.Add(expression);
-    }
-
-    private static List<object?[]>? MaterializeRows(IEnumerable enumerable, List<Expression> valueSides, ParameterExpression element)
-    {
-        List<object?[]> rows = [];
-        foreach (object? item in enumerable)
+        if (LocalCollectionPath(binary.Left, element) is { } leftPath
+            && IsJsonSourceExpression(visitor, binary.Right, element))
         {
-            ParameterSubstitutor substitutor = new(element, Expression.Constant(item, element.Type));
-            object?[] row = new object?[valueSides.Count];
-            for (int i = 0; i < valueSides.Count; i++)
-            {
-                Expression resolved = substitutor.Visit(valueSides[i]);
-                if (!ExpressionHelpers.IsConstant(resolved))
-                {
-                    return null;
-                }
-
-                row[i] = ExpressionHelpers.GetConstantValue(resolved);
-            }
-
-            rows.Add(row);
+            paths.Add(leftPath);
         }
 
-        return rows;
+        if (LocalCollectionPath(binary.Right, element) is { } rightPath
+            && IsJsonSourceExpression(visitor, binary.Left, element))
+        {
+            paths.Add(rightPath);
+        }
+
+        CollectJsonComparedPaths(visitor, binary.Left, element, paths);
+        CollectJsonComparedPaths(visitor, binary.Right, element, paths);
+    }
+
+    private static bool IsJsonSourceExpression(SQLVisitor visitor, Expression expression, ParameterExpression element)
+    {
+        ParameterUsageFinderVisitor usage = new(element);
+        usage.Visit(expression);
+        if (usage.Found || ExpressionHelpers.IsConstant(expression))
+        {
+            return false;
+        }
+
+        while (expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert)
+        {
+            expression = convert.Operand;
+        }
+
+        if (expression is MemberExpression member
+            && visitor.Database.Options.HasJsonConverter(member.Expression!.Type))
+        {
+            return true;
+        }
+
+        return visitor.ResolveExpression(expression).SQLiteExpression is { IsJsonSource: true };
+    }
+
+    private static string? LocalCollectionPath(Expression expression, ParameterExpression element)
+    {
+        while (expression is UnaryExpression { NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked } convert)
+        {
+            expression = convert.Operand;
+        }
+
+        if (expression == element)
+        {
+            return string.Empty;
+        }
+
+        if (expression is MemberExpression member)
+        {
+            (string path, ParameterExpression? root) = ExpressionHelpers.ResolveNullableParameterPath(member);
+            return root == element ? path : null;
+        }
+
+        return null;
     }
 
     private static bool ConvertsToDatabaseNull(SQLVisitor visitor, object value, Type? declaredType)
@@ -878,11 +1071,28 @@ internal static class QueryableMemberVisitor
         return value;
     }
 
+    private static SQLiteExpression BuildEnumerableContains(SQLVisitor visitor, MethodCallExpression node, IEnumerable enumerable, int itemIndex, ResolvedModel item)
+    {
+        SQLiteExpression itemExpression = visitor.PrepareKeyOperand(
+            node.Arguments[itemIndex],
+            item.SQLiteExpression!);
+        Type itemType = node.Arguments[itemIndex].Type;
+        List<object?> values = enumerable.Cast<object?>().ToList();
+        if (DayOfWeekHelpers.IsComputedDayOfWeek(node.Arguments[itemIndex]) || itemExpression.IsDayOfWeekInteger)
+        {
+            itemType = typeof(int);
+            values = values.Select(value => value is DayOfWeek dayOfWeek ? (object?)(int)dayOfWeek : value).ToList();
+        }
+
+        return BuildScalarInExpression(visitor, node.Method.ReturnType, itemExpression, itemType, values);
+    }
+
     private static SQLiteExpression BuildScalarInExpression(SQLVisitor visitor, Type returnType, SQLiteExpression itemExpr, Type itemType, IReadOnlyList<object?> values)
     {
         itemExpr = visitor.CastTextDecimalForOrdering(itemExpr);
         bool hasNull = false;
         List<SQLiteParameter> valueParameters = new(values.Count);
+        List<string> valueSql = new(values.Count);
         for (int i = 0; i < values.Count; i++)
         {
             object? value = values[i];
@@ -894,31 +1104,34 @@ internal static class QueryableMemberVisitor
 
             value = NormalizeInListValue(visitor, itemExpr.IsJsonSource, value);
 
-            valueParameters.Add(new SQLiteParameter
+            SQLiteParameter parameter = new()
             {
                 Name = visitor.Counters.NextParamName(),
                 Value = value,
-                DeclaredType = itemType
-            });
+                DeclaredType = itemType,
+                InlineIfParameterLimitExceeded = true
+            };
+            valueParameters.Add(parameter);
+            valueSql.Add(parameter.Name);
         }
 
         SQLiteParameter[] parameters = valueParameters.ToArray();
 
-        if (parameters.Length == 0 && !hasNull)
+        if (valueSql.Count == 0 && !hasNull)
         {
             return SQLiteExpression.Leaf(returnType, visitor.Counters.NextIdentifier(), "0 = 1", itemExpr.Parameters);
         }
 
-        if (parameters.Length == 0)
+        if (valueSql.Count == 0)
         {
             return SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "", itemExpr, " IS NULL", itemExpr.Parameters);
         }
 
         StringBuilder paramSb = new(" IN (");
-        for (int i = 0; i < parameters.Length; i++)
+        for (int i = 0; i < valueSql.Count; i++)
         {
             if (i > 0) paramSb.Append(", ");
-            paramSb.Append(parameters[i].Name);
+            paramSb.Append(valueSql[i]);
         }
 
         paramSb.Append(')');
@@ -940,140 +1153,5 @@ internal static class QueryableMemberVisitor
             ["(", paramSb.ToString() + " OR ", " IS NULL)"],
             [itemExpr, itemExpr],
             allParameters);
-    }
-
-    private static SQLiteExpression BuildRowValueInExpression(SQLVisitor visitor, Type returnType, List<SQLiteExpression> keyColumns, List<object?[]> rows)
-    {
-        int columnCount = keyColumns.Count;
-
-        for (int c = 0; c < columnCount; c++)
-        {
-            keyColumns[c] = visitor.CastTextDecimalForOrdering(keyColumns[c]);
-        }
-
-        foreach (object?[] row in rows)
-        {
-            for (int c = 0; c < columnCount; c++)
-            {
-                row[c] = NormalizeInListValue(visitor, keyColumns[c].IsJsonSource, row[c]);
-            }
-        }
-
-        List<object?[]> pureRows = [];
-        List<object?[]> nullRows = [];
-        foreach (object?[] row in rows)
-        {
-            bool rowHasNull = false;
-            for (int c = 0; c < columnCount; c++)
-            {
-                if (row[c] is null)
-                {
-                    rowHasNull = true;
-                    break;
-                }
-            }
-
-            (rowHasNull ? nullRows : pureRows).Add(row);
-        }
-
-        if (pureRows.Count == 0 && nullRows.Count == 0)
-        {
-            return SQLiteExpression.Leaf(returnType, visitor.Counters.NextIdentifier(), "0 = 1", ParameterHelpers.CombineParameters(keyColumns));
-        }
-
-        bool emitInClause = pureRows.Count > 0;
-#if SQLITE_FRAMEWORK_VERSION_AWARE
-        emitInClause = emitInClause && visitor.Database.Options.OverMinimumVersion(SQLiteMinimumVersion.V3_15);
-#endif
-
-        bool anyKeyNullable = false;
-        foreach (SQLiteExpression keyColumn in keyColumns)
-        {
-            Type keyType = keyColumn.Type;
-            if (!keyType.IsValueType || Nullable.GetUnderlyingType(keyType) != null)
-            {
-                anyKeyNullable = true;
-                break;
-            }
-        }
-
-        List<object?[]> orRows = emitInClause ? nullRows : rows;
-        bool wrapIsOne = emitInClause && anyKeyNullable;
-        int clauseCount = (emitInClause ? 1 : 0) + orRows.Count;
-
-        List<string> parts = [];
-        List<SQLiteExpression> children = [];
-        List<SQLiteParameter> valueParameters = [];
-        StringBuilder pending = StringBuilderPool.Rent();
-        pending.Append(wrapIsOne ? "((" : clauseCount >= 2 ? "(" : "");
-
-        bool firstClause = true;
-        if (emitInClause)
-        {
-            pending.Append('(');
-            for (int c = 0; c < columnCount; c++)
-            {
-                if (c > 0) pending.Append(", ");
-                parts.Add(pending.ToString());
-                pending.Clear();
-                children.Add(keyColumns[c]);
-            }
-
-            pending.Append(") IN (");
-            for (int r = 0; r < pureRows.Count; r++)
-            {
-                if (r > 0) pending.Append(", ");
-                pending.Append('(');
-                for (int c = 0; c < columnCount; c++)
-                {
-                    if (c > 0) pending.Append(", ");
-                    string paramName = visitor.Counters.NextParamName();
-                    valueParameters.Add(new SQLiteParameter
-                    {
-                        Name = paramName,
-                        Value = pureRows[r][c],
-                        DeclaredType = keyColumns[c].Type
-                    });
-                    pending.Append(paramName);
-                }
-
-                pending.Append(')');
-            }
-
-            pending.Append(')');
-            firstClause = false;
-        }
-
-        foreach (object?[] row in orRows)
-        {
-            if (!firstClause) pending.Append(" OR ");
-            pending.Append('(');
-            for (int c = 0; c < columnCount; c++)
-            {
-                if (c > 0) pending.Append(" AND ");
-                parts.Add(pending.ToString());
-                pending.Clear();
-                children.Add(keyColumns[c]);
-                pending.Append(" IS ");
-                if (row[c] is null)
-                {
-                    pending.Append("NULL");
-                }
-                else
-                {
-                    string paramName = visitor.Counters.NextParamName();
-                    valueParameters.Add(new SQLiteParameter { Name = paramName, Value = row[c], DeclaredType = keyColumns[c].Type });
-                    pending.Append(paramName);
-                }
-            }
-
-            pending.Append(')');
-            firstClause = false;
-        }
-
-        pending.Append(wrapIsOne ? ") IS 1)" : clauseCount >= 2 ? ")" : "");
-        parts.Add(StringBuilderPool.ToStringAndReturn(pending));
-
-        return SQLiteExpression.Multi(returnType, visitor.Counters.NextIdentifier(), parts.ToArray(), children.ToArray(), valueParameters.ToArray());
     }
 }
