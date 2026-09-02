@@ -8,7 +8,7 @@ A small ORM that lets you use LINQ on a SQLite database. If you have used Entity
 
 `db.Table<T>()` returns a `SQLiteTable<T>`. That class implements `IQueryable<T>`, so any LINQ method works on it.
 
-The framework keeps the generated SQL close to the shape of the LINQ query you wrote. It does not wrap the query in an extra subquery or rewrite it behind your back just to make a LINQ method work. If a method cannot be mapped to SQL cleanly, you get a clear `NotSupportedException` instead of a silently wrong result or a surprising query plan.
+The framework keeps the generated SQL close to the shape of the LINQ query you wrote. It adds a subquery when a LINQ operation needs a SQL query boundary, such as composition after a set operation or filtering on a window value. If a method cannot be mapped safely, you get a clear `NotSupportedException` instead of a silently wrong result.
 
 ## Packages
 
@@ -19,7 +19,7 @@ The framework keeps the generated SQL close to the shape of the LINQ query you w
 | `SQLite.Framework.Cipher` | SQLCipher for encrypted databases. |
 | `SQLite.Framework.Base` | No SQLite provider included. You bring your own. |
 | `SQLite.Framework.DependencyInjection` | `AddSQLiteDatabase` for `IServiceCollection`. |
-| `SQLite.Framework.SourceGenerator` | Build-time materializers. Required for AOT. |
+| `SQLite.Framework.SourceGenerator` | Build-time entity, projection and JSON collection materializers. Required for AOT. |
 
 The first four packages expose the same API and assembly name, so you can swap between them without changing your code. Make sure all installed packages have the same version.
 
@@ -279,6 +279,8 @@ Inside `Where` and `Select` you can use:
 - Strings: `Length`, `ToUpper`, `ToLower`, `Trim`, `Contains`, `StartsWith`, `EndsWith`, `Replace`, `Substring`, `IndexOf`, `+` and `Concat`, `string.Join`, `string.IsNullOrEmpty` and `string.IsNullOrWhiteSpace`. `StringComparison.OrdinalIgnoreCase` works on `Contains`, `StartsWith` and `EndsWith`.
 - Math: `Math.Abs`, `Round`, `Floor`, `Ceiling`, `Pow`, `Sqrt`, `Exp`, `Log`, `Log10`, `Sign`, `Max`, `Min`.
 - `DateTime`, `DateOnly`, `TimeOnly`, `DateTimeOffset` and `TimeSpan` parts (`Year`, `Month`, `Day`, `Hour`, `DayOfWeek` and so on) plus arithmetic methods (`AddDays`, `Subtract` and friends).
+- `DateTime.IsLeapYear` over a constant, captured year or translated integer expression.
+- Binary data: `byte[]` length, equality and `Contains` of one byte.
 - The `??` operator turns into `COALESCE`.
 - Captured local variables become parameters automatically.
 

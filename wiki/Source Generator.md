@@ -1,6 +1,6 @@
 # Source Generator
 
-`SQLite.Framework.SourceGenerator` is an optional package that produces materializers for your entities and `Select` projections at build time. A materializer is the small piece of code that reads column values from a SQLite row and builds a .NET object out of them.
+`SQLite.Framework.SourceGenerator` is an optional package that produces materializers for your entities, `Select` projections and projected JSON collection results at build time. A materializer is the small piece of code that reads column values from a SQLite row and builds a .NET object out of them.
 
 Without the source generator, SQLite.Framework walks the expression tree of every query at runtime and uses reflection to create the result objects. That works fine on normal .NET but it has two costs. Every row goes through reflected constructor, property and method calls, so startup and per-query cost stay higher than they need to be. And the expression tree methods the C# compiler generates for a `Select` (like `Expression.New` and `Expression.Bind`) are annotated with `[RequiresUnreferencedCode]`, which produces trimmer warnings under `PublishAot`. The trimmer can also strip types that are only reached through reflection.
 
@@ -61,7 +61,7 @@ SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
 using SQLiteDatabase db = new(options);
 ```
 
-`UseGeneratedMaterializers` is an extension method written by the generator itself. It lives in the `SQLite.Framework.Generated` namespace, so add the `using` line shown above. It fills in the `EntityMaterializers` and `SelectMaterializers` dictionaries on the builder. After that, every query uses the generated code and falls back to the runtime path only for shapes the generator does not cover yet.
+`UseGeneratedMaterializers` is an extension method written by the generator itself. It lives in the `SQLite.Framework.Generated` namespace, so add the `using` line shown above. It registers the generated entity, projection, grouping and JSON collection helpers on the builder. After that, every query uses the generated code and falls back to the runtime path only for shapes the generator does not cover yet.
 
 That is all the setup that is needed. Write LINQ queries the same way you do without the generator:
 
@@ -85,7 +85,7 @@ SQLiteOptions options = new SQLiteOptionsBuilder("app.db")
     .Build();
 ```
 
-With this set, any query that would otherwise use the runtime reflection path throws an `InvalidOperationException` at the moment the query runs. This covers both entity materialization (for example when `db.Table<T>()` hits a type the generator did not cover) and `Select` projections (shapes the generator skipped).
+With this set, any query that would otherwise use the runtime reflection path throws an `InvalidOperationException` at the moment the query runs. This covers entity materialization, `Select` projections and projected collection results whose concrete collection type the generator did not register.
 
 With the flag on, unsupported shapes fail in your test suite instead of falling back. With it off, they fall back to the runtime path.
 
@@ -115,7 +115,7 @@ If all your queries live in one project (the common case for small apps), instal
 
 ## What the generator covers
 
-The generator produces two kinds of materializers.
+The generator produces several helpers. Its three result-materialization paths are:
 
 **Entity materializers** map a row to a .NET class. The generator scans every `db.Table<T>()`, `db.Query<T>`, `db.FromSql<T>`, `db.With<T>`, `.Cast<T>()`, `.OfType<T>()` and `command.ExecuteQuery<T>()` call to find target types. It also scans `Select` and `SelectMany` projection result types and the types produced by `select` clauses in query syntax. Nested private and `file sealed` classes work through a reflection-based materializer that is still registered per type, so the runtime never falls back.
 
@@ -128,6 +128,10 @@ The generator produces two kinds of materializers.
 - Captured locals from the surrounding method like `Select(b => new { b.Id, Prefix = prefix + b.Title })`
 - Joins and group joins written in query syntax.
 - Anonymous types returned from chains, with correct member names preserved.
+
+**JSON collection materializers** read a projected `List<T>`, `T[]` or `HashSet<T>` without runtime reflection. The generator discovers the concrete result type from a `Select` projection.
+
+The generator also emits GroupBy key and grouping-query helpers plus entity column writers.
 
 Shapes that still fall back to the runtime path include anonymous types whose members use a type with a custom converter (for example a user-defined `struct` bound through `AddTypeConverter`). Turn on `DisableReflectionFallback` to make the first such query throw instead of silently using reflection.
 
@@ -187,7 +191,7 @@ If you publish with `PublishAot=true`, the source generator is the recommended w
 
 ## How it works
 
-For each `db.Table<T>()` call and each `Select(...)` lambda in your code, the generator emits a method that reads the right columns from the row and creates the result object. At runtime, SQLite.Framework looks up the method in a dictionary keyed by the entity type (for entities) or by a canonical signature of the lambda body (for `Select` projections). If it finds one, it calls it. If it does not, it builds the materializer the normal way using reflection.
+For each `db.Table<T>()` call and each `Select(...)` lambda in your code, the generator emits methods that read the right columns and create the result. At runtime, SQLite.Framework looks them up by entity type, projection signature or declared collection result type. If no generated helper covers the shape, it builds the materializer through reflection.
 
 For generic helpers, the generator additionally builds an index of every closed type-argument tuple it sees at any callsite of every generic method and generic class in the project. When a helper's body uses an open type parameter as the projection or `ExecuteQuery<T>` argument, the generator substitutes each tuple from the index and emits one materializer per concrete substitution.
 

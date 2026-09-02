@@ -56,6 +56,15 @@ SQLiteWindowFunctions.RowNumber()
     .OrderBy(o.Date)
 ```
 
+You can also pass an anonymous object as a composite key. Each member becomes one partition column:
+
+```csharp
+SQLiteWindowFunctions.RowNumber()
+    .Over()
+    .PartitionBy(new { o.Year, o.CustomerId })
+    .OrderBy(o.Date)
+```
+
 ### Order
 
 `OrderBy` and `OrderByDescending` control the order of rows within the window. Use `ThenOrderBy` and `ThenOrderByDescending` for secondary sort keys.
@@ -66,6 +75,15 @@ SQLiteWindowFunctions.Rank()
     .PartitionBy(o.CustomerId)
     .OrderByDescending(o.Amount)
     .ThenOrderBy(o.Id)
+```
+
+`OrderBy`, `OrderByDescending`, `ThenOrderBy` and `ThenOrderByDescending` also accept an anonymous object to add several keys at once:
+
+```csharp
+SQLiteWindowFunctions.Rank()
+    .Over()
+    .OrderBy(new { o.CustomerId, o.Date })
+    .ThenOrderByDescending(o.Amount)
 ```
 
 ### Frame
@@ -226,6 +244,22 @@ var results = await db.Table<Order>()
     })
     .ToListAsync();
 ```
+
+## Filtering and Grouping by a Window Value
+
+A window value can be used directly in `Where`, a `GroupBy` key or a predicate passed to a scalar operation such as `Count`, `Any`, `All`, `First` or `Single`.
+
+```csharp
+var topThree = await db.Table<Order>()
+    .Where(o => SQLiteWindowFunctions.RowNumber()
+        .Over()
+        .PartitionBy(o.CustomerId)
+        .OrderByDescending(o.Amount)
+        .AsValue() <= 3)
+    .ToListAsync();
+```
+
+The framework computes the window value in an inner query and applies the predicate outside it, because SQLite does not allow window functions directly in `WHERE`.
 
 ## Native AOT
 

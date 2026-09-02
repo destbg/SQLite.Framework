@@ -57,6 +57,8 @@ var rows = await db.Table<Sale>().OrderBy(s => s.Region).OrderBy(s => s.Total).T
 
 `Union`, `Intersect` and `Except` return rows in sorted order and dedup by value, not by reference or first appearance. `Concat` keeps first-appearance order.
 
+An `OrderBy` at the end of one `Union`, `Concat`, `Intersect` or `Except` operand is rejected unless that operand also uses `Skip` or `Take`. SQL does not preserve an otherwise unused order inside a combined query.
+
 `GroupBy` returns groups in key order, not the first-seen order that LINQ-to-Objects uses.
 
 ## Query operators
@@ -107,6 +109,8 @@ var earlier = await db.Table<Event>().Where(e => e.Start < cutoff).ToListAsync()
 A value stored as `Text` compares and orders by the stored string, not by its value. This covers `enum`, `TimeSpan`, `DateOnly`, `TimeOnly`, `DateTime` and `decimal`.
 
 Date and time component access (`.Year`, `.Day`, `.Days`, ...) in `Where`/`OrderBy` needs `Integer` or `Ticks` storage. On `Text` storage it throws.
+
+`DateTime.IsLeapYear` outside a root `Select` follows SQLite's date rules for an integer outside 1 through 9999 instead of throwing `ArgumentOutOfRangeException`.
 
 ## JSON
 

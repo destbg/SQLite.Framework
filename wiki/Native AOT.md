@@ -4,7 +4,7 @@ Native AOT compiles your application into a standalone native binary ahead of ti
 
 ## Use the source generator
 
-For AOT builds, add the `SQLite.Framework.SourceGenerator` package and call `UseGeneratedMaterializers` on your options builder. The generator writes the code that turns SQLite rows into .NET objects at build time, so the trimmer can see every public type used in a `Select`. Private types and private methods still go through reflection at runtime. See the [Source Generator](Source%20Generator) page for the full setup.
+For AOT builds, add the `SQLite.Framework.SourceGenerator` package and call `UseGeneratedMaterializers` on your options builder. The generator writes the code that turns SQLite rows and projected JSON collections into .NET results at build time, so the trimmer can see every public type used in a `Select`. Private types and private methods still go through reflection at runtime. See the [Source Generator](Source%20Generator) page for the full setup.
 
 ```csharp
 using SQLite.Framework.Generated;

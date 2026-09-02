@@ -170,7 +170,7 @@ var shifted = await db.Table<Order>()
     .ToListAsync();
 ```
 
-Supported methods are `Add`, `AddYears`, `AddMonths`, `AddDays`, `AddHours`, `AddMinutes`, `AddSeconds`, `AddMilliseconds`, `AddMicroseconds` and `AddTicks`.
+Supported methods are `Add`, `AddYears`, `AddMonths`, `AddDays`, `AddHours`, `AddMinutes`, `AddSeconds`, `AddMilliseconds`, `AddMicroseconds` and `AddTicks`. The static `DateTime.IsLeapYear(year)` method also works with a constant, captured value or translated integer expression.
 
 ## DateOnly Properties
 
@@ -244,4 +244,14 @@ Guid id = Guid.NewGuid();
 var result = await db.Table<Order>()
     .Where(o => o.TrackingId == id)
     .FirstOrDefaultAsync();
+```
+
+## Binary Data
+
+A `byte[]` column supports `Length`, value equality through `==` or `SequenceEqual`, and `Contains` of a single byte. Reading an individual byte by index is not supported.
+
+```csharp
+var matches = await db.Table<FileRecord>()
+    .Where(f => f.Content.Contains((byte)0x7F))
+    .ToListAsync();
 ```

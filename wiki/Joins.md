@@ -40,7 +40,21 @@ var results = await (
 ).ToListAsync();
 ```
 
-The "from" must always be right after the join.
+In this group-join form, the second `from` must be directly after the `join`.
+
+## Group Join Aggregates
+
+You can keep the group and aggregate it instead of flattening it. `Count` and `LongCount` translate directly, and their projected values can be aggregated later.
+
+```csharp
+var counts = await db.Table<Author>()
+    .GroupJoin(
+        db.Table<Book>(),
+        author => author.Id,
+        book => book.AuthorId,
+        (author, books) => new { author.Name, BookCount = books.Count() })
+    .ToListAsync();
+```
 
 ## Full Outer Join
 
@@ -67,6 +81,22 @@ var results = await (
     select new { author.Name, book.Title }
 ).ToListAsync();
 ```
+
+## Correlated SelectMany
+
+A filtered table can be used as the second `from` source. A normal filtered source becomes an inner join. Adding `DefaultIfEmpty()` makes it a left join and returns `null` for a missing row.
+
+```csharp
+var matches = await (
+    from author in db.Table<Author>()
+    from book in db.Table<Book>()
+        .Where(book => book.AuthorId == author.Id && book.Price > 0)
+        .DefaultIfEmpty()
+    select new { author.Name, BookTitle = book == null ? null : book.Title }
+).ToListAsync();
+```
+
+The correlated filter must be translatable to SQL.
 
 ## Multiple Joins
 

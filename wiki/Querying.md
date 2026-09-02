@@ -2,7 +2,7 @@
 
 `db.Table<T>()` returns an `IQueryable<T>`. You can chain standard LINQ methods on it and call one of the terminal methods to run the query.
 
-The framework keeps the SQL close to the shape of the LINQ query you wrote. It does not reorder operations or rewrite the chain into something different just to make a method work. When a LINQ method does not have a clean one-to-one mapping to SQL, the framework throws a clear `NotSupportedException` instead. This keeps the generated SQL predictable and easy to reason about.
+The framework keeps the SQL close to the shape of the LINQ query you wrote. It introduces a subquery when a LINQ operation needs a SQL query boundary, such as composition after a set operation or filtering on a window value. When a method cannot be translated safely, the framework throws a clear `NotSupportedException` instead.
 
 ## Get All Records
 
@@ -137,6 +137,22 @@ var genres = await db.Table<Book>()
     .ToListAsync();
 ```
 
+## Set Operations
+
+`Concat`, `Union`, `Intersect` and `Except` combine compatible queries. You can continue filtering, projecting, grouping, sorting or applying scalar operations to the combined result.
+
+```csharp
+var ids = db.Table<CurrentBook>().Select(b => b.Id)
+    .Concat(db.Table<ArchivedBook>().Select(b => b.Id));
+
+var recentIds = await ids
+    .Where(id => id >= minimumId)
+    .Order()
+    .ToListAsync();
+
+int count = await ids.CountAsync();
+```
+
 ## Get a Single Record
 
 ```csharp
@@ -181,6 +197,20 @@ var books = await db.Table<Book>()
     .ToListAsync();
 ```
 
+Captured collections also support `Any` and `Count` predicates that compare local values with row columns, plus `Contains` after a local `Where`:
+
+```csharp
+var ranges = new[] { new { Min = 10m, Max = 20m }, new { Min = 40m, Max = 50m } };
+
+var books = await db.Table<Book>()
+    .Where(b => ranges.Any(r => b.Price >= r.Min && b.Price <= r.Max))
+    .ToListAsync();
+
+var selected = await db.Table<Book>()
+    .Where(b => ids.Where(id => id > 1).Contains(b.Id))
+    .ToListAsync();
+```
+
 ## Other Collection Types
 
 ```csharp
@@ -196,7 +226,7 @@ var dict = await db.Table<Book>()
 
 ## Chaining
 
-All of these methods can be chained together freely:
+These common server-translated methods can be chained together:
 
 ```csharp
 var results = await db.Table<Book>()

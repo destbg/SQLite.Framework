@@ -63,7 +63,9 @@ var byYear = await db.Table<Order>()
     .ToListAsync();
 ```
 
-Arithmetic translates too. The `Add*` family and `Subtract` translate. `DateTime` minus `DateTime` translates to a `TimeSpan`. `AddMonths` and `AddYears` clamp to the end of the month the way .NET does. Two known divergences are pinned in [Limitations](Limitations). Fractional `Add*` amounts can land one tick away from .NET and month math that lands in December 9999 overflows SQLite's date range.
+Arithmetic translates too. The `Add*` family and `Subtract` translate. `DateTime` minus `DateTime` translates to a `TimeSpan`. `AddMonths` and `AddYears` clamp to the end of the month the way .NET does. `DateTime.IsLeapYear(year)` also translates when the year is a column or another SQL expression.
+
+Known divergences are pinned in [Limitations](Limitations). Fractional `Add*` amounts can land one tick away from .NET, month math that lands in December 9999 overflows SQLite's date range and `DateTime.IsLeapYear` follows SQLite's rules for years outside the .NET range.
 
 ## Interop with data from other tools
 

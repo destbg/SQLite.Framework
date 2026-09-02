@@ -25,7 +25,7 @@ var affordable = await books.Where(b => b.Price < 30).ToListAsync();
 | `SQLite.Framework.Cipher` | Uses SQLCipher for encrypted databases. Call `UseEncryptionKey` on the options builder to enable encryption. |
 | `SQLite.Framework.Base` | No SQLite provider included. You supply your own SQLitePCLRaw provider and call `SQLitePCL.Batteries_V2.Init()` before creating a database. |
 | `SQLite.Framework.DependencyInjection` | `AddSQLiteDatabase` helpers that register a `SQLiteDatabase` (or a subclass) into an `IServiceCollection` for `Microsoft.Extensions.DependencyInjection`. |
-| `SQLite.Framework.SourceGenerator` | Build-time source generator that writes materializers for your entities and `Select` projections. Recommended for Native AOT builds, where it removes the reflection-driven materializer path. |
+| `SQLite.Framework.SourceGenerator` | Build-time source generator that writes materializers for entities, `Select` projections and projected JSON collections. Recommended for Native AOT builds, where it removes the reflection-driven materializer path. |
 
 All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose the same API and assembly name, so you can swap between them without changing any code. The other packages layer optional features on top.
 
@@ -35,6 +35,7 @@ All SQLite-provider packages (`Framework`, `Bundled`, `Cipher`, `Base`) expose t
 - Async versions of every operation
 - CRUD operations with typed tables
 - Joins, group by, aggregates and subqueries
+- Set operations with continued filtering, projection, grouping, ordering and aggregates
 - Bulk delete and update with `ExecuteDelete` and `ExecuteUpdate`
 - Transactions using SQLite savepoints
 - Raw SQL via `FromSql`

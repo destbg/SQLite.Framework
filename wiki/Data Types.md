@@ -43,6 +43,8 @@ All of these also work as nullable, for example `int?`, `string?`, `DateTime?`.
 
 A `[Flags]` enum stores and reads back fine. Calling `ToString` on a `[Flags]` enum inside a query is not supported and throws a `NotSupportedException`. Its result needs a value decomposition that SQLite cannot reproduce faithfully.
 
+**byte[]** columns support `Length`, value equality (`==` and `SequenceEqual`) and `Contains` of a single byte inside a query. Reading a byte by index is not supported.
+
 ## Example
 
 ```csharp

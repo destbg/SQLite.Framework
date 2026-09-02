@@ -208,6 +208,11 @@ When you store a `List<T>` or `T[]` as JSON, the framework also routes many stan
 | `Union(other)` | Combine two collections, removing duplicates |
 | `Intersect(other)` | Keep only elements that appear in both |
 | `Except(other)` | Remove elements that appear in the other |
+| `ToList()` | Materialize as `List<T>` |
+| `ToArray()` | Materialize as `T[]` |
+| `ToHashSet()` | Materialize distinct values as `HashSet<T>` |
+
+The materialized collection can have a different element type from the stored collection. Built-in scalar, enum, nullable and date/time elements are read directly. Object elements need registered JSON type metadata, normally through `AddJsonContext` or `AddJsonbContext`.
 
 ### Supported List\<T\> methods
 
@@ -274,7 +279,7 @@ decimal maxPrice = await db.Table<Order>()
 
 // collection results
 List<string> sorted = await db.Table<Product>()
-    .Select(p => p.Tags.OrderBy(t => t).Take(3))
+    .Select(p => p.Tags.OrderBy(t => t).Take(3).ToList())
     .FirstAsync();
 
 // chaining works, methods are combined into a single SQL subquery
@@ -308,6 +313,35 @@ int distinctGroups = await db.Table<Product>()
     .Select(p => p.Tags.GroupBy(t => t).Count())
     .FirstAsync();
 ```
+
+### Query-level SelectMany
+
+`SelectMany` can flatten a JSON list or array column into the main query. Later filters, projections and ordering apply to the elements.
+
+```csharp
+var expensiveItems = await db.Table<Order>()
+    .SelectMany(o => o.Items)
+    .Where(item => item.Price >= 100)
+    .OrderBy(item => item.Price)
+    .Select(item => new { item.Name, item.Price })
+    .ToListAsync();
+```
+
+The result-selector overload can combine the row and element. A JSON string, `byte[]` or dictionary cannot be a query-level `SelectMany` source.
+
+### Dictionary methods
+
+JSON dictionaries support `ContainsKey`, `ContainsValue`, the indexer and `Contains` of a `KeyValuePair<TKey, TValue>`. A key can be constant, captured or translated from a row expression.
+
+```csharp
+var rows = await db.Table<SettingsRow>()
+    .Where(r => r.Values.ContainsKey(r.ActiveKey)
+        && r.Values.ContainsValue(10))
+    .Select(r => r.Values[r.ActiveKey])
+    .ToListAsync();
+```
+
+A null key throws `ArgumentNullException`, matching `Dictionary<TKey, TValue>`. Projecting the `Keys` or `Values` collection itself is not supported.
 
 ### Property access on JSON columns
 
@@ -347,6 +381,6 @@ These patterns are not translated to SQL and will either fall back to client-sid
 
 ## Native AOT
 
-`SQLiteJsonConverter<T>` and `SQLiteJsonbConverter<T>` both use `JsonTypeInfo<T>` for serialization, so they are fully compatible with Native AOT and trimming. The framework keeps all public methods on `SQLiteJsonFunctions` and `Enumerable` rooted for the trimmer, so those methods are never removed from the output.
+`SQLiteJsonConverter<T>` and `SQLiteJsonbConverter<T>` both use `JsonTypeInfo<T>` for serialization, so they are fully compatible with Native AOT and trimming. The source generator also emits materializers for projected `List<T>`, array and `HashSet<T>` results. The framework keeps all public methods on `SQLiteJsonFunctions` and `Enumerable` rooted for the trimmer, so those methods are never removed from the output.
 
 You do not need to do anything extra beyond providing a source-generated `JsonSerializerContext` as shown above.
