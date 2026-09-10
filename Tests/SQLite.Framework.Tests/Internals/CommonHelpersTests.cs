@@ -119,6 +119,26 @@ public class CommonHelpersTests
         Assert.Equal(int.MaxValue, value);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    [InlineData(7)]
+    public void GetConstantValue_NullableProperties_MatchDotNet(int? value)
+    {
+        Expression<Func<bool>> hasValue = () => value.HasValue;
+        Assert.Equal(value.HasValue, ExpressionHelpers.GetConstantValue(hasValue.Body));
+
+        Expression<Func<int>> nullableValue = () => value!.Value;
+        if (value.HasValue)
+        {
+            Assert.Equal(value.Value, ExpressionHelpers.GetConstantValue(nullableValue.Body));
+        }
+        else
+        {
+            Assert.Throws<InvalidOperationException>(() => ExpressionHelpers.GetConstantValue(nullableValue.Body));
+        }
+    }
+
     [Fact]
     public void GetConstantValue_NewListInit_BuildsList()
     {
