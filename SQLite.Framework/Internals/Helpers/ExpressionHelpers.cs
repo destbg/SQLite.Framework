@@ -387,6 +387,13 @@ internal static class ExpressionHelpers
             return fi.GetValue(target);
         }
 
+        if (me.Expression != null && Nullable.GetUnderlyingType(me.Expression.Type) != null)
+        {
+            return me.Member.Name == nameof(Nullable<>.HasValue)
+                ? target != null
+                : target ?? throw new InvalidOperationException("Nullable object must have a value.");
+        }
+
         try
         {
             return ((PropertyInfo)me.Member).GetValue(target);
