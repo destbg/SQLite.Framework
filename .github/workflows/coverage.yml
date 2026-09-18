@@ -171,7 +171,7 @@ jobs:
             "-targetdir:merged-coverage" \
             "-reporttypes:Cobertura"
       - name: Upload merged coverage to Codecov
-        uses: codecov/codecov-action@v7.0.0
+        uses: codecov/codecov-action@v7.1.0
         with:
           files: merged-coverage/Cobertura.xml
           token: ${{ secrets.CODECOV_TOKEN }}
