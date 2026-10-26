@@ -2,8 +2,8 @@ import type { Walkthrough } from "./types";
 
 export const aspnetWalkthrough: Walkthrough = {
     slug: "aspnet",
-    title: "ASP.NET Per-User Walkthrough",
-    subtitle: "Give every signed-in user their own SQLite file in a minimal-API service",
+    title: "ASP.NET SQLite Tutorial",
+    subtitle: "Build an ASP.NET minimal API with a separate SQLite database for each signed-in user.",
     steps: [
         {
             title: "What you will build",

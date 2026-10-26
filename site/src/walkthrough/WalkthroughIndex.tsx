@@ -25,7 +25,7 @@ const icons: Record<string, React.ReactNode> = {
 
 export function WalkthroughIndex() {
     useEffect(() => {
-        document.title = "SQLite.Framework Walkthroughs";
+        document.title = "C# SQLite Tutorials for .NET Apps | SQLite.Framework";
     }, []);
 
     useEffect(() => {
@@ -64,9 +64,10 @@ export function WalkthroughIndex() {
                 </div>
             </header>
             <main className="wt-index-main">
-                <h1 data-reveal>Walkthroughs</h1>
+                <h1 data-reveal>C# SQLite tutorials</h1>
                 <p className="wt-index-sub" data-reveal>
-                    Step-by-step guides for adding SQLite.Framework to a fresh project.
+                    Build a SQLite database into your .NET app with SQLite.Framework. Follow a guided setup
+                    for console, .NET MAUI, Avalonia, ASP.NET or Blazor with C# code examples.
                 </p>
                 <div className="wt-grid">
                     {walkthroughs.map((w) => (

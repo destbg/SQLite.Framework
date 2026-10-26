@@ -2,8 +2,8 @@ import type { Walkthrough } from "./types";
 
 export const avaloniaWalkthrough: Walkthrough = {
     slug: "avalonia",
-    title: "Avalonia Walkthrough",
-    subtitle: "Wire SQLite.Framework into an Avalonia app, shared across desktop and mobile",
+    title: "Avalonia SQLite Tutorial",
+    subtitle: "Use SQLite in an Avalonia app with shared database services for desktop and mobile.",
     steps: [
         {
             title: "What you will build",

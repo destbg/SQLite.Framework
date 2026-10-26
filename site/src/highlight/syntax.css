@@ -39,7 +39,7 @@
     padding: 4px 9px;
     border-radius: var(--radius-sm);
     font: 600 0.72rem/1.4 var(--font-mono);
-    color: var(--text-faint);
+    color: var(--text-muted);
     background: var(--surface-2);
     border: 1px solid var(--border-strong);
     cursor: pointer;
@@ -65,6 +65,6 @@ pre:hover .copy-btn,
 
 @media (hover: none) {
     .copy-btn {
-        opacity: 0.7;
+        opacity: 1;
     }
 }

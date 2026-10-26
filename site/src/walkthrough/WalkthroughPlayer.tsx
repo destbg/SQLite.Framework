@@ -39,7 +39,7 @@ export function WalkthroughPlayer({ walkthrough }: WalkthroughPlayerProps) {
     }, [index, setSearchParams]);
 
     useEffect(() => {
-        document.title = `${walkthrough.title} - SQLite.Framework`;
+        document.title = `${walkthrough.title} | SQLite.Framework`;
     }, [walkthrough.title]);
 
     useEffect(() => {

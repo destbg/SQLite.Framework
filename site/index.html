@@ -5,13 +5,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0" />
-    <title>SQLite.Framework - LINQ-friendly ORM for SQLite in .NET</title>
+    <title>SQLite ORM for .NET with LINQ | SQLite.Framework</title>
     <meta name="description"
-          content="SQLite.Framework is a LINQ-friendly ORM for SQLite in .NET 8, 9 and 10. IQueryable, async, FTS5, JSON, window functions and Native AOT support." />
+          content="SQLite.Framework is a SQLite ORM for .NET with C# LINQ queries, async APIs and Native AOT support. Build MAUI, Avalonia, ASP.NET and Blazor apps." />
     <meta name="keywords"
           content="SQLite, .NET, ORM, LINQ, IQueryable, EF Core alternative, sqlite-net-pcl alternative, MAUI, Avalonia, Native AOT, FTS5, JSON, source generator" />
     <meta name="title"
-          content="SQLite.Framework - LINQ-friendly ORM for SQLite in .NET" />
+          content="SQLite ORM for .NET with LINQ | SQLite.Framework" />
     <meta name="author"
           content="Nikolay Kostadinov" />
     <meta name="creator"
@@ -49,7 +49,7 @@
           href="/manifest.webmanifest" />
     <link rel="search"
           type="application/opensearchdescription+xml"
-          title="SQLite.Framework - LINQ-friendly ORM for SQLite in .NET"
+          title="SQLite.Framework documentation"
           href="/opensearch.xml" />
     <meta property="og:site_name"
           content="SQLite.Framework" />
@@ -58,17 +58,17 @@
     <meta property="og:url"
           content="https://sqlite-framework.net/" />
     <meta property="og:title"
-          content="SQLite.Framework - LINQ-friendly ORM for SQLite in .NET" />
+          content="SQLite ORM for .NET with LINQ | SQLite.Framework" />
     <meta property="og:description"
-          content="Write LINQ. Query SQLite. Typed tables, async queries and Native AOT support for .NET 8, 9 and 10." />
+          content="SQLite.Framework is a SQLite ORM for .NET with C# LINQ queries, async APIs and Native AOT support. Build MAUI, Avalonia, ASP.NET and Blazor apps." />
     <meta property="og:image"
           content="https://sqlite-framework.net/SQLite.Framework.png" />
     <meta name="twitter:card"
           content="summary" />
     <meta name="twitter:title"
-          content="SQLite.Framework - LINQ-friendly ORM for SQLite in .NET" />
+          content="SQLite ORM for .NET with LINQ | SQLite.Framework" />
     <meta name="twitter:description"
-          content="Write LINQ. Query SQLite. Typed tables, async queries and Native AOT support for .NET 8, 9 and 10." />
+          content="SQLite.Framework is a SQLite ORM for .NET with C# LINQ queries, async APIs and Native AOT support. Build MAUI, Avalonia, ASP.NET and Blazor apps." />
     <meta name="twitter:image"
           content="https://sqlite-framework.net/SQLite.Framework.png" />
     <script type="application/ld+json">
@@ -76,7 +76,7 @@
         "@context": "https://schema.org",
         "@type": "SoftwareApplication",
         "name": "SQLite.Framework",
-        "description": "A LINQ-friendly ORM for SQLite in .NET 8, 9 and 10. IQueryable, async, FTS5, JSON, window functions and Native AOT support.",
+        "description": "SQLite.Framework is a SQLite ORM for .NET with C# LINQ queries, async APIs and Native AOT support. Build MAUI, Avalonia, ASP.NET and Blazor apps.",
         "url": "https://sqlite-framework.net/",
         "image": "https://sqlite-framework.net/SQLite.Framework.png",
         "applicationCategory": "DeveloperApplication",
@@ -193,19 +193,20 @@
                  aria-hidden="true"></div>
             <div class="container hero-inner">
                 <div class="hero-copy">
-                    <h1>Write <span class="accent">LINQ</span>.<br />Query SQLite.</h1>
+                    <h1>SQLite ORM<br />for <span class="accent">.NET</span>.</h1>
                     <p class="hero-sub">
-                        Typed tables, async queries and a familiar EF-style API that translates
-                        your whole IQueryable to SQL. Built for MAUI, Avalonia and Native AOT.
+                        SQLite.Framework turns C# LINQ queries into SQLite SQL. Use typed tables,
+                        joins and async APIs in .NET MAUI, Avalonia, ASP.NET and Blazor.
+                        Native AOT support with a build-time source generator.
                     </p>
                     <div class="hero-install">
                         <pre data-copy><code data-lang="bash">dotnet add package SQLite.Framework</code></pre>
                     </div>
                     <div class="hero-ctas">
                         <a class="btn btn-primary"
-                           href="/Docs/">Read the Docs</a>
+                           href="/Docs/Getting-Started">Get Started</a>
                         <a class="btn btn-outline"
-                           href="/Walkthrough/">Try a Walkthrough</a>
+                           href="/Walkthrough/">C# Tutorials</a>
                         <a class="btn btn-ghost"
                            href="https://github.com/destbg/SQLite.Framework"
                            target="_blank"
@@ -228,7 +229,6 @@
                 <div class="hero-code">
                     <div class="code-window">
                         <div class="code-window-head">
-                            <span class="code-window-tab">No. 01</span>
                             <span class="code-window-file">Program.cs</span>
                             <span class="code-window-lang">C#</span>
                         </div>
@@ -258,7 +258,7 @@ var topAuthors = await (
 
         <section class="hosts">
             <div class="container">
-                <p class="hosts-label">Runs anywhere .NET runs</p>
+                <p class="hosts-label">SQLite for console, mobile, desktop and web apps</p>
                 <div class="hosts-grid"
                      data-reveal>
                     <a href="/Walkthrough/console">
@@ -352,11 +352,11 @@ var topAuthors = await (
         <section class="translate"
                  id="translate">
             <div class="container">
-                <h2 data-reveal>You write LINQ. It ships SQL.</h2>
+                <h2 data-reveal>Translate C# LINQ to SQLite SQL</h2>
                 <p class="section-sub"
                    data-reveal>
-                    Your query is read and turned into plain SQLite SQL.
-                    Pick a feature to see the SQL it generates.
+                    Filter, join, group and project data with IQueryable.
+                    Compare each C# LINQ example with the SQLite query it generates.
                 </p>
                 <div class="translate-tabs"
                      role="tablist"
@@ -438,10 +438,10 @@ LIMIT @p1;</code></pre>
 
         <section class="features">
             <div class="container">
-                <h2 data-reveal>Built for real apps</h2>
+                <h2 data-reveal>SQLite features for .NET apps</h2>
                 <p class="section-sub"
                    data-reveal>
-                    Everything you expect from a modern ORM, sized for embedded SQLite.
+                    Query JSON, search text and update rows through one typed C# API.
                 </p>
                 <div class="features-grid">
                     <article class="feature-card feature-card-lead"
@@ -456,9 +456,9 @@ LIMIT @p1;</code></pre>
                              stroke-linejoin="round">
                             <path d="m16 18 6-6-6-6M8 6l-6 6 6 6" />
                         </svg>
-                        <h3>LINQ first</h3>
-                        <p>Full IQueryable support. Joins, group by, subqueries, window functions and CTEs all translate
-                            to SQL.</p>
+                        <h3>LINQ to SQLite</h3>
+                        <p>Use IQueryable for joins, grouping, subqueries, window functions and common table
+                            expressions. The framework translates them to SQLite SQL.</p>
                     </article>
                     <article class="feature-card"
                              data-reveal>
@@ -472,9 +472,9 @@ LIMIT @p1;</code></pre>
                              stroke-linejoin="round">
                             <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" />
                         </svg>
-                        <h3>Async everywhere</h3>
-                        <p>Every operation has an async sibling. ToListAsync, FirstOrDefaultAsync, ExecuteUpdateAsync
-                            and more.</p>
+                        <h3>Async SQLite queries</h3>
+                        <p>Read, insert, update and delete data with async APIs. Use the same typed tables and LINQ
+                            queries throughout your app.</p>
                     </article>
                     <article class="feature-card"
                              data-reveal>
@@ -493,9 +493,9 @@ LIMIT @p1;</code></pre>
                                   rx="2" />
                             <path d="M9 9h6v6H9zM4 9h-2M4 15h-2M22 9h-2M22 15h-2M9 4V2M15 4V2M9 22v-2M15 22v-2" />
                         </svg>
-                        <h3>Native AOT</h3>
+                        <h3>Native AOT support</h3>
                         <p>The framework never generates code at runtime. An optional source generator emits
-                            materializers at build time, so it ships clean under Native AOT.</p>
+                            row readers at build time for Native AOT apps.</p>
                     </article>
                     <article class="feature-card"
                              data-reveal>
@@ -512,9 +512,8 @@ LIMIT @p1;</code></pre>
                                     r="7" />
                             <path d="m21 21-4.3-4.3" />
                         </svg>
-                        <h3>FTS5 and R-Tree</h3>
-                        <p>First-class bindings for SQLite's full-text search and spatial modules. Type-safe, no raw SQL
-                            needed.</p>
+                        <h3>Full-text and spatial search</h3>
+                        <p>Search text with SQLite FTS5 and query spatial data with R-Tree through typed C# APIs.</p>
                     </article>
                     <article class="feature-card"
                              data-reveal>
@@ -529,8 +528,9 @@ LIMIT @p1;</code></pre>
                             <path
                                   d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5a2 2 0 0 0 2 2h1M16 3h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2 2 2 0 0 0-2 2v5a2 2 0 0 1-2 2h-1" />
                         </svg>
-                        <h3>JSON and JSONB</h3>
-                        <p>Query into JSON columns with LINQ. SQLite 3.45 JSONB is supported when your runtime has it.
+                        <h3>SQLite JSON and JSONB</h3>
+                        <p>Query JSON columns with LINQ. Use JSONB when your SQLite runtime supports it, starting with
+                            SQLite 3.45.
                         </p>
                     </article>
                     <article class="feature-card"
@@ -549,8 +549,8 @@ LIMIT @p1;</code></pre>
                                      ry="3" />
                             <path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5M3 12c0 1.7 4 3 9 3s9-1.3 9-3" />
                         </svg>
-                        <h3>Bulk operations</h3>
-                        <p>ExecuteDelete and ExecuteUpdate let you change thousands of rows in one round trip.</p>
+                        <h3>Bulk updates and deletes</h3>
+                        <p>Use ExecuteUpdate and ExecuteDelete to change matching SQLite rows in one SQL statement.</p>
                     </article>
                 </div>
             </div>
@@ -558,9 +558,9 @@ LIMIT @p1;</code></pre>
 
         <section class="how">
             <div class="container">
-                <h2 data-reveal>No code generated at runtime</h2>
+                <h2 data-reveal>How LINQ queries become SQLite results</h2>
                 <p class="section-sub"
-                   data-reveal>How does a typed query work without emitting code at runtime?</p>
+                   data-reveal>From a C# expression to typed results, with no code generated at runtime.</p>
                 <div class="how-grid">
                     <ol class="how-steps">
                         <li data-reveal>
@@ -579,8 +579,8 @@ LIMIT @p1;</code></pre>
                         </li>
                         <li data-reveal>
                             <h3>A materializer fills your objects</h3>
-                            <p>A small reader maps each column to a property and builds your object using Method.Invoke
-                                and PropertyInfo.SetValue. No Reflection.Emit, no runtime code generation.</p>
+                            <p>A row reader maps columns to C# objects. Use reflection by default or build-time readers
+                                from SQLite.Framework.SourceGenerator for Native AOT.</p>
                         </li>
                     </ol>
                     <div class="how-visual"
@@ -611,21 +611,21 @@ LIMIT @p1;</code></pre>
                 </div>
                 <p class="how-note"
                    data-reveal>
-                    Want the framework to be AOT safe? The optional source generator writes those
-                    materializers at build time, so there is no reflection on your hot path and the
-                    trimmer keeps every type.
-                    <a href="/Docs/Source%20Generator">Read about the source generator</a>
+                    Publishing a SQLite app with Native AOT? Generate row readers at build time with
+                    SQLite.Framework.SourceGenerator.
+                    <a href="/Docs/Source-Generator">Read the source generator setup guide</a>
                 </p>
             </div>
         </section>
 
         <section class="pace">
             <div class="container">
-                <h2 data-reveal>Save Pace Stream</h2>
+                <h2 data-reveal>SQLite insert benchmarks</h2>
                 <p class="section-sub"
                    data-reveal>
-                    Each dot is one save of 100 rows. The gap before the next dot is how long
-                    that save took. The times come from real BenchmarkDotNet runs.
+                    Save Pace Stream compares inserts with SQLite.Framework and EF Core 10.
+                    Each dot is one save of 100 rows. The gap shows how long that save took.
+                    See the <a href="/Docs/Performance">BenchmarkDotNet results and setup</a>.
                 </p>
                 <div class="pace-legend"
                      data-reveal>
@@ -645,11 +645,11 @@ LIMIT @p1;</code></pre>
 
         <section class="compare">
             <div class="container">
-                <h2 data-reveal>How it compares</h2>
+                <h2 data-reveal>Compare SQLite.Framework, EF Core and sqlite-net-pcl</h2>
                 <p class="section-sub"
                    data-reveal>
-                    Where SQLite.Framework sits next to EF Core and sqlite-net-pcl.
-                    Based on the default setup of each library.
+                    Choosing a SQLite ORM for C#? Compare LINQ translation, Native AOT support
+                    and SQLite features in the default setup of each library.
                 </p>
                 <div class="compare-scroll"
                      data-reveal>
@@ -731,31 +731,30 @@ LIMIT @p1;</code></pre>
 
         <section class="packages">
             <div class="container">
-                <h2 data-reveal>One API, four flavors</h2>
+                <h2 data-reveal>Choose a SQLite NuGet package</h2>
                 <p class="section-sub"
-                   data-reveal>Pick the package that matches how SQLite is shipped in your app.</p>
+                   data-reveal>One C# API with system SQLite, bundled SQLite, SQLCipher or your own provider.</p>
                 <div class="packages-grid">
                     <article class="package-card"
                              data-reveal>
                         <h3>SQLite.Framework</h3>
-                        <p>Uses the SQLite version that ships with the OS. The right default for most apps.</p>
+                        <p>Uses system SQLite on desktop and iOS. Bundles SQLite on Android.</p>
                     </article>
                     <article class="package-card"
                              data-reveal>
                         <h3>SQLite.Framework<span class="package-suffix">.Bundled</span></h3>
-                        <p>Ships its own SQLite binary. Use when the OS SQLite is too old or you want a pinned version.
+                        <p>Bundles a SQLite binary for a fixed version across supported platforms.
                         </p>
                     </article>
                     <article class="package-card"
                              data-reveal>
                         <h3>SQLite.Framework<span class="package-suffix">.Cipher</span></h3>
-                        <p>Uses SQLCipher for encrypted databases. Call UseEncryptionKey on the options builder to
-                            enable.</p>
+                        <p>Encrypt SQLite databases with SQLCipher. Set the key with UseEncryptionKey.</p>
                     </article>
                     <article class="package-card"
                              data-reveal>
                         <h3>SQLite.Framework<span class="package-suffix">.Base</span></h3>
-                        <p>No provider included. Bring your own SQLitePCLRaw bundle and stay in control.</p>
+                        <p>Choose your own SQLitePCLRaw provider. No SQLite binary is included.</p>
                     </article>
                 </div>
             </div>
@@ -763,23 +762,24 @@ LIMIT @p1;</code></pre>
 
         <section class="faq">
             <div class="container">
-                <h2 data-reveal>Questions</h2>
+                <h2 data-reveal>SQLite ORM questions</h2>
                 <div class="faq-list"
                      data-reveal>
                     <details>
-                        <summary>Does it support Native AOT?</summary>
-                        <p>Yes. The framework never generates code at runtime. Add the optional source generator and
-                            call UseGeneratedMaterializers. Queries run with no reflection on the materialization path,
-                            so the trimmer keeps every type. See <a href="/Docs/Native%20AOT">Native AOT</a>.</p>
+                        <summary>Does SQLite.Framework support .NET Native AOT?</summary>
+                        <p>Yes. Add SQLite.Framework.SourceGenerator and call UseGeneratedMaterializers to generate row
+                            readers at build time. The framework does not generate code at runtime. See the
+                            <a href="/Docs/Native-AOT">Native AOT setup and trimming guide</a>.
+                        </p>
                     </details>
                     <details>
-                        <summary>Is it safe to use from multiple threads?</summary>
+                        <summary>Can I share a SQLite database across threads?</summary>
                         <p>Yes. Create one SQLiteDatabase and share it across the app. Commands take a connection lock
                             automatically. Turn on WAL mode so reads and writes do not block each other. See <a
                                href="/Docs/Multi-threading">Multi-threading</a>.</p>
                     </details>
                     <details>
-                        <summary>Can I encrypt the database?</summary>
+                        <summary>How do I encrypt a SQLite database in C#?</summary>
                         <p>Yes. Use the SQLite.Framework.Cipher package, which ships SQLCipher. Call UseEncryptionKey on
                             the options builder.</p>
                     </details>
@@ -789,18 +789,19 @@ LIMIT @p1;</code></pre>
                             minimum version on the builder or ship a pinned binary with the Bundled package.</p>
                     </details>
                     <details>
-                        <summary>Does it have a change tracker or migrations?</summary>
-                        <p>It does not have a change tracker like EF Core. That is by design. It has lightweight
-                            stand-ins instead. Write hooks (OnAdd and OnUpdate) run before a save for audit and derived
-                            values. A versioned migration runner reconciles and versions the schema. There is no
-                            automatic change tracker, unit of work or lazy loading.</p>
+                        <summary>Does SQLite.Framework support database migrations?</summary>
+                        <p>Yes. A versioned migration runner handles SQLite schema changes. Write hooks (OnAdd and
+                            OnUpdate) run before a save for audit and derived values. There is no automatic change
+                            tracker, unit of work or lazy loading. See the <a href="/Docs/Migrations">SQLite migration
+                                guide</a>.</p>
                     </details>
                     <details>
                         <summary>How is it different from EF Core or sqlite-net-pcl?</summary>
-                        <p>It translates full LINQ, including Select projections, to SQL like EF Core, but stays light
-                            and AOT friendly. Unlike sqlite-net-pcl it does not read whole rows into memory to run a
-                            projection. See <a href="/Docs/Migrating%20from%20EF%20Core">Migrating from EF Core</a> and
-                            <a href="/Docs/Migrating%20from%20sqlite-net-pcl">Migrating from sqlite-net-pcl</a>.
+                        <p>SQLite.Framework translates LINQ joins, grouping and Select projections to SQLite SQL.
+                            It supports Native AOT with a source generator and has no automatic change tracker.
+                            See <a href="/Docs/Migrating-from-EF-Core">Migrating from EF Core</a> and
+                            <a href="/Docs/Migrating-from-sqlite-net-pcl">Migrating from sqlite-net-pcl</a> for API
+                            differences and setup examples.
                         </p>
                     </details>
                 </div>
@@ -810,16 +811,16 @@ LIMIT @p1;</code></pre>
         <section class="final-cta">
             <div class="container"
                  data-reveal>
-                <h2>Ready to try it?</h2>
+                <h2>Start using SQLite in your .NET app</h2>
                 <p>
-                    Pick the host you ship on and step through a guided setup.
-                    Console, MAUI, Avalonia, ASP.NET or Blazor.
+                    Install SQLite.Framework from NuGet, define a C# model and run your first LINQ query.
+                    Follow a tutorial for console, .NET MAUI, Avalonia, ASP.NET or Blazor.
                 </p>
                 <div class="hero-ctas">
                     <a class="btn btn-primary"
-                       href="/Walkthrough/">Browse Walkthroughs</a>
+                       href="/Walkthrough/">Browse SQLite Tutorials</a>
                     <a class="btn btn-outline"
-                       href="/Docs/">Read the Docs</a>
+                       href="/Docs/Getting-Started">Read the Setup Guide</a>
                 </div>
             </div>
         </section>

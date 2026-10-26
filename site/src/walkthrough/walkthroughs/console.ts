@@ -2,8 +2,8 @@ import type { Walkthrough } from "./types";
 
 export const consoleWalkthrough: Walkthrough = {
     slug: "console",
-    title: "Console Walkthrough",
-    subtitle: "Get a feel for the LINQ surface in a plain console app",
+    title: "C# Console SQLite Tutorial",
+    subtitle: "Create a SQLite database in a C# console app and query it with LINQ.",
     steps: [
         {
             title: "What you will build",

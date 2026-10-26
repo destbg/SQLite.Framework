@@ -4,7 +4,7 @@ import "../shared/tokens.css";
 import "../highlight/syntax.css";
 import "./app.css";
 import { findPage } from "./pages";
-import { markdownFor } from "./markdownFiles";
+import { loadMarkdown, markdownFor } from "./markdownFiles";
 import { Sidebar } from "./components/Sidebar";
 import { MarkdownPage } from "./components/MarkdownPage";
 import { PageNavigation } from "./components/PageNavigation";
@@ -27,8 +27,34 @@ function DocLayout() {
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [searchSeed, setSearchSeed] = useState<string | null>(null);
+    const [loadedPage, setLoadedPage] = useState<{ fileName: string; markdown: string } | null>(null);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     const page = findPage(slug);
+    const markdown = page
+        ? markdownFor(page.fileName) ?? (loadedPage?.fileName === page.fileName ? loadedPage.markdown : null)
+        : null;
+
+    useEffect(() => {
+        if (!page || markdownFor(page.fileName) !== null) return;
+        let active = true;
+        loadMarkdown(page.fileName)
+            .then((content) => {
+                if (!active) return;
+                if (content === null) {
+                    setLoadError(page.fileName);
+                    return;
+                }
+                setLoadedPage({ fileName: page.fileName, markdown: content });
+                setLoadError(null);
+            })
+            .catch(() => {
+                if (active) setLoadError(page.fileName);
+            });
+        return () => {
+            active = false;
+        };
+    }, [page?.fileName]);
 
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
@@ -66,21 +92,17 @@ function DocLayout() {
             }
         }
         window.scrollTo({ top: 0 });
-    }, [page?.slug, location.hash]);
+    }, [page?.slug, location.hash, markdown]);
 
     useEffect(() => {
         document.title = page
             ? page.slug === ""
-                ? "SQLite.Framework Docs: LINQ-friendly ORM for SQLite in .NET"
-                : `${page.title} - SQLite.Framework Docs`
+                ? "SQLite ORM for .NET Documentation | SQLite.Framework"
+                : `${page.title} | SQLite.Framework Docs`
             : "SQLite.Framework Docs";
     }, [page]);
 
     if (!page) return <Navigate to="/" replace />;
-
-    const markdown =
-        markdownFor(page.fileName) ??
-        `# Not found\n\nThe page **${page.title}** does not exist.`;
 
     return (
         <div className="docs-shell">
@@ -92,7 +114,7 @@ function DocLayout() {
             {sidebarOpen && (
                 <div className="docs-overlay" onClick={() => setSidebarOpen(false)} />
             )}
-            <div className="docs-main">
+            <main className="docs-main" aria-busy={markdown === null && loadError !== page.fileName}>
                 <div className="docs-mobilebar">
                     <button
                         type="button"
@@ -116,16 +138,31 @@ function DocLayout() {
                     </button>
                 </div>
                 <article className="docs-article" key={page.slug || "home"}>
-                    <div className="docs-article-tools">
-                        <TocMenu markdown={markdown} />
-                        <OpenInMenu fileName={page.fileName} markdown={markdown} />
-                    </div>
-                    <MarkdownPage markdown={markdown} />
-                    <PageNavigation current={page} />
+                    {markdown !== null ? (
+                        <>
+                            <div className="docs-article-tools">
+                                <TocMenu markdown={markdown} />
+                                <OpenInMenu fileName={page.fileName} markdown={markdown} />
+                            </div>
+                            <MarkdownPage markdown={markdown} />
+                            <PageNavigation current={page} />
+                        </>
+                    ) : (
+                        <div className="docs-markdown">
+                            <h1>{page.title}</h1>
+                            {loadError === page.fileName ? (
+                                <p role="alert">
+                                    This page could not be loaded. <a href={`/Docs${location.pathname}${location.search}${location.hash}`}>Reload the page</a> to try again.
+                                </p>
+                            ) : (
+                                <p role="status">Loading documentation...</p>
+                            )}
+                        </div>
+                    )}
                 </article>
-            </div>
+            </main>
             <aside className="docs-rail">
-                <TableOfContents markdown={markdown} pageKey={page.slug} />
+                <TableOfContents markdown={markdown ?? ""} pageKey={page.slug} />
             </aside>
             {searchSeed !== null && (
                 <SearchModal initialQuery={searchSeed} onClose={() => setSearchSeed(null)} />

@@ -111,19 +111,6 @@
     background: var(--surface-2);
 }
 
-.code-window-tab {
-    padding: 2px 8px;
-    border: 1px solid var(--accent-line);
-    border-radius: var(--radius-sm);
-    background: var(--accent-dim);
-    color: var(--accent-strong);
-    font-family: var(--font-mono);
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    white-space: nowrap;
-}
-
 .code-window-file,
 .code-block-file {
     flex: 1;
@@ -353,29 +340,16 @@ section h2 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
     margin-top: 34px;
-    counter-reset: feature;
 }
 
 .feature-card {
     position: relative;
-    counter-increment: feature;
     padding: 24px 24px 22px;
     border: 1px solid var(--border);
     border-radius: 0 var(--radius-lg) var(--radius-lg) var(--radius-lg);
     background: var(--surface);
     background-image: var(--paper-grain);
     transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
-}
-
-.feature-card::after {
-    content: "No. " counter(feature, decimal-leading-zero);
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    color: var(--text-faint);
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    letter-spacing: 0.03em;
 }
 
 .feature-card:hover {

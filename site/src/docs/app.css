@@ -65,7 +65,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--surface);
-    color: var(--text-faint);
+    color: var(--text-muted);
     font-size: 0.86rem;
     cursor: pointer;
 }
@@ -304,6 +304,11 @@ html[data-theme="light"] .icon-moon {
 
 .docs-markdown li {
     margin: 4px 0;
+}
+
+.docs-markdown a:not(.docs-anchor) {
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
 }
 
 .docs-inline-code {

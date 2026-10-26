@@ -2,8 +2,8 @@ import type { Walkthrough } from "./types";
 
 export const blazorWalkthrough: Walkthrough = {
     slug: "blazor",
-    title: "Blazor WebAssembly Walkthrough",
-    subtitle: "Run SQLite entirely in the browser, with the data persisted to localStorage",
+    title: "Blazor WebAssembly SQLite Tutorial",
+    subtitle: "Run SQLite in Blazor WebAssembly and save the database to browser localStorage.",
     steps: [
         {
             title: "What you will build",

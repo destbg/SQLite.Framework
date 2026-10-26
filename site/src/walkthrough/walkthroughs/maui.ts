@@ -2,8 +2,8 @@ import type { Walkthrough } from "./types";
 
 export const mauiWalkthrough: Walkthrough = {
     slug: "maui",
-    title: "MAUI Walkthrough",
-    subtitle: "Build a MAUI app with SQLite.Framework end to end",
+    title: ".NET MAUI SQLite Tutorial",
+    subtitle: "Add SQLite to a .NET MAUI app with migrations, local data and a sign-in flow.",
     steps: [
         {
             title: "What you will build",

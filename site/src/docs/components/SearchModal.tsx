@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { searchDocs } from "../search";
+import { searchDocs, type SearchResult } from "../search";
 
 interface SearchModalProps {
     initialQuery: string;
@@ -19,48 +19,94 @@ function markTokens(text: string, tokens: string[]): ReactNode[] {
 export function SearchModal({ initialQuery, onClose }: SearchModalProps) {
     const [query, setQuery] = useState(initialQuery);
     const [active, setActive] = useState(0);
+    const [results, setResults] = useState<SearchResult[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [failed, setFailed] = useState(false);
+    const modalRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLUListElement>(null);
     const navigate = useNavigate();
 
-    const results = useMemo(() => searchDocs(query), [query]);
     const tokens = useMemo(
         () => query.toLowerCase().split(/\s+/).filter(Boolean),
         [query],
     );
 
     useEffect(() => {
+        const previous = document.activeElement;
         const input = inputRef.current;
         if (input) {
             input.focus();
             input.setSelectionRange(input.value.length, input.value.length);
         }
+        return () => {
+            if (previous instanceof HTMLElement) previous.focus();
+        };
     }, []);
 
     useEffect(() => {
+        let current = true;
         setActive(0);
+        setResults([]);
+        setFailed(false);
+        if (query.trim() === "") {
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        searchDocs(query)
+            .then((matches) => {
+                if (!current) return;
+                setResults(matches);
+                setLoading(false);
+            })
+            .catch(() => {
+                if (!current) return;
+                setFailed(true);
+                setLoading(false);
+            });
+        return () => {
+            current = false;
+        };
     }, [query]);
 
     useEffect(() => {
         listRef.current
             ?.querySelector(".is-active")
             ?.scrollIntoView({ block: "nearest" });
-    }, [active]);
+    }, [active, results]);
 
     const open = (index: number) => {
+        if (loading || failed) return;
         const result = results[index];
         if (!result) return;
         navigate(`/${result.page.slug}`);
         onClose();
     };
 
-    const onKeyDown = (e: React.KeyboardEvent) => {
+    const onDialogKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === "Escape") {
             e.preventDefault();
             onClose();
-        } else if (e.key === "ArrowDown") {
+        } else if (e.key === "Tab") {
+            const elements = modalRef.current?.querySelectorAll<HTMLElement>("input, button");
+            if (!elements?.length) return;
+            const first = elements[0];
+            const last = elements[elements.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        }
+    };
+
+    const onKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === "ArrowDown") {
             e.preventDefault();
-            setActive((i) => Math.min(results.length - 1, i + 1));
+            setActive((i) => Math.min(Math.max(0, results.length - 1), i + 1));
         } else if (e.key === "ArrowUp") {
             e.preventDefault();
             setActive((i) => Math.max(0, i - 1));
@@ -73,10 +119,13 @@ export function SearchModal({ initialQuery, onClose }: SearchModalProps) {
     return (
         <div className="docs-search-backdrop" onClick={onClose}>
             <div
+                ref={modalRef}
                 className="docs-search-modal"
                 role="dialog"
+                aria-modal="true"
                 aria-label="Search documentation"
                 onClick={(e) => e.stopPropagation()}
+                onKeyDown={onDialogKeyDown}
             >
                 <div className="docs-search-inputrow">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
@@ -84,6 +133,7 @@ export function SearchModal({ initialQuery, onClose }: SearchModalProps) {
                         ref={inputRef}
                         value={query}
                         placeholder="Search the docs"
+                        aria-label="Search documentation"
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={onKeyDown}
                     />
@@ -91,7 +141,13 @@ export function SearchModal({ initialQuery, onClose }: SearchModalProps) {
                 </div>
                 {query.trim() !== "" && (
                     <ul className="docs-search-results" ref={listRef}>
-                        {results.length === 0 && (
+                        {loading && (
+                            <li className="docs-search-empty" role="status">Searching documentation...</li>
+                        )}
+                        {failed && (
+                            <li className="docs-search-empty" role="alert">Search could not be loaded. Reload the page to try again.</li>
+                        )}
+                        {!loading && !failed && results.length === 0 && (
                             <li className="docs-search-empty">No results for "{query}"</li>
                         )}
                         {results.map((result, i) => (

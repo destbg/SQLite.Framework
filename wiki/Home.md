@@ -1,6 +1,8 @@
-# SQLite.Framework
+# SQLite.Framework documentation
 
-A lightweight [ORM](https://en.wikipedia.org/wiki/Object%E2%80%93relational_mapping) for SQLite, built for .NET, Avalonia and other AOT-published .NET apps. It gives you LINQ queries, async support and AOT compatibility, with an API that will feel familiar if you have used Entity Framework before.
+SQLite.Framework is a lightweight SQLite [ORM](https://en.wikipedia.org/wiki/Object%E2%80%93relational_mapping) for C# and .NET 8, 9 and 10. Translate LINQ queries to SQLite SQL, work with typed tables and use async APIs in .NET MAUI, Avalonia, ASP.NET and Blazor apps. A build-time source generator supports Native AOT deployment.
+
+Start with [Getting Started](Getting%20Started) to install the NuGet package and run your first query. Explore [LINQ querying](Querying), [Native AOT setup](Native%20AOT) or the migration guides for [EF Core](Migrating%20from%20EF%20Core) and [sqlite-net-pcl](Migrating%20from%20sqlite-net-pcl).
 
 ```csharp
 SQLiteOptions options = new SQLiteOptionsBuilder("library.db")

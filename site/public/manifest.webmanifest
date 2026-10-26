@@ -1,7 +1,7 @@
 {
     "name": "SQLite.Framework Docs",
     "short_name": "SQLite.Framework",
-    "description": "Documentation for SQLite.Framework, a lightweight ORM for SQLite in .NET",
+    "description": "C# SQLite ORM documentation with LINQ query examples, .NET setup and Native AOT guides",
     "start_url": "/Docs/",
     "scope": "/",
     "display": "standalone",

@@ -1,10 +1,10 @@
 # Overview
 
-A short tour of `SQLite.Framework` on one page. Each section links to a deeper guide if you want more detail.
+Learn how `SQLite.Framework` maps C# models and LINQ queries to a SQLite database. This guide covers packages, database setup, queries and Native AOT support for .NET apps. Each section links to a detailed guide.
 
 ## What it is
 
-A small ORM that lets you use LINQ on a SQLite database. If you have used Entity Framework Core before, most things will feel familiar. The main difference is that this library has no automatic change tracker and no navigation properties. The heavier features have lightweight stand-ins. Write hooks cover before-save logic and a versioned migration runner handles schema versioning.
+SQLite.Framework is a small SQLite ORM for C# and .NET. Its IQueryable API will feel familiar if you have used Entity Framework Core. The library has no automatic change tracker or navigation properties. Write hooks handle before-save logic and a versioned migration runner handles schema changes.
 
 `db.Table<T>()` returns a `SQLiteTable<T>`. That class implements `IQueryable<T>`, so any LINQ method works on it.
 

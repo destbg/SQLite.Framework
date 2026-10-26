@@ -1,6 +1,4 @@
 import { allPages, type DocPage } from "./pages";
-import { markdownFor } from "./markdownFiles";
-import { extractHeadings } from "./utils";
 
 export interface SearchResult {
     page: DocPage;
@@ -17,24 +15,21 @@ interface IndexEntry {
     bodyLower: string;
 }
 
-let index: IndexEntry[] | null = null;
+let index: Promise<IndexEntry[]> | null = null;
 
-function buildIndex(): IndexEntry[] {
+async function buildIndex(): Promise<IndexEntry[]> {
+    const { default: documents } = await import("virtual:docs-search-index");
     const entries: IndexEntry[] = [];
     for (const page of allPages) {
-        const markdown = markdownFor(page.fileName);
-        if (markdown == null) continue;
-        const body = markdown
-            .replace(/```[\s\S]*?```/g, " ")
-            .replace(/[#`*_>|]/g, "")
-            .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-            .replace(/\s+/g, " ");
+        const document = documents[page.fileName];
+        if (!document) continue;
+        const { body } = document;
         entries.push({
             page,
             titleLower: page.title.toLowerCase(),
-            headings: extractHeadings(markdown).map((h) => ({
-                text: h.text,
-                lower: h.text.toLowerCase(),
+            headings: document.headings.map((text) => ({
+                text,
+                lower: text.toLowerCase(),
             })),
             body,
             bodyLower: body.toLowerCase(),
@@ -52,13 +47,13 @@ function snippetAround(body: string, position: number): string {
     return snippet;
 }
 
-export function searchDocs(query: string): SearchResult[] {
+export async function searchDocs(query: string): Promise<SearchResult[]> {
     const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
     if (tokens.length === 0) return [];
     index ??= buildIndex();
 
     const results: SearchResult[] = [];
-    for (const entry of index) {
+    for (const entry of await index) {
         let score = 0;
         let heading: string | null = null;
         let firstBodyMatch = -1;

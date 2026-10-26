@@ -1,5 +1,7 @@
 # Getting Started
 
+Set up SQLite in a C# .NET app with SQLite.Framework. Install the NuGet package, create typed tables and run your first LINQ query. This guide includes console and dependency injection setup.
+
 ## Installation
 
 Install the NuGet package:
