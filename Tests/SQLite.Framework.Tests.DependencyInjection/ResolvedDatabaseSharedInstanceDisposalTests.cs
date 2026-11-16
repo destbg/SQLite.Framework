@@ -22,7 +22,7 @@ public sealed class H24pDisposeCountingDatabase : SQLiteDatabase
 public class ResolvedDatabaseSharedInstanceDisposalTests
 {
     [Fact]
-    public void SingletonResolvedThroughBothServiceTypesSharesOneInstanceAndSurvivesBothDisposals()
+    public void SingletonResolvedThroughBothServiceTypesSharesOneInstanceAndIsDisposedOnce()
     {
         ServiceCollection services = new();
         services.AddSQLiteDatabase<H24pDisposeCountingDatabase>(b => b.DatabasePath = "h24p_dispose_singleton.db");
@@ -35,11 +35,11 @@ public class ResolvedDatabaseSharedInstanceDisposalTests
             Assert.Same(concrete, viaBase);
         }
 
-        Assert.Equal(2, concrete.DisposeCount);
+        Assert.Equal(1, concrete.DisposeCount);
     }
 
     [Fact]
-    public void ScopedResolvedThroughBothServiceTypesSharesOneInstanceAndSurvivesBothDisposals()
+    public void ScopedResolvedThroughBothServiceTypesSharesOneInstanceAndIsDisposedOnce()
     {
         ServiceCollection services = new();
         services.AddSQLiteDatabase<H24pDisposeCountingDatabase>(
@@ -56,6 +56,6 @@ public class ResolvedDatabaseSharedInstanceDisposalTests
             Assert.Same(concrete, viaBase);
         }
 
-        Assert.Equal(2, concrete.DisposeCount);
+        Assert.Equal(1, concrete.DisposeCount);
     }
 }
