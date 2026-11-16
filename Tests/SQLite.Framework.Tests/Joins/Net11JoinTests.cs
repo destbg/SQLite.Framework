@@ -137,6 +137,24 @@ public class Net11JoinTests
     }
 
     [Fact]
+    public void GroupJoinRejectsTakeBeforeFlattening()
+    {
+        using TestDatabase db = CreateDatabase();
+        var left = db.Table<Net11JoinRow>().Where(x => x.Id < 5);
+        var right = db.Table<Net11JoinRow>().Where(x => x.Id >= 5);
+
+        var explicitGroup = left.GroupJoin(right, l => l.Code, r => r.Code, (l, group) => new { Group = group })
+            .SelectMany(x => x.Group.Take(1).DefaultIfEmpty(), (x, r) => r);
+        var implicitGroup = left.GroupJoin(right, l => l.Code, r => r.Code)
+            .SelectMany(g => g.Take(1).DefaultIfEmpty(), (g, r) => r);
+
+        Assert.Contains("only supported directly on a group join group",
+            Assert.Throws<NotSupportedException>(() => explicitGroup.ToList()).Message);
+        Assert.Contains("only supported directly on a group join group",
+            Assert.Throws<NotSupportedException>(() => implicitGroup.ToList()).Message);
+    }
+
+    [Fact]
     public void ScalarTupleAndGroupJoinsPreserveDefaultValues()
     {
         using TestDatabase db = CreateDatabase();

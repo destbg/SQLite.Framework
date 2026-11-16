@@ -9,6 +9,21 @@ namespace SQLite.Framework.Tests;
 public class Net11StringTests
 {
     [Fact]
+    public void RuneFromColumnUsesClientProjection()
+    {
+        using TestDatabase db = new();
+        db.Table<Net11JoinRow>().Schema.CreateTable();
+        db.Table<Net11JoinRow>().AddRange([
+            new() { Id = 'A', Code = "Apple" }, new() { Id = 'B', Code = "Apple" }
+        ]);
+
+        bool[] actual = db.Table<Net11JoinRow>().OrderBy(x => x.Id)
+            .Select(x => x.Code!.Contains(new Rune(x.Id))).ToArray();
+
+        Assert.Equal([true, false], actual);
+    }
+
+    [Fact]
     public void RuneSearchReplaceAndTrimUseUnicodeScalars()
     {
         using TestDatabase db = new();
