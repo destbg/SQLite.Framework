@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Operations;
 using SQLite.Framework.SourceGenerator.Helpers;
 using SQLite.Framework.SourceGenerator.Models;
 using SQLite.Framework.SourceGenerator.Writers;
@@ -689,12 +690,11 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
             return null;
         }
 
-        if (invocation.ArgumentList.Arguments.Count == 0)
+        if (ctx.SemanticModel.GetOperation(invocation) is not IInvocationOperation operation
+            || operation.Arguments.FirstOrDefault(a => a.Parameter?.Name == "resultSelector")?.Value.Syntax is not ExpressionSyntax selectorExpr)
         {
             return null;
         }
-
-        ExpressionSyntax selectorExpr = invocation.ArgumentList.Arguments[invocation.ArgumentList.Arguments.Count - 1].Expression;
         while (selectorExpr is ParenthesizedExpressionSyntax paren)
         {
             selectorExpr = paren.Expression;
@@ -1642,7 +1642,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
 
     private static bool IsJoinMethodName(string name)
     {
-        return name is "Join" or "LeftJoin" or "RightJoin" or "FullOuterJoin";
+        return name is "Join" or "LeftJoin" or "RightJoin" or "FullJoin" or "FullOuterJoin";
     }
 
     private static bool IsJoinContainingTypeValid(IMethodSymbol method)
@@ -1799,7 +1799,7 @@ public sealed class QueryMaterializerGenerator : IIncrementalGenerator
                     IdentifierNameSyntax i => i.Identifier.ValueText,
                     _ => string.Empty
                 };
-                if (name is "Select" or "SelectMany" or "Join" or "LeftJoin" or "RightJoin" or "GroupJoin" or "GroupBy")
+                if (name is "Select" or "SelectMany" or "Join" or "LeftJoin" or "RightJoin" or "FullJoin" or "FullOuterJoin" or "GroupJoin" or "GroupBy")
                 {
                     return true;
                 }

@@ -161,11 +161,16 @@ internal static class MathMemberVisitor
                 : SQLiteExpression.Binary(returnType, visitor.Counters.NextIdentifier(), "ROUND(", valueExpr, ", ", digitsExpr, ")", parameters);
         }
 
-        string v = valueExpr.ToString();
-        string scaled = digitsExpr is null ? v : $"({v} * POWER(10, {digitsExpr}))";
-        string toEven = $"(CASE WHEN ABS({scaled} - ROUND({scaled})) = 0.5 THEN 2 * ROUND({scaled} / 2) ELSE ROUND({scaled}) END)";
-        string sql = digitsExpr is null ? toEven : $"({toEven} / POWER(10, {digitsExpr}))";
+        return CommonHelpers.EvaluateOnce(visitor, returnType, digitsExpr is null ? [valueExpr] : [valueExpr, digitsExpr], values =>
+        {
+            string v = values[0].ToString();
+            string? d = digitsExpr is null ? null : values[1].ToString();
+            string scaled = d is null ? v : $"({v} * POWER(10, {d}))";
+            string toEven = $"(CASE WHEN ABS({scaled} - ROUND({scaled})) = 0.5 THEN 2 * ROUND({scaled} / 2) ELSE ROUND({scaled}) END)";
+            string sql = d is null ? toEven
+                : $"(CASE WHEN ABS({v}) >= 1e16 AND {d} >= 0 THEN ROUND({v}, {d}) ELSE COALESCE({toEven} / POWER(10, {d}), ROUND({v}, {d})) END)";
 
-        return SQLiteExpression.Leaf(returnType, visitor.Counters.NextIdentifier(), sql, parameters);
+            return SQLiteExpression.Leaf(returnType, visitor.Counters.NextIdentifier(), sql);
+        });
     }
 }

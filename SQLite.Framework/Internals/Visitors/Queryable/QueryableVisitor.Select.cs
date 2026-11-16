@@ -282,6 +282,13 @@ internal partial class QueryableVisitor
         string? chainPath = chainRoot is MemberExpression chainMember
             ? ExpressionHelpers.ResolveNullableParameterPath(chainMember).Path
             : null;
+#if NET11_0_OR_GREATER
+        bool implicitGroup = chainRoot.Type.IsGenericType && chainRoot.Type.GetGenericTypeDefinition() == typeof(IGrouping<,>);
+        if (implicitGroup)
+        {
+            chainPath = chainPath == null ? "Elements" : chainPath + ".Elements";
+        }
+#endif
         JoinInfo? groupJoin = null;
         if (chainPath is { Length: > 0 } && chainRoot.Type.IsGenericType)
         {
@@ -321,7 +328,11 @@ internal partial class QueryableVisitor
 
             groupFilters.Reverse();
 
-            if (groupJoin == null || flattenSource is not MemberExpression memberExpression)
+            if (groupJoin == null || (flattenSource is not MemberExpression
+#if NET11_0_OR_GREATER
+                && !(implicitGroup && flattenSource == chainRoot)
+#endif
+                ))
             {
                 throw new NotSupportedException(
                     "DefaultIfEmpty and group filters are only supported directly on a group join group, as in " +

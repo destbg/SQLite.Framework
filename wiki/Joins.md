@@ -58,17 +58,44 @@ var counts = await db.Table<Author>()
 
 ## Full Outer Join
 
-Returns matched rows plus the unmatched rows from both sides. .NET has no built-in operator, so use the framework's `FullOuterJoin` method. The result selector gets the outer row (null when only an inner row matched) and the inner row (null when only an outer row matched). Requires SQLite 3.39 or newer.
+Returns matched rows plus the unmatched rows from both sides. Use the built-in `FullJoin` on .NET 11 or later, or the framework's `FullOuterJoin` on .NET 8–10. The result selector gets the outer row (null when only an inner row matched) and the inner row (null when only an outer row matched). Requires SQLite 3.39 or newer.
 
 ```csharp
 var results = await db.Table<Author>()
-    .FullOuterJoin(
+    .FullJoin(
         db.Table<Book>(),
         author => author.Id,
         book => book.AuthorId,
         (author, book) => new { Author = author == null ? null : author.Name, Book = book == null ? null : book.Title })
     .ToListAsync();
 ```
+
+## .NET 10 and 11 join methods
+
+.NET 10 and later support `Queryable.LeftJoin` and `Queryable.RightJoin` with a result selector. .NET 11 adds `Queryable.FullJoin` and selector-free `Join`, `LeftJoin`, `RightJoin` and `FullJoin` overloads returning `(Outer, Inner)` tuples:
+
+```csharp
+var pairs = await db.Table<Author>()
+    .FullJoin(db.Table<Book>(), author => author.Id, book => book.AuthorId)
+    .ToListAsync();
+```
+
+`FullJoin` and `RightJoin` require SQLite 3.39 or newer.
+
+The selector-free .NET 11 `GroupJoin` returns `IGrouping<TOuter, TInner>`, whose `Key` is the outer row. Follow it directly with `SelectMany`, optionally using `DefaultIfEmpty` for a left join:
+
+```csharp
+var rows = await db.Table<Author>()
+    .GroupJoin(db.Table<Book>(), author => author.Id, book => book.AuthorId)
+    .SelectMany(group => group.DefaultIfEmpty(), (group, book) => new
+    {
+        Author = group.Key.Name,
+        Title = book == null ? null : book.Title
+    })
+    .ToListAsync();
+```
+
+Materializing unflattened join groups is not supported. For group counts, use the result-selector form shown above.
 
 ## Cross Join
 

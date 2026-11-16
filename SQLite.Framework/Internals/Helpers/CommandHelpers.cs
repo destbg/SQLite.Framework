@@ -282,7 +282,11 @@ internal static class CommandHelpers
             return decimal.MinValue;
         }
 
+#if NET11_0_OR_GREATER
+        return decimal.Parse(raw.sqlite3_column_blob(statement, index), NumberStyles.Float, CultureInfo.InvariantCulture);
+#else
         return (decimal)d;
+#endif
     }
 
     public static int BindParameter(sqlite3_stmt statement, string name, object? value, SQLiteOptions options, Type? declaredType = null)

@@ -9,16 +9,19 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
+import unittest
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TESTS_DIR = Path(__file__).resolve().parent
-DEFAULT_TFM = "net10.0"
+DEFAULT_TFM = "net11.0"
 DEFAULT_CONFIG = "Release"
 COVERAGE_INCLUDE = ["[SQLite.Framework]*", "[SQLite.Framework.DependencyInjection]*"]
 RESULTS_DIR = TESTS_DIR / "TestResults"
@@ -141,7 +144,7 @@ def ensure_coverlet() -> str | None:
     return shutil.which("coverlet")
 
 
-def build_project(csproj: Path, configuration: str, aot: bool) -> bool:
+def build_project(csproj: Path, configuration: str, tfm: str, aot: bool) -> bool:
     print(f"  building {csproj.stem}...", flush=True)
     res = run(
         [
@@ -150,6 +153,9 @@ def build_project(csproj: Path, configuration: str, aot: bool) -> bool:
             str(csproj),
             "-c",
             configuration,
+            "-f",
+            tfm,
+            f"-p:SQLiteFrameworkTestTargetFramework={tfm}",
             "--nologo",
             "-v",
             "minimal",
@@ -194,6 +200,8 @@ def run_tests(
             "-c",
             configuration,
             "--no-build",
+            "-f",
+            tfm,
             "--",
             "--report-xunit-junit",
             "--report-xunit-junit-filename",
@@ -266,6 +274,8 @@ def run_coverage(
     for pattern in COVERAGE_INCLUDE:
         cmd.extend(["--include", pattern])
     res = run(cmd)
+    if res.returncode != 0:
+        return None, (res.stderr or res.stdout or "coverage target failed")
     if not out.exists():
         return None, (res.stderr or res.stdout or "coverlet did not produce output")
     return out, ""
@@ -378,7 +388,7 @@ def fmt_table(rows: list[list[str]], headers: list[str]) -> str:
 
 
 def build_phase(
-    csprojs: list[Path], configuration: str, skip_build: bool
+    csprojs: list[Path], configuration: str, tfm: str, skip_build: bool
 ) -> dict[str, ProjectResult]:
     results: dict[str, ProjectResult] = {
         c.stem: ProjectResult(name=c.stem, csproj=c) for c in csprojs
@@ -386,7 +396,7 @@ def build_phase(
     if skip_build:
         return results
     for csproj in csprojs:
-        if not build_project(csproj, configuration, is_aot_project(csproj)):
+        if not build_project(csproj, configuration, tfm, is_aot_project(csproj)):
             results[csproj.stem].build_failed = True
     return results
 
@@ -418,6 +428,7 @@ def run_project(
             if result.tests.duration <= 0:
                 result.tests.duration = elapsed
             if not ok and (result.tests.failed + result.tests.errors) == 0:
+                result.test_run_failed = True
                 result.notes.append(
                     "test runner exited non-zero with no recorded failures"
                 )
@@ -451,7 +462,7 @@ def main() -> int:
         "-f",
         "--framework",
         default=DEFAULT_TFM,
-        help="Target framework (default: net10.0)",
+        help="Target framework (default: net11.0)",
     )
     parser.add_argument(
         "-p",
@@ -497,7 +508,7 @@ def main() -> int:
     print()
 
     print("Build phase (sequential)..." if not args.skip_build else "Skipping build phase.", flush=True)
-    project_results = build_phase(csprojs, args.configuration, args.skip_build)
+    project_results = build_phase(csprojs, args.configuration, args.framework, args.skip_build)
 
     print(f"\nTest + coverage phase ({parallel}-way parallel)...", flush=True)
     phase_start = time.monotonic()
@@ -636,8 +647,51 @@ def main() -> int:
         print()
 
     failed = totals.failed + totals.errors
-    has_build_failures = any(r.build_failed or r.test_run_failed for r in results)
+    has_build_failures = any(r.build_failed or r.test_run_failed or r.coverage_failed for r in results)
     return 1 if failed > 0 or has_build_failures else 0
+
+
+class TestReportTests(unittest.TestCase):
+    def test_framework_selects_build_and_run(self):
+        with patch(f"{__name__}.run", return_value=subprocess.CompletedProcess([], 0, "", "")) as run:
+            self.assertTrue(build_project(Path("tests.csproj"), "Release", "net11.0", True))
+            command = run.call_args.args[0]
+            self.assertEqual(command[1], "publish")
+            self.assertEqual(command[command.index("-f") + 1], "net11.0")
+            self.assertIn("-p:SQLiteFrameworkTestTargetFramework=net11.0", command)
+
+        with tempfile.TemporaryDirectory() as directory:
+            with patch(f"{__name__}.RESULTS_DIR", Path(directory)), patch(f"{__name__}.run", return_value=subprocess.CompletedProcess([], 0, "", "")) as run:
+                run_tests(Path("tests.csproj"), "Release", "net10.0", False, "linux-x64")
+                command = run.call_args.args[0]
+                self.assertEqual(command[command.index("-f") + 1], "net10.0")
+
+    def test_failed_coverage_target_is_not_a_successful_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "tests.csproj"
+            binary = project.parent / "bin/Release/net11.0/tests.dll"
+            binary.parent.mkdir(parents=True)
+            binary.touch()
+
+            def fail(command):
+                (project.parent / "coverage.cobertura.xml").write_text("<coverage />")
+                return subprocess.CompletedProcess(command, 1, "", "target failed")
+
+            with patch(f"{__name__}.run", side_effect=fail):
+                output, error = run_coverage(project, "Release", "net11.0", "coverlet", False, "linux-x64")
+            self.assertIsNone(output)
+            self.assertEqual(error, "target failed")
+
+    def test_failed_runner_with_empty_failure_count_is_not_success(self):
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "tests.csproj"
+            project.write_text("<Project />")
+            junit = Path(directory) / "tests.xml"
+            junit.write_text('<testsuite tests="0" failures="0" errors="0" />')
+            result = ProjectResult("tests", project)
+            with patch(f"{__name__}.run_tests", return_value=(junit, False, "")):
+                run_project(project, "Release", "net11.0", None, False, True, result)
+            self.assertTrue(result.test_run_failed)
 
 
 if __name__ == "__main__":

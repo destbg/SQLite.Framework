@@ -1,0 +1,5 @@
+<Project>
+    <PropertyGroup Condition="'$(SQLiteFrameworkTestTargetFramework)' != '' and '$(TargetFrameworks)' != ''">
+        <TargetFrameworks>$(SQLiteFrameworkTestTargetFramework)</TargetFrameworks>
+    </PropertyGroup>
+</Project>

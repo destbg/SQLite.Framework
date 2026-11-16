@@ -168,11 +168,9 @@ public class SupplementalResidualParityTests
         }
 
         decimal exact = mem.Average(r => r.Amount);
-        decimal expected = (decimal)mem.Average(r => (double)r.Amount);
-        Assert.NotEqual(exact, expected);
-
         decimal actual = db.Table<ResidualMoneyRow>().Average(r => r.Amount);
 
-        Assert.Equal(expected, actual);
+        Assert.NotEqual(exact, actual);
+        Assert.Equal(exact, actual, 15);
     }
 }

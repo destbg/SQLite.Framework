@@ -53,12 +53,10 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v6.1.0
         with:
-          dotnet-version: 10.0.x
-      - name: Install Android workload
-        run: dotnet workload install android
+          dotnet-version: 11.0.x
       - name: Run tests
         run: |
-          dotnet run --project Tests/${{ matrix.project }}/${{ matrix.project }}.csproj -c Release \
+          dotnet run --project Tests/${{ matrix.project }}/${{ matrix.project }}.csproj -c Release -f net11.0 -p:SQLiteFrameworkTestTargetFramework=net11.0 \
             -- --report-xunit-junit \
                --report-xunit-junit-filename ${{ matrix.project }}.junit.xml \
                --results-directory TestResults
@@ -116,18 +114,16 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v6.1.0
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 11.0.x
       - name: Install coverlet
         run: dotnet tool install --global coverlet.console
-      - name: Install Android workload
-        run: dotnet workload install android
       - name: Build tests
-        run: dotnet build Tests/${{ matrix.project }}/${{ matrix.project }}.csproj -c Release
+        run: dotnet build Tests/${{ matrix.project }}/${{ matrix.project }}.csproj -c Release -f net11.0 -p:SQLiteFrameworkTestTargetFramework=net11.0
       - name: Collect coverage
         run: |
-          DLL="Tests/${{ matrix.project }}/bin/Release/net10.0/${{ matrix.project }}.dll"
+          DLL="Tests/${{ matrix.project }}/bin/Release/net11.0/${{ matrix.project }}.dll"
           if [ ! -f "$DLL" ]; then
-            DLL="Tests/${{ matrix.project }}/bin/Release/net10.0/linux-x64/${{ matrix.project }}.dll"
+            DLL="Tests/${{ matrix.project }}/bin/Release/net11.0/linux-x64/${{ matrix.project }}.dll"
           fi
           coverlet "$DLL" \
             --target dotnet \
@@ -156,12 +152,25 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v6.1.0
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 11.0.x
       - name: Download coverage artifacts
         uses: actions/download-artifact@v8.0.2
         with:
           pattern: coverage-*
           path: coverage-reports
+      - name: Require complete merged coverage
+        run: |
+          python -m unittest Tests.test_report
+          python - <<'PYTHON'
+          from pathlib import Path
+          from Tests.test_report import compute_stats, parse_cobertura
+          reports = list(Path("coverage-reports").glob("**/coverage.cobertura.xml"))
+          assert len(reports) == 8, f"Expected 8 coverage reports, found {len(reports)}"
+          stats = compute_stats([parse_cobertura(path) for path in reports])
+          assert stats.lines_valid > 0 and stats.branches_valid > 0, "Coverage report is empty"
+          assert stats.lines_covered == stats.lines_valid, f"Line coverage: {stats.lines_covered}/{stats.lines_valid}"
+          assert stats.branches_covered == stats.branches_valid, f"Branch coverage: {stats.branches_covered}/{stats.branches_valid}"
+          PYTHON
       - name: Install ReportGenerator
         run: dotnet tool install --global dotnet-reportgenerator-globaltool
       - name: Merge coverage reports

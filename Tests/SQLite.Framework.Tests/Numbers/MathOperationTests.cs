@@ -36,7 +36,7 @@ public class MathOperationTests
 
         Assert.Single(command.Parameters);
         Assert.Equal(10d, command.Parameters[0].Value);
-        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE (CASE WHEN ABS(b0.\"BookPrice\" - ROUND(b0.\"BookPrice\")) = 0.5 THEN 2 * ROUND(b0.\"BookPrice\" / 2) ELSE ROUND(b0.\"BookPrice\") END) = @p0", command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE (SELECT (CASE WHEN ABS(v4 - ROUND(v4)) = 0.5 THEN 2 * ROUND(v4 / 2) ELSE ROUND(v4) END) FROM (SELECT b0.\"BookPrice\" AS v4)) = @p0", command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public class MathOperationTests
         Assert.Equal(2, command.Parameters.Count);
         Assert.Equal(2, command.Parameters[0].Value);
         Assert.Equal(10.50d, command.Parameters[1].Value);
-        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE ((CASE WHEN ABS((b0.\"BookPrice\" * POWER(10, @p0)) - ROUND((b0.\"BookPrice\" * POWER(10, @p0)))) = 0.5 THEN 2 * ROUND((b0.\"BookPrice\" * POWER(10, @p0)) / 2) ELSE ROUND((b0.\"BookPrice\" * POWER(10, @p0))) END) / POWER(10, @p0)) = @p1", command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE (SELECT (CASE WHEN ABS(v5) >= 1e16 AND v7 >= 0 THEN ROUND(v5, v7) ELSE COALESCE((CASE WHEN ABS((v5 * POWER(10, v7)) - ROUND((v5 * POWER(10, v7)))) = 0.5 THEN 2 * ROUND((v5 * POWER(10, v7)) / 2) ELSE ROUND((v5 * POWER(10, v7))) END) / POWER(10, v7), ROUND(v5, v7)) END) FROM (SELECT b0.\"BookPrice\" AS v5, @p0 AS v7)) = @p1", command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]

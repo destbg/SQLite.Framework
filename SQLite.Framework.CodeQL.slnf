@@ -1,6 +1,6 @@
 {
   "solution": {
-    "path": "SQLite.Framework.sln",
+    "path": "SQLite.Framework.slnx",
     "projects": [
       "SQLite.Framework\\SQLite.Framework.csproj",
       "SQLite.Framework.Base\\SQLite.Framework.Base.csproj",

@@ -259,6 +259,36 @@ internal partial class SQLVisitor
 
                 return windowValue;
             }
+#if NET11_0_OR_GREATER
+            else if (node.NodeType == ExpressionType.Convert
+                && (Nullable.GetUnderlyingType(node.Operand.Type) ?? node.Operand.Type) is { } floatingType
+                && (floatingType == typeof(double) || floatingType == typeof(float))
+                && (Nullable.GetUnderlyingType(node.Type) ?? node.Type) is { } smallType
+                && TryGetIntegerInfo(smallType == typeof(char) ? typeof(ushort) : smallType.IsEnum ? Enum.GetUnderlyingType(smallType) : smallType, out int bits, out bool signed)
+                && bits < 32)
+            {
+                (int Minimum, int Maximum) bounds = (bits, signed) switch
+                {
+                    (8, true) => (sbyte.MinValue, sbyte.MaxValue),
+                    (8, false) => (byte.MinValue, byte.MaxValue),
+                    (_, true) => (short.MinValue, short.MaxValue),
+                    _ => (ushort.MinValue, ushort.MaxValue)
+                };
+                SQLiteExpression saturated = SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(),
+                    $"CAST(MIN({bounds.Maximum}, MAX({bounds.Minimum}, ", resolved.SQLiteExpression, ")) AS INTEGER)", resolved.SQLiteExpression.Parameters);
+                if (smallType != typeof(char) || Database.Options.CharStorage == CharStorageMode.Integer)
+                {
+                    return saturated;
+                }
+
+                return Nullable.GetUnderlyingType(node.Type) == null
+                    ? SQLiteExpression.Wrap(node.Type, Counters.NextIdentifier(), "CHAR(", saturated, ")", saturated.Parameters)
+                    : CommonHelpers.EvaluateOnce(this, node.Type, [saturated], v =>
+                        SQLiteExpression.Multi(node.Type, Counters.NextIdentifier(),
+                            ["(CASE WHEN ", " IS NULL THEN NULL ELSE CHAR(", ") END)"],
+                            [v[0], v[0]], null));
+            }
+#endif
             else if ((Nullable.GetUnderlyingType(node.Type) ?? node.Type) == typeof(char)
                 && (Nullable.GetUnderlyingType(resolved.SQLiteExpression.Type) ?? resolved.SQLiteExpression.Type) is { } charSourceType
                 && (TryGetIntegerInfo(charSourceType, out _, out _) || IsFloatingPointType(charSourceType)))

@@ -18,8 +18,24 @@ internal partial class SQLVisitor
     }
 
     [UnconditionalSuppressMessage("AOT", "IL2072", Justification = "All types have public properties.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Builds an Enumerable expression for SQL translation only.")]
+#if NET11_0_OR_GREATER
+    [DynamicDependency(nameof(Enumerable.Min), typeof(Enumerable))]
+    [DynamicDependency(nameof(Enumerable.Max), typeof(Enumerable))]
+    [UnconditionalSuppressMessage("Trimming", "IL2060", Justification = "Enumerable Min and Max metadata is preserved for SQL translation.")]
+#endif
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
+#if NET11_0_OR_GREATER
+        if (node.Method.DeclaringType == typeof(MemoryExtensions)
+            && node.Method.Name is nameof(Enumerable.Min) or nameof(Enumerable.Max)
+            && StripSpanConversion(node.Arguments[0]) is { Type.IsArray: true } array
+            && !Database.Options.TryGetMethodTranslator(node.Method, out _))
+        {
+            ComparerArgumentGuard.ThrowIfOrderingComparer(node);
+            return Visit(Expression.Call(typeof(Enumerable), node.Method.Name, [array.Type.GetElementType()!], array));
+        }
+#endif
         bool instanceEquals = node.Method.Name == nameof(object.Equals) && node.Object != null && node.Arguments.Count == 1;
         bool staticEquals = node.Method.Name == nameof(object.Equals) && node.Object == null
             && node.Arguments.Count == 2 && node.Method.DeclaringType == typeof(object);

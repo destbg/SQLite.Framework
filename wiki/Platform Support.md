@@ -33,7 +33,7 @@ At runtime the same rule is enforced by `UseMinimumSqliteVersion`, which checks 
 
 ## Android
 
-The framework always bundles its own recent SQLite on Android, because apps cannot bind to the C API of the Android system SQLite and the Java route would be far slower. Android therefore never limits your version floor. The minimum supported Android version is API level 21 (Android 5).
+The framework always bundles its own recent SQLite on Android, because apps cannot bind to the C API of the Android system SQLite and the Java route would be far slower. Android therefore never limits your version floor. The .NET 11 Android target requires API level 24 (Android 7). Older .NET targets API level 21 (Android 5).
 
 ## .NET MAUI
 
@@ -49,7 +49,7 @@ public static class Constants
 }
 ```
 
-The MAUI sample in the repository targets iOS 15.0 and Android API 21 and enables `UseWalMode`, `UseGeneratedMaterializers` and `DisableReflectionFallback`, a good starting point for mobile apps. See [Samples](Samples).
+The MAUI sample in the repository requires iOS 15.0, Mac Catalyst 17.0 or Android API 24 and enables `UseWalMode`, `UseGeneratedMaterializers` and `DisableReflectionFallback`, a good starting point for mobile apps. See [Samples](Samples).
 
 ## Avalonia
 

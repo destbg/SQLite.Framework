@@ -9,6 +9,7 @@ public partial class AppShell : Shell
     public AppShell()
     {
         InitializeComponent();
+        ThemeSegmentedControl.ItemsSource = (Array)Resources["ThemeItems"];
         var currentTheme = Application.Current!.RequestedTheme;
         ThemeSegmentedControl.SelectedIndex = currentTheme == AppTheme.Light ? 0 : 1;
     }

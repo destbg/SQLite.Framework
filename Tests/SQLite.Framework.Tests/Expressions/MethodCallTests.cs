@@ -691,7 +691,7 @@ public class MethodCallTests
 
         Assert.Single(command.Parameters);
         Assert.Equal(1d, command.Parameters[0].Value);
-        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE (CASE WHEN ABS(CAST(b0.\"BookId\" AS REAL) - ROUND(CAST(b0.\"BookId\" AS REAL))) = 0.5 THEN 2 * ROUND(CAST(b0.\"BookId\" AS REAL) / 2) ELSE ROUND(CAST(b0.\"BookId\" AS REAL)) END) = @p0", command.CommandText.Replace("\r\n", "\n"));
+        Assert.Equal("SELECT b0.\"BookId\" AS \"Id\",\n       b0.\"BookTitle\" AS \"Title\",\n       b0.\"BookAuthorId\" AS \"AuthorId\",\n       b0.\"BookPrice\" AS \"Price\"\nFROM \"Books\" AS b0\nWHERE (SELECT (CASE WHEN ABS(v5 - ROUND(v5)) = 0.5 THEN 2 * ROUND(v5 / 2) ELSE ROUND(v5) END) FROM (SELECT CAST(b0.\"BookId\" AS REAL) AS v5)) = @p0", command.CommandText.Replace("\r\n", "\n"));
     }
 
     [Fact]

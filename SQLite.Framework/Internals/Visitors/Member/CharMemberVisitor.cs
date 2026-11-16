@@ -7,6 +7,15 @@ internal static class CharMemberVisitor
 
         SQLVisitor visitor = ctx.Visitor;
         MethodCallExpression node = (MethodCallExpression)ctx.Node;
+#if NET11_0_OR_GREATER
+        if (node.Method.Name == nameof(char.Equals))
+        {
+            MethodInfo toString = typeof(char).GetMethod(nameof(char.ToString), Type.EmptyTypes)!;
+            MethodInfo equals = typeof(string).GetMethod(nameof(string.Equals), [typeof(string), typeof(StringComparison)])!;
+            return visitor.Visit(Expression.Call(Expression.Call(node.Object!, toString), equals,
+                Expression.Call(node.Arguments[0], toString), node.Arguments[1]));
+        }
+#endif
         List<ResolvedModel> arguments = node.Arguments
             .Select(visitor.ResolveExpression)
             .ToList();
@@ -50,11 +59,17 @@ internal static class CharMemberVisitor
             {
                 case nameof(char.ToLower) when node.Arguments.Count == 1:
                 case nameof(char.ToLowerInvariant):
+#if NET11_0_OR_GREATER
+                case nameof(char.ToLowerOrdinal):
+#endif
                     return integerChar
                         ? SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "UNICODE(LOWER(CHAR(", a0, ")))", parameters)
                         : SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "LOWER(", a0, ")", parameters);
                 case nameof(char.ToUpper) when node.Arguments.Count == 1:
                 case nameof(char.ToUpperInvariant):
+#if NET11_0_OR_GREATER
+                case nameof(char.ToUpperOrdinal):
+#endif
                     return integerChar
                         ? SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "UNICODE(UPPER(CHAR(", a0, ")))", parameters)
                         : SQLiteExpression.Wrap(returnType, visitor.Counters.NextIdentifier(), "UPPER(", a0, ")", parameters);

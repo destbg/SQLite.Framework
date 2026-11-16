@@ -56,8 +56,8 @@ IConfig config = fast
             .WithWarmupCount(5)
             .WithIterationCount(30)
             .WithToolchain(NativeAotToolchain.CreateBuilder()
-                .UseNuGet("10.0.0", "https://api.nuget.org/v3/index.json")
-                .TargetFrameworkMoniker("net10.0")
+                .UseNuGet("11.0.0", "https://api.nuget.org/v3/index.json")
+                .TargetFrameworkMoniker("net11.0")
                 .ToToolchain())
             .WithId("AOT"));
 

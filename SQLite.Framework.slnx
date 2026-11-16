@@ -1,0 +1,31 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/Samples/">
+    <Project Path="Sample/SQLite.Framework.AndroidBench/SQLite.Framework.AndroidBench.csproj" />
+    <Project Path="Sample/SQLite.Framework.AspNet/SQLite.Framework.AspNet.csproj" />
+    <Project Path="Sample/SQLite.Framework.Benchmarks/SQLite.Framework.Benchmarks.csproj" />
+    <Project Path="Sample/SQLite.Framework.Blazor/SQLite.Framework.Blazor.csproj" />
+    <Project Path="Sample/SQLite.Framework.Maui/SQLite.Framework.Maui.csproj" />
+    <Project Path="Sample/SQLite.Framework.Sample/SQLite.Framework.Sample.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/SQLite.Framework.Tests.AotMigrate/SQLite.Framework.Tests.AotMigrate.csproj" />
+    <Project Path="Tests/SQLite.Framework.Tests.Base/SQLite.Framework.Tests.Base.csproj" />
+    <Project Path="Tests/SQLite.Framework.Tests.Bundled/SQLite.Framework.Tests.Bundled.csproj" />
+    <Project Path="Tests/SQLite.Framework.Tests.Cipher/SQLite.Framework.Tests.Cipher.csproj" />
+    <Project Path="Tests/SQLite.Framework.Tests.DependencyInjection/SQLite.Framework.Tests.DependencyInjection.csproj" />
+    <Project Path="Tests/SQLite.Framework.Tests.NoOp/SQLite.Framework.Tests.NoOp.csproj" />
+    <Project Path="Tests/SQLite.Framework.Tests.SourceGenerator/SQLite.Framework.Tests.SourceGenerator.csproj" />
+    <Project Path="Tests/SQLite.Framework.Tests/SQLite.Framework.Tests.csproj" />
+  </Folder>
+  <Project Path="SQLite.Framework.Base/SQLite.Framework.Base.csproj" />
+  <Project Path="SQLite.Framework.Bundled/SQLite.Framework.Bundled.csproj" />
+  <Project Path="SQLite.Framework.Cipher/SQLite.Framework.Cipher.csproj" />
+  <Project Path="SQLite.Framework.DependencyInjection/SQLite.Framework.DependencyInjection.csproj" />
+  <Project Path="SQLite.Framework.SourceGenerator/SQLite.Framework.SourceGenerator.csproj" />
+  <Project Path="SQLite.Framework/SQLite.Framework.csproj" />
+</Solution>

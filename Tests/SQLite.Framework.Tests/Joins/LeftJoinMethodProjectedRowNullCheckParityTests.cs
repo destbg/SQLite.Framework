@@ -129,7 +129,11 @@ public class LeftJoinMethodProjectedRowNullCheckParityTests
             .ToList();
 
         List<(int? Owner, int? Ref)> actual = db.Table<H22mLjOwner>()
+#if NET11_0_OR_GREATER
+            .FullJoin(
+#else
             .FullOuterJoin(
+#endif
                 db.Table<H22mLjNote>().Select(n => new H22mLjPair { Ref = n.OwnerId, Label = n.Label }),
                 o => o.Id,
                 p => p.Ref,

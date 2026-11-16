@@ -1,11 +1,11 @@
 # SQLite.Framework
 
-LINQ-to-SQL for SQLite, with the LINQ surface of EF Core but without the runtime weight and without the trimming and AOT pain. Built for .NET MAUI, Avalonia and any other AOT-published .NET 8/9/10 app where you want to use full-featured `IQueryable` instead of hand-written SQL.
+LINQ-to-SQL for SQLite, with the LINQ surface of EF Core but without the runtime weight and without the trimming and AOT pain. Built for .NET MAUI, Avalonia and any other AOT-published .NET 8/9/10/11 app where you want to use full-featured `IQueryable` instead of hand-written SQL.
 
 [![NuGet](https://img.shields.io/nuget/v/SQLite.Framework.svg)](https://www.nuget.org/packages/SQLite.Framework/)
 [![codecov](https://codecov.io/gh/destbg/SQLite.Framework/branch/main/graph/badge.svg)](https://codecov.io/gh/destbg/SQLite.Framework)
 [![CodeQL](https://github.com/destbg/SQLite.Framework/actions/workflows/codeql.yml/badge.svg)](https://github.com/destbg/SQLite.Framework/security/code-scanning)
-[![.NET](https://img.shields.io/badge/.NET-8%20%7C%209%20%7C%2010-512BD4)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-8%20%7C%209%20%7C%2010%20%7C%2011-512BD4)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ```csharp
@@ -46,7 +46,7 @@ Benchmarks against EF Core 10 and sqlite-net-pcl 1.9 live on the [Performance](h
 
 ## Status
 
-The library is exercised at 100% code coverage. It targets .NET 8, 9 and 10.
+The library is exercised at 100% code coverage. It targets .NET 8, 9, 10 and 11.
 
 ## Documentation
 

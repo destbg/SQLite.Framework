@@ -317,7 +317,12 @@ public class MinimumSqliteVersionTests
 
         NotSupportedException ex = Assert.Throws<NotSupportedException>(() =>
             db.Table<Book>()
-                .FullOuterJoin(db.Table<Author>(), b => b.AuthorId, a => a.Id, (b, a) => b!.Id)
+#if NET11_0_OR_GREATER
+                .FullJoin(
+#else
+                .FullOuterJoin(
+#endif
+                    db.Table<Author>(), b => b.AuthorId, a => a.Id, (b, a) => b!.Id)
                 .ToList());
 
         Assert.Contains("FULL OUTER JOIN", ex.Message);

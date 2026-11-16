@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>net10.0;net10.0-android</TargetFrameworks>
-        <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('linux'))">$(TargetFrameworks);net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
+        <TargetFrameworks>net11.0;net11.0-android</TargetFrameworks>
+        <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('linux'))">$(TargetFrameworks);net11.0-ios;net11.0-maccatalyst</TargetFrameworks>
 
         <OutputType>Exe</OutputType>
         <RootNamespace>SQLite.Framework.Avalonia</RootNamespace>
@@ -20,11 +20,11 @@
 
         <PublishTrimmed>true</PublishTrimmed>
         <TrimMode>partial</TrimMode>
-        <PublishAot Condition="'$(TargetFramework)' == 'net10.0'">true</PublishAot>
+        <PublishAot Condition="'$(TargetFramework)' == 'net11.0'">true</PublishAot>
 
-        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">23.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
-        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">17.0</SupportedOSPlatformVersion>
     </PropertyGroup>
 
     <ItemGroup>
@@ -35,7 +35,7 @@
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0"/>
     </ItemGroup>
 
-    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
         <PackageReference Include="Avalonia.Desktop" Version="$(AvaloniaVersion)"/>
     </ItemGroup>
 
@@ -52,7 +52,7 @@
         <None Include="Platforms/**/*"/>
     </ItemGroup>
 
-    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
         <Compile Include="Platforms/Desktop/**/*.cs"/>
     </ItemGroup>
 

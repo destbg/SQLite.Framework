@@ -82,7 +82,11 @@ public class JoinTests
         using TestDatabase db = new();
 
         SQLiteCommand command = db.Table<Book>()
+#if NET11_0_OR_GREATER
+            .FullJoin(
+#else
             .FullOuterJoin(
+#endif
                 db.Table<Author>(),
                 b => b.AuthorId,
                 a => a.Id,
@@ -110,7 +114,11 @@ public class JoinTests
         db.Table<Book>().Add(new Book { Id = 2, Title = "Orphan", AuthorId = 99, Price = 2 });
 
         List<(string? Title, string? Name)> rows = db.Table<Book>()
+#if NET11_0_OR_GREATER
+            .FullJoin(
+#else
             .FullOuterJoin(
+#endif
                 db.Table<Author>(),
                 b => b.AuthorId,
                 a => a.Id,

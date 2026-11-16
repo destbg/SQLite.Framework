@@ -93,6 +93,7 @@ public static class QueryableExtensions
         return ApplyOrderWithNulls(source, keySelector, nulls, new Func<IOrderedQueryable<T>, Expression<Func<T, TKey>>, SQLiteNullsOrder, IOrderedQueryable<T>>(ThenByDescending).Method);
     }
 
+#if !NET11_0_OR_GREATER
     /// <summary>
     /// Joins <paramref name="outer" /> and <paramref name="inner" /> on matching keys and keeps the
     /// unmatched rows from both sides, emitting a <c>FULL OUTER JOIN</c>. The
@@ -124,6 +125,7 @@ public static class QueryableExtensions
                 Expression.Quote(innerKeySelector),
                 Expression.Quote(resultSelector)));
     }
+#endif
 
     /// <summary>
     /// Executes the query and deletes the records from the database.

@@ -39,7 +39,11 @@ public class ExecuteUpdateOuterJoinGuardTests
 
         Assert.Throws<NotSupportedException>(() =>
             db.Table<H24qFojBook>()
+#if NET11_0_OR_GREATER
+                .FullJoin(
+#else
                 .FullOuterJoin(
+#endif
                     db.Table<H24qFojAuthor>(),
                     b => b.AuthorId,
                     a => a.Id,

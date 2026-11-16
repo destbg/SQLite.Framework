@@ -3,6 +3,11 @@ namespace SQLite.Framework.Internals.Visitors.Queryable;
 internal partial class QueryableVisitor
 {
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "Builds an expression tree only.")]
+#if NET11_0_OR_GREATER
+    [DynamicDependency(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicFields, typeof(ValueTuple<,>))]
+    [UnconditionalSuppressMessage("Trimming", "IL2065", Justification = "ValueTuple constructors and fields are preserved by DynamicDependency.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "The synthesized projection uses preserved ValueTuple fields.")]
+#endif
     private SQLiteExpression VisitJoin(MethodCallExpression node, string joinType)
     {
         ThrowIfSetOperations(node.Method.Name);
@@ -19,11 +24,51 @@ internal partial class QueryableVisitor
 
         LambdaExpression outerKey = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[2]);
         LambdaExpression innerKey = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[3]);
-        LambdaExpression resultSelector = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[4]);
 
         visitor.MethodArguments[outerKey.Parameters[0]] = visitor.TableColumns;
         visitor.MethodArguments[innerKey.Parameters[0]] = newTableColumns;
         SQLiteExpression onClause = BuildJoinOnClause(outerKey, innerKey);
+
+        LambdaExpression resultSelector;
+#if NET11_0_OR_GREATER
+        if (node.Method.GetGenericArguments().Length == 3)
+        {
+            if (node.Method.Name == nameof(System.Linq.Queryable.GroupJoin))
+            {
+                foreach (JoinInfo group in Joins.Where(g => g.GroupMemberPath != null))
+                {
+                    group.GroupMemberPath = "Key." + group.GroupMemberPath;
+                }
+                Dictionary<string, Expression> columns = visitor.TableColumns.ToDictionary(x => x.Key.Length == 0 ? "Key" : "Key." + x.Key, x => x.Value);
+                foreach ((string name, Expression column) in newTableColumns)
+                {
+                    columns.Add("Elements." + name, column);
+                }
+                visitor.TableColumns = columns;
+                Joins.Add(new JoinInfo
+                {
+                    EntityType = entityType,
+                    JoinType = joinType,
+                    Sql = sql,
+                    OnClause = onClause,
+                    IsGroupJoin = true,
+                    GroupMemberPath = "Elements"
+                });
+                return sql;
+            }
+
+            Type pairType = node.Type.GetGenericArguments()[0];
+            ParameterExpression outer = Expression.Parameter(outerKey.Parameters[0].Type, "outer");
+            ParameterExpression inner = Expression.Parameter(innerKey.Parameters[0].Type, "inner");
+            resultSelector = Expression.Lambda(
+                Expression.New(pairType.GetConstructor([outer.Type, inner.Type])!, [outer, inner],
+                    [pairType.GetField("Item1")!, pairType.GetField("Item2")!]), outer, inner);
+        }
+        else
+#endif
+        {
+            resultSelector = (LambdaExpression)ExpressionHelpers.StripQuotes(node.Arguments[4]);
+        }
 
         bool translatedGroupCount = false;
 

@@ -17,13 +17,17 @@ public class NarrowingCastFromFloatSemanticsTests
     }
 
     [Fact]
-    public void DoubleToShort_OutOfRange_ThrowsOverflow()
+    public void DoubleToShort_OutOfRange_MatchesTargetFramework()
     {
         using TestDatabase db = new();
         db.Table<NumericType>().Schema.CreateTable();
         db.Table<NumericType>().Add(new NumericType { Id = 1, DoubleValue = 70000.0 });
 
+#if NET11_0_OR_GREATER
+        Assert.Equal(short.MaxValue, db.Table<NumericType>().Select(x => (short)x.DoubleValue).Single());
+#else
         Assert.Throws<OverflowException>(() =>
             db.Table<NumericType>().Select(x => (short)x.DoubleValue).ToList());
+#endif
     }
 }

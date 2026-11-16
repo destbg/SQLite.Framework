@@ -1808,10 +1808,7 @@ internal class SQLTranslator
             return false;
         }
 
-        if (ExpressionHelpers.StripQuotes(candidate.Arguments[^1]) is not LambdaExpression selector)
-        {
-            return false;
-        }
+        LambdaExpression selector = candidate.Arguments.Select(ExpressionHelpers.StripQuotes).OfType<LambdaExpression>().Last();
 
         if (!isSelect && selector.Parameters.Count != 2)
         {
@@ -2095,7 +2092,11 @@ internal class SQLTranslator
             || name == nameof(Queryable.LeftJoin)
             || name == nameof(Queryable.RightJoin)
 #endif
+#if NET11_0_OR_GREATER
+            || name == nameof(Queryable.FullJoin)
+#else
             || name == nameof(QueryableExtensions.FullOuterJoin)
+#endif
             || name == nameof(Queryable.GroupJoin);
     }
 

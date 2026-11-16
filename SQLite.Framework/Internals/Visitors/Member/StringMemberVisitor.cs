@@ -15,7 +15,13 @@ internal static class StringMemberVisitor
         }
 
         List<ResolvedModel> arguments = node.Arguments
-            .Select(visitor.ResolveExpression)
+            .Select(argument =>
+#if NET11_0_OR_GREATER
+                argument.Type == typeof(Rune) && ExpressionHelpers.IsConstant(argument)
+                    ? visitor.ResolveExpression(Expression.Constant(((Rune)ExpressionHelpers.GetConstantValue(argument)!).ToString()))
+                    :
+#endif
+                visitor.ResolveExpression(argument))
             .ToList();
 
         if (node.Object != null)
@@ -224,11 +230,17 @@ internal static class StringMemberVisitor
                 }
                 case nameof(string.ToUpper) when node.Arguments.Count == 0:
                 case nameof(string.ToUpperInvariant):
+#if NET11_0_OR_GREATER
+                case nameof(string.ToUpperOrdinal):
+#endif
                 {
                     return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "UPPER(", obj.SQLiteExpression!, ")", obj.Parameters);
                 }
                 case nameof(string.ToLower) when node.Arguments.Count == 0:
                 case nameof(string.ToLowerInvariant):
+#if NET11_0_OR_GREATER
+                case nameof(string.ToLowerOrdinal):
+#endif
                 {
                     return SQLiteExpression.Wrap(node.Method.ReturnType, visitor.Counters.NextIdentifier(), "LOWER(", obj.SQLiteExpression!, ")", obj.Parameters);
                 }
