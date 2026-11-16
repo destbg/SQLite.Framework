@@ -1459,7 +1459,7 @@ public static class SelectSignatureWriter
 
     private static bool AppendObjectCreation(StringBuilder sb, ObjectCreationExpressionSyntax node, ITypeSymbol? type, SelectSignatureCtx ctx)
     {
-        ITypeSymbol? declaredType = ctx.Model.GetTypeInfo(node.Type).Type;
+        ITypeSymbol? declaredType = ctx.Model.GetTypeInfo(node).Type;
         return AppendNewOrMemberInit(sb, declaredType, type, node.ArgumentList?.Arguments, node.Initializer, ctx);
     }
 
