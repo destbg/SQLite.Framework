@@ -30,6 +30,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <None Include="../skills/sqlite-framework/SKILL.md" Pack="true" PackagePath="skills/sqlite-framework/" />
         <None Include="../README.md">
             <Pack>true</Pack>
             <PackagePath>\</PackagePath>

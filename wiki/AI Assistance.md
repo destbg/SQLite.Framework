@@ -2,7 +2,19 @@
 
 This page is for people who use an AI coding agent (Claude Code, Cursor, Copilot, Opencode and others like them) to write code that uses `SQLite.Framework`. The framework is small but its surface differs from Entity Framework Core in a few places that AI agents might get wrong (no navigation properties, `[AutoIncrement]` is a separate attribute, schema lives on `db.Schema` and so on). Giving the agent a short reference up front saves you from correcting it over and over.
 
-## The reference to use
+## Packaged agent skill
+
+All six SQLite.Framework NuGet packages include an agent skill.
+
+After restoring your project, locate the global package cache with:
+
+```bash
+dotnet nuget locals global-packages --list
+```
+
+Under that directory, the default package's skill is at `sqlite.framework/<version>/skills/sqlite-framework/SKILL.md`. Ask your agent to read that file, or use tooling that discovers packaged skills.
+
+## The broader reference
 
 Give the agent the [Overview](Overview) page. It is a single self-contained page that covers package selection, options builder, model definition, CRUD, querying, joins, subqueries, grouping, supported expressions, transactions, raw SQL, hooks, multi-threading, AOT setup and the common pitfalls. It is sized so an agent can load the whole thing into its context without crowding out your actual task.
 

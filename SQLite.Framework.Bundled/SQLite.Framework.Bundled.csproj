@@ -30,6 +30,7 @@
 
     <ItemGroup>
         <Compile Include="../SQLite.Framework/**/*.cs" Exclude="../SQLite.Framework/obj/**/*.cs" />
+        <None Include="../skills/sqlite-framework/SKILL.md" Pack="true" PackagePath="skills/sqlite-framework/" />
         <None Include="../README.md">
             <Pack>true</Pack>
             <PackagePath>\</PackagePath>

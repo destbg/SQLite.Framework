@@ -54,6 +54,10 @@ The full docs live at **[sqlite-framework.net](https://sqlite-framework.net)**. 
 
 The same content is also mirrored on the [GitHub Wiki](https://github.com/destbg/SQLite.Framework/wiki).
 
+### AI coding agents
+
+All six NuGet packages include an agent skill. After restore, an agent can read it from the NuGet package cache. Automated discovery of the skills depend on the agent and its tooling. See [AI Assistance](https://sqlite-framework.net/Docs/AI-Assistance) for details.
+
 ## Installation
 
 ```bash
